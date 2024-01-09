@@ -1,0 +1,103 @@
+      *--------------------------------------------------------------------*
+      *    ESTA COPY CORRESPONDE AL FORMATO QUE USA EL SERVICIO COMPUESTO  *
+      *         INFORMACION ULTIMA FACTURACION (SFISERS340C)               *
+      *--------------------------------------------------------------------*
+      * L340C-CODENT                    ENTIDAD                            *                                               
+      * L340C-CENTALTA                  CENTRO DE ALTA                     *                                   
+      * L340C-CUENTA                    CUENTA                             *
+      * L340C-PAN                       PAN                                * 
+      * L340C-IND-NOMBRE                INDICADOR DE NOMBRE (S/N)          *
+      * L340C-IND-OPX                   INDICADOR SI CONSULTA O NO LAS OPX *
+      * L340C-CANT-CUO-FUTU             CANTIDAD CUOTAS FUTURAS            *
+      *                                                                    *
+      * L340C-SALIDA                                                       *
+      *  L340C-NOMBRE                   NOMBRE DEL CLIENTE                 *
+      *  L340C-CLAMON-PRIN              CLAVE MONEDA PRINCIPAL             *
+      *  L340C-APE-PATERNO              APELLIDO PATERNO                   *
+      *  L340C-APE-MATERNO              APELLIDO MATERNO                   *
+      *  L340C-IMP-LIMITE-CONT          IMPORTE LIMITE CONTRATO            *
+      *  L340C-IMP-PAGO-MINIMO          IMPORTE PAGO MINIMO                *
+      *  L340C-IMP-TOT-PAGAR            IMPORTE TOTAL A PAGAR              *
+      *  L340C-IMP-PAG-EFECTUADOS       IMPORTE PAGOS EFECTUADOS           *
+      *  L340C-FEC-ULT-FACT             FECHA ULTIMA FACTURACION           *
+      *  L340C-CANT-CUO-FUTU            CANTIDAD DE CUOTAS FUTURAS         *
+      *  L340C-ARREGLO-CUO-FUTU         ARREGLO CUOTAS FUTURAS             *
+      *    L340C-FECHA-VCTO             FECHA VENCIMIENTO  AAAAMMDD        *
+      *    L340C-VALOR-CUOTA            VALOR CUOTA                        *      
+      *  L340C-CANT-OPC-PAGO            CANTIDAD OPCIONES DE PAGO          *
+      *  L340C-ARREGLO-OPX              ARREGLO OPCIONES DE PAGO           *
+      *    L340C-COD-OPX                CODIGO OPCION DE PAGO              *
+      *    L340C-DES-OPX                DESCRIOCION OPCION DE PAGO         *
+      *    L340C-TASA-OPX               TASA OPCION DE PAGO                *
+      *    L340C-CLAMON-OPX             CLAVE MONEDA OPCION DE PAGO        *
+      *    L340C-PAG-MINIMO-OPX         PAGO MINIMO EXIGIGO PARA OPX       *
+      *    L340C-MON-FINAN-OPX          MONTO FINANCIADO OPX               * 
+      *    L340C-CANT-PLAZOS-OPX        CANTIDAD DE PLAZOS                 *
+      *    L340C-ARREGLO-PLAZOS         ARREGLO DE PLAZOS                  *
+      *       L340C-PLAZO-OPX           VALOR PLAZO OPCION DE PAGO         *
+      *       L340C-VALOR-CUOTA-OPX     VALOR CUOTA OPCION DE PAGO         *           
+      *  L340C-MONTO-INT-ALDIA          MONTO INTERESES ALDIA              *
+      *  L340C-MONTO-GAS-ALDIA          MONTO GASTOS ALDIA                 *
+      *  L340C-MONTO-DE-LA-CUOTA        MONTO DE LA CUOTA LIQUIDADA        *
+      *  L340C-ITF                      VALOR ITF ASOCIADO AL TOTAL A PAGAR*
+      *  L340C-COD-CARTERA              CODIGO IDENTIFICADOR DE CARTERA VEN*   
+      *  L340C-CANT-RECA                CANTIDAD DE RECAUDACIONES          *
+      *  L340C-MONTO-PAGO-RECA          IMPORTE TOTAL DE RECAUDACIONES     *
+      *  L340C-ARREGLO-RECA  OCCURS 10 TIMES. ARREGLO DE RECAUDACIONES     *
+      *        L340C-CODCONREC          CODIGO DEL CONVENIO RECAUDACION    *
+      *        L340C-NUMMOVREC          NUMERO MOV. DE RECAUDACION         *
+      *        L340C-VALOR-REC          VALOR CUOTA RECAUDACION            *
+      *--------------------------------------------------------------------*
+      *  COPY LIB340C                                                      *
+      *--------------------------------------------------------------------*
+
+           05  LIB340C.     
+               10 L340C-CODENT                   PIC X(4).                                        
+               10 L340C-CENTALTA                 PIC X(4).                                      
+               10 L340C-CUENTA                   PIC X(12).  
+               10 L340C-PAN                      PIC X(22).                                         
+               10 L340C-IND-NOMBRE               PIC X.
+               10 L340C-IND-OPX                  PIC X.
+               10 L340C-CANT-CUO-FUT             PIC 9(2).
+               10 L340C-CODPAI                   PIC 9(03).
+               10 L340C-SALIDA.
+                  20 L340C-NOMBRE               PIC X(20).
+                  20 L340C-CLAMON-PRIN          PIC 9(03).   
+                  20 L340C-APE-PATERNO          PIC X(20).   
+                  20 L340C-APE-MATERNO          PIC X(20).   
+                  20 L340C-IMP-LIMITE-CONT      PIC S9(15)V99.   
+                  20 L340C-IMP-PAGO-MINIMO      PIC S9(15)V99.  
+                  20 L340C-IMP-TOT-PAGAR        PIC S9(15)V99.   
+                  20 L340C-IMP-PAG-EFECTUADOS   PIC S9(15)V99.        
+                  20 L340C-FEC-ULT-FACT         PIC 9(8).
+                  20 L340C-CANT-CUO-FUTU        PIC 9(2).      
+                  20 L340C-ARREGLO-CUO-FUTU  OCCURS 10 TIMES.        
+                     30 L340C-FECHA-VCTO        PIC 9(08). 
+                     30 L340C-VALOR-CUOTA       PIC S9(15)V99.    
+                  20 L340C-SALDOTOT             PIC S9(15)V99.
+                  20 L340C-CANT-OPC-PAGO        PIC 9(1).   
+                  20 L340C-ARREGLO-OPX OCCURS 3 TIMES.           
+                     30 L340C-COD-OPX           PIC X(4).  
+                     30 L340C-DES-OPX           PIC X(12).     
+                     30 L340C-FECFIN-OPX        PIC 9(08). 
+                     30 L340C-TASA-OPX          PIC 9(3)V9(4).     
+                     30 L340C-CLAMON-OPX        PIC 9(3).     
+                     30 L340C-PAG-MINIMO-OPX    PIC S9(15)V99.  
+                     30 L340C-MON-FINAN-OPX     PIC S9(15)V99. 
+                     30 L340C-CANT-PLAZOS-OPX   PIC 9(2). 
+                     30 L340C-ARREGLO-PLAZOS-OPX OCCURS 4 TIMES.        
+                        40 L340C-NRO-OFE-OPX       PIC 9(06).   
+                        40 L340C-PLAZO-OPX         PIC 9(2).    
+                        40 L340C-VALOR-CUOTA-OPX   PIC S9(09)V99.    
+                  20 L340C-MONTO-INT-ALDIA      PIC S9(08)V99.    
+                  20 L340C-MONTO-GAS-ALDIA      PIC S9(08)V99.
+                  20 L340C-MONTO-DE-LA-CUOTA    PIC S9(15)V99.
+                  20 L340C-MONTO-MORA           PIC S9(15)V99.
+                  20 L340C-COD-CARTERA          PIC 9(04).     
+                  20 L340C-CANT-RECA            PIC 9(2).  
+                  20 L340C-MONTO-PAGO-RECA      PIC S9(15)V99.
+                  20 L340C-ARREGLO-RECA  OCCURS 10 TIMES. 
+                     30 L340C-CODCONREC         PIC X(4).
+                     30 L340C-NUMMOVREC         PIC 9(17). 
+                     30 L340C-VALOR-REC         PIC S9(15)V99.  
+       

@@ -1,0 +1,63 @@
+      *----------------------------------------------------------------*
+      *  COPY DE PROGRAMA ATE950.                                   
+      *----------------------------------------------------------------*
+      *----------------------------------------------------------------*
+      *  ESTA COPY CORRESPONDE A LA CONSULTA DE DATOS DE REQUERIDOS
+      *  PARA TASAS.
+      *----------------------------------------------------------------*
+      * MOTIVO     : NM3062                                          *
+      * AUTOR      : TECNOCOM (CGR)                                  *
+      * FECHA      : 03-06-2010                                      *
+      * DESCRIPCION: SE AÑADEN NUEVOS CAMPOS                         *
+      *+-------------------------------------------------------------+
+      * MOTIVO     : NM001                                           *
+      * AUTOR      : TECNOCOM (JVS)                                  *
+      * FECHA      : 03-06-2010                                      *
+      * DESCRIPCION: SE COMPLETA EL CAMPO CONTRATO.                  *
+      *+-------------------------------------------------------------+
+      * MOTIVO     : NM0806                                          *
+      * AUTOR      : TECNOCOM (CGR)                                  *
+      * FECHA      : 08-06-2010                                      *
+      * DESCRIPCION: SE COMPLETA EL CAMPO CONTRATO DE SALIDA         *
+      *+-------------------------------------------------------------+
+
+           05 ATDATTAS.
+              10 ATDATTAS-DATOS-ENTRADA. 
+      * INC-NM001-I
+                 15 ATDATTAS-CONTRATO.                       
+                    20 ATDATTAS-CODENT           PIC X(04).
+                    20 ATDATTAS-CENTALTA         PIC X(04).
+                    20 ATDATTAS-CUENTA           PIC X(12).
+      * INC-NM001-F
+                 15 ATDATTAS-PAN                 PIC X(22).
+              10 ATDATTAS-DATOS-SALIDA.
+                 15 ATDATTAS-MARCA-SAL           PIC S9(2).
+                 15 ATDATTAS-TIPO-SAL            PIC S9(2).
+0806             15 ATDATTAS-CODENT-SAL          PIC X(04).
+0806             15 ATDATTAS-CENTALTA-SAL        PIC X(04).
+                 15 ATDATTAS-CUENTA-SAL          PIC X(12).
+                 15 ATDATTAS-PRODUCTO-SAL        PIC X(02).
+                 15 ATDATTAS-SUBPRODU-SAL        PIC X(04).                 
+3062->           15 ATDATTAS-CALPART-SAL         PIC X(02).                 
+                 15 ATDATTAS-NUMPER-SAL          PIC X(08).
+                 15 ATDATTAS-CODPROLIQ-SAL       PIC S9(2).
+                 15 ATDATTAS-GRUPOLIQ-SAL        PIC S9(2).
+3062<-           15 ATDATTAS-IDENTCLI-SAL        PIC X(08).
+3062             15 ATDATTAS-NOMBENRED-SAL       PIC X(26).
+              10  ATDATTAS-RETORNO.
+                 15  ATDATTAS-CODRET             PIC 9(02).
+                      88  ATDATTAS-CODRET-OK        VALUE  00.
+                      88  ATDATTAS-CODRET-ERROR     VALUE  01.
+                      88  ATDATTAS-CODRET-ERROR-DB2 VALUE  02.
+                 15  ATDATTAS-COD-ERROR.
+                      20  ATDATTAS-COD-ERROR1     PIC X(07).
+                      20  ATDATTAS-VAR1-ERROR1    PIC X(20).
+                 15  ATDATTAS-MSJERROR.
+                      20  ATDATTAS-NOMBRE-BD      PIC X(24).
+                      20  ATDATTAS-NOMBRE-RUTINA  PIC X(08).
+                      20  ATDATTAS-NOMBRE-TABLA   PIC X(11).
+                      20  ATDATTAS-CLAVE-TABLA    PIC X(80).
+                      20  ATDATTAS-OPERACION      PIC X(20).
+                      20  ATDATTAS-CODERROR.
+                          25  ATDATTAS-SQLCODE    PIC S9(10) COMP.
+                          25  ATDATTAS-SQLERRM    PIC X(70).

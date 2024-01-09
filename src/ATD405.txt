@@ -1,0 +1,1088 @@
+      *---------------------------------------------------------                
+      *                       ATD405.                                           
+      *                                                                         
+      *                       RUTINA                                            
+      *                                                                         
+      *  SERVICIO DE CONSULTA DE DATOS BASICOS DE UNA TARJETA.                  
+      *                                                                         
+      *---------------------------------------------------------                
+      ***************************************************************
+      * FECHA       : 14/09/2004                                    *
+      * AUTOR       : GETRONICS                                     *
+      * ETIQUETA    : 390SAT                                        *
+      * DESCRIPCIÓN : MIGRACIÓN OS390SAT-UNIX                       *
+      ***************************************************************
+       IDENTIFICATION DIVISION.                                                 
+      *-----------------------.                                                 
+                                                                                
+       PROGRAM-ID.      ATD405.                                                 
+       AUTHOR.          CP SISTEMAS DE PAGO.                                    
+       DATE-WRITTEN.    30 DE JULIO DE 2001.                                    
+                                                                                
+      *---------------------------------------------------------                
+      *                    ENVIRONMENT DIVISION                                 
+      *                   =====================                                 
+      *---------------------------------------------------------                
+       ENVIRONMENT DIVISION.                                                    
+      *--------------------.                                                    
+                                                                                
+       CONFIGURATION SECTION.                                                   
+                                                                                
+       SPECIAL-NAMES.                                                           
+           DECIMAL-POINT IS COMMA.                                              
+                                                                                
+      *+------------------------------------------------------------+           
+      *                      DATA DIVISION                          *           
+      *                     ===============                         *           
+      *+------------------------------------------------------------+           
+       DATA DIVISION.                                                           
+      *-------------.                                                           
+                                                                                
+      *+------------------------------------------------------------+           
+      *                 WORKING  STORAGE  SECTION                   *           
+      *                ===========================                  *           
+      *+------------------------------------------------------------+           
+       WORKING-STORAGE SECTION.                                                 
+                                                                                
+       01  FILLER                          PIC X(25)                            
+                VALUE 'COMIENZO WORKING ATD405'.                                
+                                                                                
+      *+------------------------------------------------------------+           
+      *                  VARIABLES DEL PROGRAMA                     *           
+      *+------------------------------------------------------------+           
+       01  WS-VARIABLES.                                                        
+                                                                                
+           05  WS-FECHA                    PIC X(10).                           
+           05  WS-CODPROC                  PIC 9(2).                            
+           05  WS-CODGRUP                  PIC 9(2).                            
+           05  WS-NUMBENCTA                PIC 9(5).                            
+                                                                                
+          05  WS-TEXTO4-ERROR.
+              10 WS-MSG-ERROR             PIC X(71).
+              10 WS-MSG-ADI1              PIC X(71).
+              10 WS-MSG-ADI2              PIC X(71).
+              10 WS-MSG-ADI3              PIC X(71).
+          05  WS-TEXTO2-ERROR REDEFINES WS-TEXTO4-ERROR.
+              10 WS-TXT1-ERROR            PIC X(100).
+              10 WS-TXT2-ERROR            PIC X(100).
+              10 WS-TXT3-ERROR            PIC X(084).
+
+          05  WS-HORA-AUX.
+              10  WS-HH                    PIC X(2).
+              10  FILLER                   PIC X(1) VALUE ':'.
+              10  WS-MM                    PIC X(2).
+              10  FILLER                   PIC X(1) VALUE ':'.
+              10  WS-SS                    PIC X(2).
+
+           05  WS-CLAVE-TBPLASTI.                                               
+               10 WS-CODENT-TBPLASTI      PIC X(4).                             
+               10 WS-CENTALTA-TBPLASTI    PIC X(4).                             
+               10 WS-CUENTA-TBPLASTI      PIC X(12).                            
+               10 WS-NUMPLASTICO-TBPLASTI PIC 9(12).                            
+                                                                                
+           05  WS-CLAVE-TBBENEFI.                                               
+               10 WS-CODENT-TBBENEFI      PIC X(4).                             
+               10 WS-CENTALTA-TBBENEFI    PIC X(4).                             
+               10 WS-CUENTA-TBBENEFI      PIC X(12).                            
+               10 WS-NUMBENCTA-TBBENEFI   PIC 9(5).                             
+                                                                                
+           05  WS-CLAVE-TBCTATAR.                                               
+               10 WS-CODENT-TBCTATAR      PIC X(4).                             
+               10 WS-CENTALTA-TBCTATAR    PIC X(4).                             
+               10 WS-CUENTA-TBCTATAR      PIC X(12).                            
+                                                                                
+           05  WS-CLAVE-TBSITTAR.                                               
+               10 WS-CODENT-TBSITTAR      PIC X(4).                             
+               10 WS-INDSITTAR-TBSITTAR   PIC 9(2).                             
+                                                                                
+           05  WS-CLAVE-TBTARJET.                                               
+               10 WS-PAN-TBTARJET         PIC X(22).                            
+                                                                                
+      *------------------------------------------------------------+            
+      *                  SWITCHES                                  *            
+      *------------------------------------------------------------+            
+       01 SW-PROGRAMAS.                                                         
+                                                                                
+            05 SW-EXISTENCIA-TJT            PIC 9.                              
+               88 SW-EXISTE-TJT            VALUE 1.                             
+               88 SW-NO-EXISTE-TJT         VALUE 2.                             
+                                                                                
+       01  SW-FIN-CORRECTO                 PIC X(1) VALUE 'S'.
+           88  NO-CORRECTO                          VALUE 'N'.
+           88  SI-CORRECTO                          VALUE 'S'.
+                                                                                
+      *+-------------------------------------------------------------+          
+      *                    CONSTANTES DEL PROGRAMA                   *          
+      *+-------------------------------------------------------------+          
+                                                                                
+       01  CT-CONSTANTES.                                                       
+           05  CT-CORRECTO-AVISO        PIC X(2) VALUE '10'.                    
+           05  CT-COD-TC-725            PIC X(4) VALUE '0725'.                  
+           05  CT-ATRG000               PIC X(8) VALUE 'ATRG000'.               
+           05  CT-ESPANOL               PIC X(1) VALUE 'E'.                     
+           05  CT-ERROR-TIPOACC         PIC X(2) VALUE '30'.                    
+           05  CT-PROGRAMA              PIC X(6) VALUE 'ATD405'.                
+           05  CT-RUT-ERRORES           PIC X(6) VALUE 'ATR303'.
+           05  CT-MP                    PIC X(2) VALUE 'MP'.                    
+           05  CT-CORRECTO              PIC X(2) VALUE '00'.                    
+           05  CT-TABLENAME725          PIC X(8) VALUE 'TCDT725'.               
+           05  CT-TABLENAME63           PIC X(8) VALUE 'MPDT063'.               
+           05  CT-TABLENAME9            PIC X(8) VALUE 'MPDT009'.               
+           05  CT-TABLENAME008          PIC X(8) VALUE 'MPDT008'.               
+           05  CT-TABLENAME013          PIC X(8) VALUE 'MPDT013'.               
+           05  CT-TBCTATAR              PIC X(8) VALUE 'MPDT007'.         
+           05  CT-TABLENAME035          PIC X(7) VALUE 'MPDT035'.
+           05  CT-TABLENAME662          PIC X(7) VALUE 'MPDT662'.     
+           05  CT-TABLENAME024          PIC X(7) VALUE 'MPDT024'.
+           05  CT-TABLENAME026          PIC X(7) VALUE 'MPDT026'.       
+           05  CT-SELECCION             PIC X(6) VALUE 'SELECT'.                
+           05  CT-VALOR-NO              PIC X(1) VALUE 'N'.                     
+           05  CT-VALOR-1               PIC 9    VALUE 1.                       
+           05  CT-VALOR-2               PIC 9(1) VALUE 2.                       
+           05  CT-UNO                   PIC X(1) VALUE '1'.
+           05  CT-AVISO                 PIC X(2) VALUE '20'.
+           05  CT-ERROR-DB2             PIC X(2) VALUE '30'.
+           05  CT-INFOR                 PIC X(2) VALUE '10'.
+           05  CT-ERROR                 PIC X(2) VALUE '20'.
+           05  CT-PAN                   PIC X(9) VALUE '@MP000360'.             
+           05  CT-CUENTA                PIC X(9) VALUE '@MP000352'.             
+           05  CT-NUMPLASTICO           PIC X(9) VALUE '@MP000356'.             
+           05  CT-INDSITTAR             PIC X(9) VALUE '@MP000196'.             
+           05  CT-CALPART               PIC X(9) VALUE '@MP000354'.             
+           05  CT-AVISO-173             PIC X(7) VALUE 'MPA0173'.               
+           05  CT-ERROR-4               PIC X(7) VALUE 'MPE0004'.               
+           05  CT-ERROR-5               PIC X(7) VALUE 'MPE0005'.               
+           05  CT-ERROR-10              PIC X(7) VALUE 'MPE0010'.               
+           05  CT-ERROR-11              PIC X(7) VALUE 'MPE0011'.               
+           05  CT-MPA002                PIC X(7) VALUE 'MPA0002'.               
+           05  CT-MPA103                PIC X(7) VALUE 'MPA0103'.               
+           05  CT-AVISO-166             PIC X(7)  VALUE 'MPA0166'.
+                                                                                
+      *+-------------------------------------------------------------+          
+      *      COPY AREA DE COMUNICACION DE RUTINAS CORPORATIVAS       *          
+      *+-------------------------------------------------------------+          
+                                                                                
+           COPY TCWCGEN.                                                        
+                                                                                
+           COPY TCTC7250.                                                       
+                                                                                
+      *+-------------------------------------------------------------+          
+      *         COPYS DE ERROR                                                  
+      *+-------------------------------------------------------------+          
+                                                                                
+       01  WS-SQLERR.                                                           
+           COPY ATSQLERR.                                                       
+
+       01  AREA-ERRORES.
+           COPY MPM0303.
+
+      *+-------------------------------------------------------------+          
+      *         COPYS SERVICIO                                                  
+      *+-------------------------------------------------------------+          
+       01 AREA-SERVICIO.
+          COPY MPM0405.
+
+      *+-------------------------------------------------------------+          
+      *                         TABLAS SQL                           *          
+      *+-------------------------------------------------------------+          
+390SAT* 
+390SAT     EXEC SQL BEGIN DECLARE SECTION END-EXEC. 
+390SAT* 
+
+      * TABLA DE TARJETAS                                                       
+           EXEC SQL                                                             
+             INCLUDE MPDT009                                                    
+           END-EXEC.                                                            
+                                                                                
+      * TABLA DE BENEFICIARIO                                                   
+           EXEC SQL                                                             
+             INCLUDE MPDT013                                                    
+           END-EXEC.                                                            
+                                                                                
+      * TABLA DE SITUACION DE LA TARJETA                                        
+           EXEC SQL                                                             
+             INCLUDE MPDT063                                                    
+           END-EXEC.                                                            
+                                                                                
+      * TABLA DE PLASTICOS                                                      
+           EXEC SQL                                                             
+             INCLUDE MPDT008                                                    
+           END-EXEC.                                                            
+                                                                                
+      * TABLA DE CUENTA O CONTRATO DE TARJETA                                   
+           EXEC SQL                                                             
+             INCLUDE MPDT007                                                    
+           END-EXEC.                                                            
+                                                                                
+           EXEC SQL                                                             
+             INCLUDE MPDT725                                                    
+           END-EXEC. 
+
+      * TABLA DE TIPOS DE BONIFICACION
+           EXEC SQL
+             INCLUDE MPDT035
+           END-EXEC.
+
+      * TABLA DE CONDICIONES DE ESTAMPACION
+           EXEC SQL
+             INCLUDE MPDT662
+           END-EXEC.             
+       
+      * TABLA DE MARCAS DE TARJETA
+           EXEC SQL
+             INCLUDE MPDT024
+           END-EXEC.     
+                                                             
+      * TABLA DE TIPOS DE TARJETA
+           EXEC SQL
+             INCLUDE MPDT026
+           END-EXEC.                                                                               
+      *+-------------------------------------------------------------+          
+      *           WORKA CORRESPONDIENTE A LOS ERRORES DB2            *          
+      *+-------------------------------------------------------------+          
+                                                                                
+           EXEC SQL                                                             
+             INCLUDE SQLCA                                                      
+           END-EXEC.                                                            
+                                                                                
+390SAT* 
+390SAT     EXEC SQL END DECLARE SECTION END-EXEC. 
+390SAT* 
+                                                                                
+       01  FILLER                          PIC X(25)                            
+               VALUE 'FINAL WORKING ATD405     '.                               
+                                                                                
+      *+-------------------------------------------------------------+          
+      *                     LINKAGE SECTION                          *          
+      *+-------------------------------------------------------------+          
+       LINKAGE SECTION.                                                         
+      *---------------.                                                         
+       01  DFHCOMMAREA.                                                         
+           COPY ATCMQCOP.                                                       
+                                                                                
+      *+-------------------------------------------------------------+          
+      *                      PROCEDURE DIVISION                      *          
+      *                      ==================                      *          
+      *+-------------------------------------------------------------+          
+       PROCEDURE DIVISION USING DFHCOMMAREA.                                    
+                                                                                
+390SAT* 
+390SAT      
+390SAT* 
+                                                                                
+      *-------------------------------------------------------------*           
+      *                                                             *           
+      *                   COMIENZO ATD405                           *           
+      *                                                             *           
+      * ESTE PROCESO PERMITE CONSULTAR EN TIEMPO REAL LA INFORMACION*           
+      * DE LOS DATOS (BASICOS) DE UNA TARJETA.                      *           
+      *-------------------------------------------------------------*           
+       COMIENZO-ATD405.                                                         
+      *---------------.                                                         
+                                                                                
+           PERFORM 10000-INICIO                                                 
+                                                                                
+           PERFORM 20000-PROCESO                                                
+                                                                                
+           PERFORM 30000-FINAL.                                                 
+                                                                                
+      *--------------------------------------------------------------*          
+      *                                                              *          
+      *                   10000-INICIO.                              *          
+      *                                                              *          
+      * - INICIALIZACION DE LAS VARIABLES DEL PROGRAMA               *          
+      * - INICIALIZACION DE LOS FLAG DEL PROGRAMA                    *          
+      * - INICIALIZACION DE LAS COPYS DEL PROGRAMA                   *          
+      * - INICIALIZACION DE LOS CAMPOS DE ERROR DE LA COMMAREA       *          
+      *                                                              *          
+      *--------------------------------------------------------------+          
+       10000-INICIO.                                                            
+      *------------.                                                            
+                                                                                
+           INITIALIZE WS-VARIABLES                                              
+                      DATOS-RETORNO
+                      AREA-ERRORES  
+           SET  SI-CORRECTO    TO TRUE 
+           MOVE MQCOPY-MENSAJE TO MPM0405.
+                                                                                
+      *-------------------------------------------------------------*           
+      *                                                             *           
+      *                   20000-PROCESO                             *           
+      *                                                             *           
+      *-------------------------------------------------------------*           
+       20000-PROCESO.                                                           
+      *-------------.                                                           
+                                                                                
+      *    PERFORM 21000-MOVER-DATOS-TABLA                                      
+                                                                                
+           PERFORM 22000-VALIDAR-DATOS                                          
+                                                                                
+           PERFORM 23000-OBTENER-DATOS                                          
+                                                                                
+           PERFORM 29000-VER-EXISTENCIA.                                        
+                                                                                
+                                                                                
+      *-------------------------------------------------------------*           
+      *                                                             *           
+      *                   21000-MOVER-DATOS-TABLA.                  *           
+      *                                                             *           
+      *  MOVEMOS LOS DATOS DE LA COPY DE ENTRADA A LOS DATOS DE     *           
+      *  LA COPY DE COMUNICACION                                    *           
+      *                                                             *           
+      *-------------------------------------------------------------*           
+      *21000-MOVER-DATOS-TABLA.                                                 
+      *-----------------------.                                                 
+                                                                                
+      *    MOVE ATUSGEN-E-CLAVE-TABLA     TO WS-PAN.                               
+                                                                                
+      *-------------------------------------------------------------*           
+      *                                                             *           
+      *                   22000-VALIDAR-DATOS                       *           
+      *                                                             *           
+      * - SE VALIDAN LOS CAMPOS DE ENTRADA                          *           
+      *                                                             *           
+      *-------------------------------------------------------------*           
+       22000-VALIDAR-DATOS.                                                     
+      *--------------------.                                                    
+                                                                                
+           PERFORM 22100-VALIDAR-PAN.                                           
+                                                                                
+      *---------------------------------------------------------------*         
+      *                                                               *         
+      *                   22100-VALIDAR-PAN                           *         
+      *                                                               *         
+      * SE VALIDA QUE EL PAN VENGA INFORMADO.                         *         
+      *                                                               *         
+      *---------------------------------------------------------------*         
+       22100-VALIDAR-PAN.                                                       
+      *------------------.                                                      
+                                                                                
+           IF MP405-PAN EQUAL SPACES OR LOW-VALUES                              
+              MOVE CT-MPA002         TO MQCOPY-COD-ERROR                    
+              MOVE CT-UNO            TO MP405-PAN-ATR                   
+              MOVE CT-AVISO          TO MQCOPY-RETORNO
+              PERFORM 99999-ERROR-PROGRAMA
+           END-IF.                                                              
+                                                                                
+                                                                                
+      *--------------------------------------------------------------*          
+      *                                                              *          
+      *                   23000-OBTENER-DATOS                        *          
+      *                                                              *          
+      *--------------------------------------------------------------*          
+       23000-OBTENER-DATOS.                                                     
+      *-------------------------.                                               
+                                                                                
+           PERFORM 24000-SELECT-TBTARJET.                                       
+                                                                                
+       24000-SELECT-TBTARJET.                                                   
+      *-----------------------.                                                 
+                                                                                
+           MOVE MP405-PAN          TO PAN         OF DCLMPDT009  
+                                                                                
+           EXEC SQL                                                             
+                SELECT                                                          
+                     CODENT         ,                                           
+                     CODMAR         ,                                           
+                     INDTIPT        ,                                           
+                     CENTALTA       ,                                           
+                     CUENTA         ,                                           
+                     NUMBENCTA      ,                                           
+                     NUMPLASTICO    ,                                           
+                     TIPBON         ,                                           
+                     PAN            ,                                           
+                     PANANT         ,                                           
+                     FECALTA        ,                                           
+                     FECULTUSO      ,                                           
+                     INDSITTAR      ,                                           
+                     INDULTTAR      ,                                           
+                     INDNOREN       ,                                           
+                     CODBLQ         ,                                           
+                     FECULTBLQ      ,                                           
+                     TEXBLQ         ,                                           
+                     FECBAJA        ,                                           
+                     MOTBAJA        ,                                           
+                     FECCADTAR      ,                                           
+                     FECCADTARANT   ,                                           
+                     FECCOBCUO      ,                                           
+                     OFFSET1        ,                                           
+                     OFFSET2        ,                                           
+                     PVV1           ,                                           
+                     PVV2           ,                                           
+                     CODCLAVE       ,                                           
+                     CODCLVANT      ,                                           
+                     NUMACT1        ,                                           
+                     NUMACT2        ,                                           
+                     NUMANT1        ,                                           
+                     NUMANT2        ,                                           
+                     INDCAMLIM      ,                                           
+                     INDACTLIM      ,                                           
+                     INDRESACT      ,                                           
+                     INDRESCOM      ,                                           
+                     INDLIMFAC      ,                                           
+                     VISAPHONE      ,                                           
+                     NUMKPIN        ,                                           
+                     IDEMPLEADO     ,                                           
+                     NOMBENRED      ,                                           
+                     INDFOTO        ,                                           
+                     REFFOTO        ,                                           
+                     CODBARR        ,                                           
+                     CODPROMO       ,                                           
+                     INDEXECUO      ,                                           
+                     INDAPLIREST    ,                                           
+                     CODENTUMO      ,                                           
+                     CODOFIUMO      ,                                           
+                     USUARIOUMO     ,                                           
+                     CODTERMUMO     ,                                           
+                     CONTCUR                                                    
+                  INTO                                                          
+                    :DCLMPDT009.CODENT         ,                                
+                    :DCLMPDT009.CODMAR         ,                                
+                    :DCLMPDT009.INDTIPT        ,                                
+                    :DCLMPDT009.CENTALTA       ,                                
+                    :DCLMPDT009.CUENTA         ,                                
+                    :DCLMPDT009.NUMBENCTA      ,                                
+                    :DCLMPDT009.NUMPLASTICO    ,                                
+                    :DCLMPDT009.TIPBON         ,                                
+                    :DCLMPDT009.PAN            ,                                
+                    :DCLMPDT009.PANANT         ,                                
+                    :DCLMPDT009.FECALTA        ,                                
+                    :DCLMPDT009.FECULTUSO      ,                                
+                    :DCLMPDT009.INDSITTAR      ,                                
+                    :DCLMPDT009.INDULTTAR      ,                                
+                    :DCLMPDT009.INDNOREN       ,                                
+                    :DCLMPDT009.CODBLQ         ,                                
+                    :DCLMPDT009.FECULTBLQ      ,                                
+                    :DCLMPDT009.TEXBLQ         ,                                
+                    :DCLMPDT009.FECBAJA        ,                                
+                    :DCLMPDT009.MOTBAJA        ,                                
+                    :DCLMPDT009.FECCADTAR      ,                                
+                    :DCLMPDT009.FECCADTARANT   ,                                
+                    :DCLMPDT009.FECCOBCUO      ,                                
+                    :DCLMPDT009.OFFSET1        ,                                
+                    :DCLMPDT009.OFFSET2        ,                                
+                    :DCLMPDT009.PVV1           ,                                
+                    :DCLMPDT009.PVV2           ,                                
+                    :DCLMPDT009.CODCLAVE       ,                                
+                    :DCLMPDT009.CODCLVANT      ,                                
+                    :DCLMPDT009.NUMACT1        ,                                
+                    :DCLMPDT009.NUMACT2        ,                                
+                    :DCLMPDT009.NUMANT1        ,                                
+                    :DCLMPDT009.NUMANT2        ,                                
+                    :DCLMPDT009.INDCAMLIM      ,                                
+                    :DCLMPDT009.INDACTLIM      ,                                
+                    :DCLMPDT009.INDRESACT      ,                                
+                    :DCLMPDT009.INDRESCOM      ,                                
+                    :DCLMPDT009.INDLIMFAC      ,                                
+                    :DCLMPDT009.VISAPHONE      ,                                
+                    :DCLMPDT009.NUMKPIN        ,                                
+                    :DCLMPDT009.IDEMPLEADO     ,                                
+                    :DCLMPDT009.NOMBENRED      ,                                
+                    :DCLMPDT009.INDFOTO        ,                                
+                    :DCLMPDT009.REFFOTO        ,                                
+                    :DCLMPDT009.CODBARR        ,                                
+                    :DCLMPDT009.CODPROMO       ,                                
+                    :DCLMPDT009.INDEXECUO      ,                                
+                    :DCLMPDT009.INDAPLIREST    ,                                
+                    :DCLMPDT009.CODENTUMO      ,                                
+                    :DCLMPDT009.CODOFIUMO      ,                                
+                    :DCLMPDT009.USUARIOUMO     ,                                
+                    :DCLMPDT009.CODTERMUMO     ,                                
+                    :DCLMPDT009.CONTCUR                                         
+                FROM MPDT009                                                    
+                WHERE PAN         = :DCLMPDT009.PAN                             
+           END-EXEC                                                             
+                                                                                
+390SAT*
+390SAT     MOVE SQLCODE                TO ATSQLERR 
+390SAT*
+           IF NOT  ACCESO-CORRECTO-BD                             
+               IF  REG-NO-EXISTENTE-BD                             
+                  SET SW-NO-EXISTE-TJT TO TRUE                                  
+               ELSE                                                             
+                  MOVE CT-MP             TO MQCOPY-NOMBRE-BD                 
+                  MOVE CT-PROGRAMA       TO MQCOPY-NOMBRE-RUTINA             
+                  MOVE CT-TABLENAME9     TO MQCOPY-NOMBRE-TABLA              
+                  MOVE MP405-PAN         TO WS-PAN-TBTARJET                  
+                  MOVE WS-CLAVE-TBTARJET TO MQCOPY-CLAVE-TABLA               
+                  MOVE CT-SELECCION      TO MQCOPY-OPERACION                 
+                  MOVE SQLCODE           TO MQCOPY-SQLCODE                   
+                  MOVE CT-ERROR-DB2      TO MQCOPY-RETORNO
+                  PERFORM 99999-ERROR-PROGRAMA
+               END-IF                                                           
+           ELSE                                                                 
+               SET SW-EXISTE-TJT              TO TRUE 
+               MOVE NUMBENCTA OF DCLMPDT009   TO WS-NUMBENCTA                   
+               PERFORM 24400-MOVER-DATOS-TJT                                    
+           END-IF.                                                              
+                                                                                
+      *--------------------------------------------------------------*          
+      *                                                              *          
+      *                   24400-MOVER-DATOS-TJT                      *          
+      *                                                              *          
+      *            MOVEMOS LOS DATOS A LA COPY DE SALIDA             *          
+      *                                                              *          
+      *--------------------------------------------------------------*          
+       24400-MOVER-DATOS-TJT.                                                   
+      *----------------------.                                                  
+                                                                                
+           MOVE PAN           OF DCLMPDT009  TO MP405-PAN                       
+           MOVE CODENT        OF DCLMPDT009  TO MP405-CODENT                    
+           MOVE CENTALTA      OF DCLMPDT009  TO MP405-CENTALTA                  
+           MOVE NUMPLASTICO   OF DCLMPDT009  TO MP405-NUMPLASTICO               
+           MOVE CUENTA        OF DCLMPDT009  TO MP405-CUENTA                    
+           MOVE TIPBON        OF DCLMPDT009  TO MP405-TIPBON                    
+           MOVE CODMAR        OF DCLMPDT009  TO MP405-CODMAR                    
+           MOVE INDTIPT       OF DCLMPDT009  TO MP405-INDTIPT                   
+           MOVE PANANT        OF DCLMPDT009  TO MP405-PANANT                  
+                                                                                
+           PERFORM 26000-ACCESO-BENEFI                                          
+           MOVE CALPART       OF DCLMPDT013  TO MP405-CALPART  
+           MOVE IDENTCLI      OF DCLMPDT013  TO MP405-NUMPER                
+           MOVE FECALTA       OF DCLMPDT009  TO MP405-FECALTA                   
+           MOVE FECULTUSO     OF DCLMPDT009  TO MP405-FECULTUSO                 
+           MOVE INDSITTAR     OF DCLMPDT009  TO MP405-INDSITTAR                 
+           MOVE INDULTTAR     OF DCLMPDT009  TO MP405-INDULTTAR                 
+                                                                                
+           PERFORM 26100-ACCESO-DESSITTAR                                       
+           MOVE DESSITTAR     OF DCLMPDT063  TO MP405-DESSITTAR                 
+                                                                                
+           MOVE INDNOREN      OF DCLMPDT009  TO MP405-INDNOREN                  
+           MOVE CODBLQ        OF DCLMPDT009  TO MP405-CODBLQ                    
+           MOVE FECULTBLQ     OF DCLMPDT009  TO MP405-FECULTBLQ                 
+           MOVE TEXBLQ        OF DCLMPDT009  TO MP405-TEXBLQ                    
+           MOVE FECBAJA       OF DCLMPDT009  TO MP405-FECBAJA                   
+           MOVE MOTBAJA       OF DCLMPDT009  TO MP405-MOTBAJA                   
+           MOVE FECCADTAR     OF DCLMPDT009  TO MP405-FECCADTAR                 
+           MOVE FECCADTARANT  OF DCLMPDT009  TO MP405-FECCADTARANT              
+           MOVE FECCOBCUO     OF DCLMPDT009  TO MP405-FECCOBCUO                 
+           MOVE CODCLAVE      OF DCLMPDT009  TO MP405-CODCLAVE               
+                                                                                
+           PERFORM 26200-ACCESO-TBGRUCRI                                        
+      *    MOVE T725-DES-GRUPO-CRIPT         TO MP405-DESGRUCRI                 
+           MOVE DESCRIPCION OF DCLMPDT725    TO MP405-DESGRUCRI                 
+                                                                                
+           MOVE IDEMPLEADO    OF DCLMPDT009  TO MP405-IDEMPLEADO                
+           MOVE INDCAMLIM     OF DCLMPDT009  TO MP405-INDCAMLIM                 
+           MOVE INDACTLIM     OF DCLMPDT009  TO MP405-INDACTLIM                 
+           MOVE INDRESACT     OF DCLMPDT009  TO MP405-INDRESACT                 
+           MOVE INDRESCOM     OF DCLMPDT009  TO MP405-INDRESCOM                 
+           MOVE INDLIMFAC     OF DCLMPDT009  TO MP405-INDLIMFAC                 
+           MOVE VISAPHONE     OF DCLMPDT009  TO MP405-VISAPHONE                 
+           MOVE NUMKPIN       OF DCLMPDT009  TO MP405-NUMKPIN                   
+           MOVE NOMBENRED     OF DCLMPDT009  TO MP405-NOMBENRED                 
+           MOVE INDFOTO       OF DCLMPDT009  TO MP405-INDFOTO                   
+           MOVE REFFOTO       OF DCLMPDT009  TO MP405-REFFOTO                   
+                                                                                
+           PERFORM 26250-ACCESO-TBCTATAR                                        
+           MOVE PRODUCTO      OF DCLMPDT007  TO MP405-PRODUCTO    
+           MOVE SUBPRODU      OF DCLMPDT007  TO MP405-SUBPRODU    
+                                                                                
+           PERFORM 26300-ACCESO-TBPLASTI                                        
+           MOVE FECENVEST     OF DCLMPDT008  TO MP405-FECENVEST                
+           MOVE FECRECEST     OF DCLMPDT008  TO MP405-FECRESECT           
+           MOVE FECACUSER     OF DCLMPDT008  TO MP405-FECACUSER              
+           MOVE FECULTREN     OF DCLMPDT008  TO MP405-FECULTREN              
+           MOVE FECRECTAR     OF DCLMPDT008  TO MP405-FECRECTAR              
+           MOVE FCORETTAR     OF DCLMPDT008  TO MP405-FCORETTAR              
+           MOVE HCORETTAR     OF DCLMPDT008  TO MP405-HCORETTAR              
+           MOVE CONDEST       OF DCLMPDT008  TO MP405-CONDEST               
+           MOVE ESTPLAS1      OF DCLMPDT008  TO MP405-ESTPLAS1             
+           MOVE ESTPLAS2      OF DCLMPDT008  TO MP405-ESTPLAS2   
+                                                                       
+           MOVE CODPROMO      OF DCLMPDT009  TO MP405-CODPROMO                
+           MOVE INDEXECUO     OF DCLMPDT009  TO MP405-INDEXECUO               
+           MOVE INDAPLIREST   OF DCLMPDT009  TO MP405-INDAPLIREST              
+           MOVE CONTCUR       OF DCLMPDT009  TO MP405-CONTCURT                  
+           MOVE CONTCUR       OF DCLMPDT008  TO MP405-CONTCURP                
+           MOVE NUMBENCTA     OF DCLMPDT009  TO MP405-NUMBENCTA
+           
+           PERFORM 26360-ACCESO-TBPARMAR
+           PERFORM 26370-ACCESO-TBTIPTAR
+           PERFORM 26380-ACCESO-TBTIPBON
+           PERFORM 26390-ACCESO-TBCONEST.         
+                                                                                
+       26000-ACCESO-BENEFI.                                                     
+      *---------------------.                                                   
+                                                                                
+           MOVE MP405-CODENT          TO CODENT       OF DCLMPDT013             
+           MOVE MP405-CENTALTA        TO CENTALTA     OF DCLMPDT013             
+           MOVE MP405-CUENTA          TO CUENTA       OF DCLMPDT013             
+           MOVE WS-NUMBENCTA          TO NUMBENCTA    OF DCLMPDT013             
+                                                                                
+           EXEC SQL                                                             
+                SELECT                                                          
+                       CALPART,
+                       IDENTCLI 
+                INTO                                                            
+                      :DCLMPDT013.CALPART,
+                      :DCLMPDT013.IDENTCLI                                       
+                FROM   MPDT013                                                  
+               WHERE   CODENT        = :DCLMPDT013.CODENT                       
+                AND    CENTALTA      = :DCLMPDT013.CENTALTA                     
+                AND    CUENTA        = :DCLMPDT013.CUENTA                       
+                AND    NUMBENCTA     = :DCLMPDT013.NUMBENCTA                    
+           END-EXEC                                                             
+                                                                                
+390SAT*
+390SAT     MOVE SQLCODE                TO ATSQLERR 
+390SAT*
+           IF NOT ACCESO-CORRECTO-BD                              
+              IF NOT REG-NO-EXISTENTE-BD                          
+                  MOVE CT-MP              TO MQCOPY-NOMBRE-BD                
+                  MOVE CT-PROGRAMA        TO MQCOPY-NOMBRE-RUTINA            
+                  MOVE MP405-CODENT       TO WS-CODENT-TBBENEFI                 
+                  MOVE MP405-CENTALTA     TO WS-CENTALTA-TBBENEFI               
+                  MOVE MP405-CUENTA       TO WS-CUENTA-TBBENEFI                 
+                  MOVE WS-NUMBENCTA       TO WS-NUMBENCTA-TBBENEFI              
+                  MOVE WS-CLAVE-TBBENEFI  TO MQCOPY-CLAVE-TABLA              
+                  MOVE CT-TABLENAME013    TO MQCOPY-NOMBRE-TABLA             
+                  MOVE CT-SELECCION       TO MQCOPY-OPERACION                
+                  MOVE SQLCODE            TO MQCOPY-SQLCODE                  
+                  MOVE CT-ERROR-DB2       TO MQCOPY-RETORNO
+                  PERFORM 99999-ERROR-PROGRAMA
+              ELSE                                                              
+                  MOVE CT-MPA103         TO MQCOPY-COD-ERROR              
+                  MOVE CT-AVISO          TO MQCOPY-RETORNO
+                  PERFORM 99999-ERROR-PROGRAMA
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+       26100-ACCESO-DESSITTAR.                                                  
+      *----------------------.                                                  
+                                                                                
+           MOVE MP405-CODENT          TO CODENT    OF DCLMPDT063                
+           MOVE MP405-INDSITTAR       TO INDSITTAR OF DCLMPDT063                
+                                                                                
+           EXEC SQL                                                             
+                SELECT CODENT,                                                  
+                       DESSITTAR                                                
+                INTO  :DCLMPDT063.CODENT,                                       
+                      :DCLMPDT063.DESSITTAR                                     
+                FROM   MPDT063                                                  
+               WHERE   CODENT    = :DCLMPDT063.CODENT    AND                    
+                     INDSITTAR   = :DCLMPDT063.INDSITTAR                        
+           END-EXEC                                                             
+                                                                                
+390SAT*
+390SAT     MOVE SQLCODE                TO ATSQLERR 
+390SAT*
+           IF NOT ACCESO-CORRECTO-BD                              
+              IF NOT REG-NO-EXISTENTE-BD                          
+                  MOVE CT-MP              TO MQCOPY-NOMBRE-BD                
+                  MOVE CT-PROGRAMA        TO MQCOPY-NOMBRE-RUTINA            
+                  MOVE MP405-CODENT       TO WS-CODENT-TBSITTAR                 
+                  MOVE MP405-INDSITTAR    TO WS-INDSITTAR-TBSITTAR              
+                  MOVE WS-CLAVE-TBSITTAR  TO MQCOPY-CLAVE-TABLA              
+                  MOVE CT-TABLENAME63     TO MQCOPY-NOMBRE-TABLA             
+                  MOVE CT-SELECCION       TO MQCOPY-OPERACION                
+                  MOVE SQLCODE            TO MQCOPY-SQLCODE                  
+                  MOVE CT-ERROR-DB2       TO MQCOPY-RETORNO
+                  PERFORM 99999-ERROR-PROGRAMA
+              ELSE                                                              
+                  MOVE CT-MPA103         TO MQCOPY-COD-ERROR              
+                  MOVE CT-UNO            TO MP405-INDSITTAR-ATR             
+                  MOVE CT-AVISO          TO MQCOPY-RETORNO
+                  PERFORM 99999-ERROR-PROGRAMA
+              END-IF                                                            
+           END-IF.                                                              
+       
+       
+       26360-ACCESO-TBPARMAR.
+      *---------------------.
+           MOVE MP405-CODENT          TO CODENT   OF DCLMPDT024
+           MOVE MP405-CODMAR          TO CODMAR   OF DCLMPDT024
+
+           EXEC SQL
+              SELECT
+                   DESMARRED
+              INTO
+                   :DCLMPDT024.DESMARRED
+              FROM MPDT024
+              WHERE CODENT      =:DCLMPDT024.CODENT
+                AND CODMAR      =:DCLMPDT024.CODMAR
+           END-EXEC
+
+           MOVE SQLCODE     TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+              IF NOT REG-NO-EXISTENTE-BD
+                 MOVE CT-TABLENAME024    TO MQCOPY-NOMBRE-TABLA
+                 MOVE CT-PROGRAMA         TO MQCOPY-NOMBRE-RUTINA
+                 MOVE SQLCODE             TO MQCOPY-SQLCODE
+                 MOVE CT-ERROR-4          TO MQCOPY-COD-ERROR
+                 MOVE CT-SELECCION        TO MQCOPY-OPERACION
+                 SET  MQCOPY-ERROR-DB2    TO TRUE
+              ELSE
+                 MOVE SPACES              TO MP405-DESMARRED 
+              END-IF
+           ELSE
+              MOVE DESMARRED OF DCLMPDT024  TO MP405-DESMARRED 
+           END-IF.
+      
+
+       26370-ACCESO-TBTIPTAR.
+      *---------------------.
+           MOVE MP405-CODENT          TO CODENT   OF DCLMPDT026
+           MOVE MP405-CODMAR          TO CODMAR   OF DCLMPDT026
+           MOVE MP405-INDTIPT          TO INDTIPT   OF DCLMPDT026
+
+           EXEC SQL
+              SELECT
+                   DESTIPTRED
+              INTO
+                   :DCLMPDT026.DESTIPTRED
+              FROM MPDT026
+              WHERE CODENT      =:DCLMPDT026.CODENT
+                AND CODMAR      =:DCLMPDT026.CODMAR
+                AND INDTIPT      =:DCLMPDT026.INDTIPT
+           END-EXEC
+
+           MOVE SQLCODE     TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+              IF NOT REG-NO-EXISTENTE-BD
+                 MOVE CT-TABLENAME026     TO MQCOPY-NOMBRE-TABLA
+                 MOVE CT-PROGRAMA         TO MQCOPY-NOMBRE-RUTINA
+                 MOVE SQLCODE             TO MQCOPY-SQLCODE
+                 MOVE CT-ERROR-4          TO MQCOPY-COD-ERROR
+                 MOVE CT-SELECCION        TO MQCOPY-OPERACION
+                 SET  MQCOPY-ERROR-DB2    TO TRUE
+              ELSE
+                 MOVE SPACES              TO MP405-DESTIPTRED
+              END-IF
+           ELSE
+              MOVE DESTIPTRED OF DCLMPDT026  TO MP405-DESTIPTRED
+           END-IF.
+           
+       26380-ACCESO-TBTIPBON.
+      *---------------------.
+           MOVE MP405-CODENT          TO CODENT   OF DCLMPDT035
+           MOVE MP405-TIPBON          TO TIPBON   OF DCLMPDT035
+
+           EXEC SQL
+              SELECT
+                   DESTIPBON
+              INTO
+                   :DCLMPDT035.DESTIPBON
+              FROM MPDT035
+              WHERE CODENT      =:DCLMPDT035.CODENT
+                AND TIPBON      =:DCLMPDT035.TIPBON
+           END-EXEC
+
+           MOVE SQLCODE     TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+              IF NOT REG-NO-EXISTENTE-BD
+                 MOVE CT-TABLENAME035     TO MQCOPY-NOMBRE-TABLA
+                 MOVE CT-PROGRAMA         TO MQCOPY-NOMBRE-RUTINA
+                 MOVE SQLCODE             TO MQCOPY-SQLCODE
+                 MOVE CT-ERROR-4          TO MQCOPY-COD-ERROR
+                 MOVE CT-SELECCION        TO MQCOPY-OPERACION
+                 SET  MQCOPY-ERROR-DB2    TO TRUE
+              ELSE
+                 MOVE SPACES              TO MP405-DESTIPBON
+              END-IF
+           ELSE
+              MOVE DESTIPBON OF DCLMPDT035  TO MP405-DESTIPBON
+           END-IF.
+
+       26390-ACCESO-TBCONEST.
+      *---------------------.
+           MOVE MP405-CODENT          TO CODENT   OF DCLMPDT662
+           MOVE MP405-CONDEST         TO CONDEST  OF DCLMPDT662
+
+           EXEC SQL
+              SELECT
+                   DESCONEST
+              INTO
+                   :DCLMPDT662.DESCONEST
+              FROM MPDT662
+              WHERE CODENT      =:DCLMPDT662.CODENT
+                AND CONDEST     =:DCLMPDT662.CONDEST
+           END-EXEC
+
+           MOVE SQLCODE     TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+              IF NOT REG-NO-EXISTENTE-BD
+                 MOVE CT-TABLENAME662     TO MQCOPY-NOMBRE-TABLA
+                 MOVE CT-PROGRAMA         TO MQCOPY-NOMBRE-RUTINA
+                 MOVE SQLCODE             TO MQCOPY-SQLCODE
+                 MOVE CT-ERROR-4          TO MQCOPY-COD-ERROR
+                 MOVE CT-SELECCION        TO MQCOPY-OPERACION
+                 SET  MQCOPY-ERROR-DB2    TO TRUE
+              ELSE
+                 MOVE SPACES              TO MP405-DESCONDEST
+              END-IF
+           ELSE
+              MOVE DESCONEST OF DCLMPDT662  TO MP405-DESCONDEST
+           END-IF.
+
+                                                                          
+       26200-ACCESO-TBGRUCRI.                                                   
+      *----------------------.                                                  
+                                                                                
+           INITIALIZE TCTC7250                                                  
+                      TCWCGEN                                                   
+                                                                                
+           MOVE SPACES                  TO T725-DATOS                           
+           MOVE SPACES                  TO T725-CLAVE                           
+           MOVE CT-VALOR-1              TO WGE-TIPOACC                          
+           MOVE CT-COD-TC-725           TO WGE-TABLA                            
+           MOVE MQCOPY-ENTIDAD          TO WGE-ENTIDAD                          
+           MOVE CT-ESPANOL              TO WGE-IDIOMA                           
+           MOVE MP405-CODCLAVE          TO T725-CODCLAVE                        
+           MOVE T725-CLAVETG            TO WGE-CLAVE                            
+                                                                                
+           CALL CT-ATRG000 USING TCWCGEN                                        
+                                                                                
+           EVALUATE WGE-CDRETORN                                                
+                                                                                
+               WHEN CT-CORRECTO                                                 
+      *            MOVE WGE-DATOS(1)          TO T725-DATOS                     
+                   MOVE WGE-DATOS(1)          TO DCLMPDT725
+                                                                                
+               WHEN CT-CORRECTO-AVISO                                           
+                   MOVE SPACES                     TO T725-DATOS                
+               WHEN CT-ERROR                                                    
+                   MOVE CT-TABLENAME725       TO MQCOPY-NOMBRE-TABLA            
+                   MOVE CT-ERROR-10           TO MQCOPY-COD-ERROR               
+                   MOVE CT-ERROR              TO MQCOPY-RETORNO
+                   PERFORM 99999-ERROR-PROGRAMA
+                                                                                
+               WHEN CT-ERROR-TIPOACC                                            
+                   MOVE CT-TABLENAME725       TO MQCOPY-NOMBRE-TABLA            
+                   MOVE CT-ERROR-11           TO MQCOPY-COD-ERROR               
+                   MOVE CT-ERROR              TO MQCOPY-RETORNO
+                   PERFORM 99999-ERROR-PROGRAMA
+                                                                                
+               WHEN OTHER                                                       
+      * ESTE SERIA EL ERROR DB2 PERO SE PONE 'WHEN OTHER' POR CALIDAD           
+                   MOVE CT-MP               TO MQCOPY-NOMBRE-BD              
+                   MOVE CT-PROGRAMA         TO MQCOPY-NOMBRE-RUTINA          
+                   MOVE CT-TABLENAME725     TO MQCOPY-NOMBRE-TABLA           
+                   MOVE CT-SELECCION        TO MQCOPY-OPERACION              
+                   MOVE SQLCODE             TO MQCOPY-SQLCODE                
+                   MOVE CT-ERROR-DB2        TO MQCOPY-RETORNO
+                   PERFORM 99999-ERROR-PROGRAMA
+      *            MOVE CT-ERROR-4          TO ATUSGEN-S-SQLERRM                
+                                                                                
+           END-EVALUATE.                                                        
+                                                                                
+       26250-ACCESO-TBCTATAR.                                                   
+      *---------------------.                                                   
+                                                                                
+           MOVE MP405-CODENT          TO CODENT       OF DCLMPDT007             
+           MOVE MP405-CENTALTA        TO CENTALTA     OF DCLMPDT007             
+           MOVE MP405-CUENTA          TO CUENTA       OF DCLMPDT007             
+                                                                                
+           EXEC SQL                                                             
+                SELECT                                                          
+                       PRODUCTO ,                                               
+                       SUBPRODU                                                 
+                INTO                                                            
+                      :DCLMPDT007.PRODUCTO ,                                    
+                      :DCLMPDT007.SUBPRODU                                      
+                FROM   MPDT007                                                  
+               WHERE   CODENT        = :DCLMPDT007.CODENT                       
+                AND    CENTALTA      = :DCLMPDT007.CENTALTA                     
+                AND    CUENTA        = :DCLMPDT007.CUENTA                       
+           END-EXEC                                                             
+                                                                                
+390SAT*
+390SAT     MOVE SQLCODE                TO ATSQLERR 
+390SAT*
+           IF NOT ACCESO-CORRECTO-BD                              
+              IF NOT REG-NO-EXISTENTE-BD                          
+                  MOVE CT-MP              TO MQCOPY-NOMBRE-BD                
+                  MOVE CT-PROGRAMA        TO MQCOPY-NOMBRE-RUTINA            
+                  MOVE MP405-CODENT       TO WS-CODENT-TBCTATAR                 
+                  MOVE MP405-CENTALTA     TO WS-CENTALTA-TBCTATAR               
+                  MOVE MP405-CUENTA       TO WS-CUENTA-TBCTATAR                 
+                  MOVE WS-CLAVE-TBCTATAR  TO MQCOPY-CLAVE-TABLA              
+                  MOVE CT-TBCTATAR        TO MQCOPY-NOMBRE-TABLA             
+                  MOVE CT-SELECCION       TO MQCOPY-OPERACION                
+                  MOVE SQLCODE            TO MQCOPY-SQLCODE                  
+                  MOVE CT-ERROR-DB2       TO MQCOPY-RETORNO
+                  PERFORM 99999-ERROR-PROGRAMA
+              ELSE                                                              
+                  MOVE CT-MPA103         TO MQCOPY-COD-ERROR              
+                  MOVE CT-UNO            TO MP405-CUENTA-ATR                
+                  MOVE CT-AVISO          TO MQCOPY-RETORNO
+                  PERFORM 99999-ERROR-PROGRAMA
+              END-IF                                                            
+           END-IF.                                                              
+                                                                                
+       26300-ACCESO-TBPLASTI.                                                   
+      *---------------------.                                                   
+                                                                                
+           MOVE MP405-CODENT          TO CODENT       OF DCLMPDT008             
+           MOVE MP405-CENTALTA        TO CENTALTA     OF DCLMPDT008             
+           MOVE MP405-CUENTA          TO CUENTA       OF DCLMPDT008             
+           MOVE MP405-NUMPLASTICO     TO NUMPLASTICO  OF DCLMPDT008             
+                                                                                
+           EXEC SQL                                                             
+                SELECT                                                          
+                       FECENVEST ,                                              
+                       FECRECEST ,                                              
+                       FECACUSER ,                                              
+                       FECULTREN ,                                              
+                       FECRECTAR ,                                              
+                       FCORETTAR ,                                              
+                       HCORETTAR ,                                              
+                       CONDEST ,                                                
+                       ESTPLAS1 ,                                               
+                       ESTPLAS2 ,                                               
+                       CONTCUR                                                  
+                INTO                                                            
+                      :DCLMPDT008.FECENVEST ,                                   
+                      :DCLMPDT008.FECRECEST ,                                   
+                      :DCLMPDT008.FECACUSER ,                                   
+                      :DCLMPDT008.FECULTREN ,                                   
+                      :DCLMPDT008.FECRECTAR ,                                   
+                      :DCLMPDT008.FCORETTAR ,                                   
+                      :DCLMPDT008.HCORETTAR ,                                   
+                      :DCLMPDT008.CONDEST ,                                     
+                      :DCLMPDT008.ESTPLAS1 ,                                    
+                      :DCLMPDT008.ESTPLAS2 ,                                    
+                      :DCLMPDT008.CONTCUR                                       
+                FROM   MPDT008                                                  
+               WHERE   CODENT        = :DCLMPDT008.CODENT                       
+                AND    CENTALTA      = :DCLMPDT008.CENTALTA                     
+                AND    CUENTA        = :DCLMPDT008.CUENTA                       
+                AND    NUMPLASTICO   = :DCLMPDT008.NUMPLASTICO                  
+           END-EXEC                                                             
+                                                                                
+390SAT*
+390SAT     MOVE SQLCODE                TO ATSQLERR 
+390SAT*
+           IF NOT ACCESO-CORRECTO-BD                              
+              IF NOT REG-NO-EXISTENTE-BD                          
+                  MOVE CT-MP              TO MQCOPY-NOMBRE-BD                
+                  MOVE CT-PROGRAMA        TO MQCOPY-NOMBRE-RUTINA            
+                  MOVE MP405-CODENT       TO WS-CODENT-TBPLASTI                 
+                  MOVE MP405-CENTALTA     TO WS-CENTALTA-TBPLASTI               
+                  MOVE MP405-CUENTA       TO WS-CUENTA-TBPLASTI                 
+                  MOVE MP405-NUMPLASTICO  TO WS-NUMPLASTICO-TBPLASTI            
+                  MOVE WS-CLAVE-TBPLASTI  TO MQCOPY-CLAVE-TABLA              
+                  MOVE CT-TABLENAME008    TO MQCOPY-NOMBRE-TABLA             
+                  MOVE CT-SELECCION       TO MQCOPY-OPERACION                
+                  MOVE SQLCODE            TO MQCOPY-SQLCODE                  
+                  MOVE CT-ERROR-DB2       TO MQCOPY-RETORNO
+                  PERFORM 99999-ERROR-PROGRAMA
+              ELSE                                                              
+                  MOVE CT-MPA103         TO MQCOPY-COD-ERROR              
+                  MOVE CT-UNO            TO MP405-NUMPLASTICO-ATR           
+                  MOVE CT-AVISO          TO MQCOPY-RETORNO
+                  PERFORM 99999-ERROR-PROGRAMA
+              END-IF                                                            
+           END-IF.                                                              
+       29000-VER-EXISTENCIA.                                                    
+      *----------------------.                                                  
+                                                                                
+           IF SW-NO-EXISTE-TJT 
+              MOVE CT-AVISO-173      TO MQCOPY-COD-ERROR                 
+              MOVE CT-UNO            TO MP405-PAN-ATR                   
+              MOVE CT-AVISO          TO MQCOPY-RETORNO
+              PERFORM 99999-ERROR-PROGRAMA
+           END-IF.                                                              
+                                                                                
+      *+------------------------------------------------------+
+      *  DEVUELVE LOS CODIGOS DE RESPUESTA ADECUADOS          *
+      *+------------------------------------------------------+
+       30000-FINAL.
+      *------------.
+
+           IF  SI-CORRECTO
+               MOVE CT-INFOR      TO MQCOPY-RETORNO
+               MOVE CT-AVISO-166  TO MQCOPY-COD-AVISO1
+           END-IF.
+
+           MOVE CT-MP                      TO MP303-APLICAC
+      *+-------------------------------------------------------------+
+      *
+      * EN LOS CAMPOS:     MQCOPY-COD-AVISO1
+      *                    MQCOPY-COD-ERROR
+      *
+      * EL SIGNIFICADO DE SUS POSICIONES ES EL SIGUIENTE
+      *
+      * 1 A 2 = 'MP'          APLICACION
+      *  
+      * 3     = 'A' 'E' 'I'   TIPO DE ERROR/AVISO
+      *         'A'           MENSAJE DE AVISO ERROR
+      *         'E'           MENSAJE DE ERROR
+      *         'I'           MENSAJE AVISO INFORMATIVO
+      *
+      * 4 A 7 = 'XXXX'        NUMERO DE ERROR O AVISO
+      *
+      * PARA CADA CASO SE MOVERA EL VALOR CORRESPONDIENTE.
+      *
+      *+-------------------------------------------------------------+
+
+           EVALUATE TRUE
+             WHEN MQCOPY-INFOR
+                MOVE MQCOPY-COD-AVISO1(4:4) TO MP303-NUMSEQ
+                MOVE MQCOPY-COD-AVISO1(3:1) TO MP303-TIPO
+             WHEN MQCOPY-AVISO
+             WHEN MQCOPY-ERROR
+             WHEN MQCOPY-ERROR-DB2
+             WHEN MQCOPY-ROLLBACK
+             WHEN MQCOPY-CICS-IMS
+                MOVE MQCOPY-COD-ERROR(4:4)  TO MP303-NUMSEQ
+                MOVE MQCOPY-COD-ERROR(3:1)  TO MP303-TIPO
+           END-EVALUATE
+
+           IF MQCOPY-RETORNO NOT = '00'
+              CALL  CT-RUT-ERRORES USING  DFHCOMMAREA
+                                          MPM0303
+              MOVE MP303-MSG-ERROR       TO WS-MSG-ERROR
+              MOVE MP303-MSG-ADI1        TO WS-MSG-ADI1
+              MOVE MP303-MSG-ADI2        TO WS-MSG-ADI2
+              MOVE MP303-MSG-ADI3        TO WS-MSG-ADI3
+390SAT*
+390SAT        MOVE MP303-SQLCODE         TO ATSQLERR
+390SAT*
+              IF NOT REG-NO-EXISTENTE-BD                                       
+                 AND NOT ACCESO-CORRECTO-BD                                    
+                 MOVE WS-MSG-ERROR(1:10) TO MQCOPY-TEXT1-AVISO1(1:10)
+                 MOVE WS-MSG-ADI1(1:7)   TO MQCOPY-TEXT1-AVISO1(11:1)
+                 MOVE WS-MSG-ADI2(1:6)   TO MQCOPY-TEXT1-AVISO1(21:1)
+                 MOVE WS-MSG-ADI3(1:9)   TO MQCOPY-TEXT1-AVISO1(31:1)
+              ELSE
+                 IF REG-NO-EXISTENTE-BD
+                    MOVE WS-MSG-ERROR     TO MQCOPY-TEXT1-AVISO1
+                    MOVE WS-MSG-ADI1(1:7) TO MQCOPY-TEXT2-AVISO1
+                 ELSE
+                    MOVE WS-TXT1-ERROR    TO MQCOPY-TEXT1-AVISO1
+                    MOVE WS-TXT2-ERROR    TO MQCOPY-TEXT2-AVISO1
+                 END-IF
+              END-IF
+           END-IF
+           MOVE MPM0405               TO MQCOPY-MENSAJE
+           GOBACK.
+
+      *-------------------------------------------------------+
+      *                   99999-ERROR-PROGRAMA                *
+      *+------------------------------------------------------+
+       99999-ERROR-PROGRAMA.
+      *---------------------.
+
+           SET NO-CORRECTO  TO TRUE
+           PERFORM 30000-FINAL.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

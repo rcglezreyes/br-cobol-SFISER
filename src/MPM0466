@@ -1,0 +1,66 @@
+      ******************************************************************
+      *  ESTA COPY CORRESPONDE AL SERVICIO DE                          *
+      *  CONSULTA DE TARJETAS DE UNA CUENTA                            *
+      ******************************************************************
+      *  MP466-CODENT
+      *  MP466-CENTALTA
+      *  MP466-CUENTA
+      *  MP466-CODMAR
+      *  MP466-DESMARRED
+      *  MP466-INDTIPT
+      *  MP466-DESTIPTRED
+      *  MP466-PAN
+      *  MP466-FECALTA
+      *  MP466-INDSITTAR
+      *  MP466-DESSITTAR
+      *  MP466-NOMBENRED
+      *  MP466-CODBLQ
+      *  MP466-FECBAJA
+      *  MP466-DESBLQRED
+      ******************************************************************
+      *  COPY TJCM466N                                                  *
+      *  LONG = 213                                                    *
+      *----------------------------------------------------------------*
+           05  MPM0466.
+               10  FILLER                  PIC X(12).
+               10 MP466-CODENT-ATR         PIC X(01).
+               10 MP466-CODENT             PIC X(04).
+               10 MP466-CENTALTA-ATR       PIC X(01).
+               10 MP466-CENTALTA           PIC X(04).
+               10 MP466-CUENTA-ATR         PIC X(01).
+               10 MP466-CUENTA             PIC X(12).
+               10 MP466-DETALLE OCCURS 40.
+                  15 MP466-CODMAR-ATR         PIC X(01).
+                  15 MP466-CODMAR             PIC 9(02).
+                  15 MP466-CODMAR-ALF REDEFINES MP466-CODMAR
+                                              PIC X(2).
+                  15 MP466-DESMARRED-ATR      PIC X(01).
+                  15 MP466-DESMARRED          PIC X(10).
+                  15 MP466-INDTIPT-ATR        PIC X(01).
+                  15 MP466-INDTIPT            PIC 9(02).
+                  15 MP466-INDTIPT-ALF REDEFINES MP466-INDTIPT
+                                              PIC X(2).
+                  15 MP466-DESTIPRED-ATR      PIC X(01).
+                  15 MP466-DESTIPRED          PIC X(10).
+                  15 MP466-PAN-ATR            PIC X(01).
+                  15 MP466-PAN                PIC X(22).
+                  15 MP466-FECALTA-ATR        PIC X(01).
+                  15 MP466-FECALTA            PIC X(10).
+                  15 MP466-INDSITTAR-ATR      PIC X(01).
+                  15 MP466-INDSITTAR          PIC 9(02).
+                  15 MP466-INDSITTAR-ALF REDEFINES MP466-INDSITTAR
+                                              PIC X(2).
+                  15 MP466-DESSITTAR-ATR      PIC X(01).
+                  15 MP466-DESSITTAR          PIC X(30).
+                  15 MP466-NOMBENRED-ATR      PIC X(01).
+                  15 MP466-NOMBENRED          PIC X(26).
+                  15 MP466-CODBLQ-ATR         PIC X(01).
+                  15 MP466-CODBLQ             PIC 9(02).
+                  15 MP466-CODBLQ-ALF REDEFINES MP466-CODBLQ
+                                              PIC X(2).
+                  15 MP466-FECBAJA-ATR        PIC X(01).
+                  15 MP466-FECBAJA            PIC X(10).
+                  15 MP466-DESBLQRED-ATR      PIC X(01).
+                  15 MP466-DESBLQRED          PIC X(10).
+                  15 MP466-INDCONTINUAR       PIC X(01).
+               10 FILLER             PIC X(30).

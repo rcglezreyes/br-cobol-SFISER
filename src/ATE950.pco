@@ -1,0 +1,756 @@
+      *-------------------------------------------------------------*  
+      *                   CP SISTEMAS DE PAGO                       *  
+      *                           ATE950                            *  
+      *                       PROCESO CICS                          *  
+      *                                                             *  
+      *  DESCRIPCION:  ESTE PROGRAMA CONSULTA DATOS DE ASOCIADOS A  *
+      *                UNA TARJETA ACCESANDO POR PAN O CUENTA.      *
+      *                                                             *  
+      *-------------------------------------------------------------*  
+      * MOTIVO     : NM3062                                         *
+      * AUTOR      : TECNOCOM (CGR)                                 *
+      * FECHA      : 03-06-2010                                     *
+      * DESCRIPCION: SE AÑADEN NUEVOS CAMPOS DE RETORNO             *
+      *              SE AÑADE INDULTTAR A WHERE DE MPDT009          *
+      *              SE AÑADE NOMBENRED A SALIDA                    *
+      *+------------------------------------------------------------+
+      * MOTIVO     : INC-6495                                       *
+      * AUTOR      : TECNOCOM (JMV)                                 *
+      * FECHA      : 10-08-2010                                     *
+      * DESCRIPCION: SE MODIFICA EL CONTROL DE RETORNO EN EL ACCESO *
+      *              A LA TABLA DE TARJETAS PARA QUE SOLO RECUPERE  *
+      *              UN REGISTRO.                                   *
+      *+------------------------------------------------------------+
+      * MOTIVO     : SATI-314232                                     *
+      * AUTOR      : TECNOCOM CHILE (MAPC)                           *
+      * FECHA      : 05-04-2011                                      *
+      * DESCRIPCION: SE RESCATA ULTIMO PAN ACTIVO DEL CLIENTE        *
+      *--------------------------------------------------------------*
+
+
+      *------------------------*                                       
+       IDENTIFICATION DIVISION.                                        
+      *------------------------*                                       
+                                                                       
+       PROGRAM-ID.      ATE950.                                        
+       AUTHOR.          TECNOCOM (JVS).                                
+       DATE-WRITTEN.    01 DE JUNIO DE 2010.                             
+                                                                       
+      *-------------------------------------------------------------*  
+      *                    ENVIRONMENT DIVISION                     *  
+      *                   =====================                     *  
+      *-------------------------------------------------------------*  
+      *---------------------*                                          
+       ENVIRONMENT DIVISION.                                           
+      *---------------------*                                          
+                                                                       
+       CONFIGURATION SECTION.                                          
+                                                                       
+       SPECIAL-NAMES.                                                  
+           DECIMAL-POINT IS COMMA.                                     
+                                                                       
+      *------------------------------------------------------------*   
+      *                     DATA DIVISION                          *   
+      *                    ===============                         *   
+      *------------------------------------------------------------*   
+                                                                       
+       DATA DIVISION.                                                  
+                                                                       
+       WORKING-STORAGE SECTION.                                        
+                                                                       
+      *------------------------------------------------------------*   
+      *           CONSTANTES DEL PROGRAMA                          *   
+      *------------------------------------------------------------*   
+  
+       01  CT-CONSTANTES.        
+                                                           
+           05  CT-PROGRAMA                 PIC X(6) VALUE 'ATE950'.
+           05  CT-VALOR-1                  PIC 9(1) VALUE 1. 
+
+
+           05 CT-ERRORES.                                              
+                                                                       
+              10  CT-ERROR-4                PIC X(7)  VALUE 'MPE0004'. 
+              10  CT-ERROR-5                PIC X(7)  VALUE 'MPE0005'. 
+              10  CT-MPA0705                PIC X(7)  VALUE 'MPA0705'.
+              10  CT-MPA0170                PIC X(7)  VALUE 'MPA0170'.
+              10  CT-MPE0199                PIC X(7)  VALUE 'MPE0199'.
+              10  CT-MPE0037                PIC X(7)  VALUE 'MPE0037'.
+      * ERROR DB2             
+              10  CT-AVISO                  PIC X(02) VALUE '20'.
+              10  CT-MP                     PIC X(2) VALUE 'MP'.
+              10  CT-ERROR-DB2              PIC X(02) VALUE '30'.
+                                                   
+           05  CT-TABLAS.                                              
+                                                                         
+              10  CT-TBCTATAR                PIC X(7)  VALUE 'MPDT007'. 
+              10  CT-TBBENEFI                PIC X(7)  VALUE 'MPDT013'. 
+              10  CT-TBTARJET                PIC X(7)  VALUE 'MPDT009'. 
+              10  CT-SELECT                  PIC X(7)  VALUE 'SELECT'.
+              10  CT-ABRIR-CURSOR             PIC X(04)  VALUE 'OPEN'.
+              10  CT-LEER-CURSOR              PIC X(05)  VALUE 'FETCH'.
+              10  CT-CERRAR-CURSOR            PIC X(05)  VALUE 'CLOSE'.
+
+
+
+      *------------------------------------------------------------*   
+      *                        VARIABLES                           *   
+      *------------------------------------------------------------*   
+       
+      *+-------------------------------------------------------------+
+      *           FLAGS DEL PROGRAMA
+      *+-------------------------------------------------------------+
+      
+       01  SW-ACCESO                      PIC 9(1) VALUE 1.                               
+            88 ACCESO-TARJETA                      VALUE 1.                     
+            88 ACCESO-CUENTA                       VALUE 2.                                                                   
+      *------------------------------------------------------------*   
+      *                           COPYS                            *   
+      *                       ===============                      *   
+      *------------------------------------------------------------*   
+      * COPY PARA LA RUTINA DE ERRORES DB2                             
+       01  WS-ATSQLERR.                                                
+           COPY ATSQLERR.                                              
+
+      *----------------------------------------------------------------
+      *          DECLARACION DEL AREA DE COMUNICACION DE DB2           
+      *----------------------------------------------------------------
+      *
+           EXEC SQL BEGIN DECLARE SECTION END-EXEC.
+      *
+           EXEC SQL                                                             
+               INCLUDE SQLCA                                                    
+           END-EXEC.                                                            
+                                                                                
+      *----------------------------------------------------------------
+      *          DECLARACION DE VARIABLES SQL
+      *----------------------------------------------------------------
+
+       01 CT-CONSTANTES-SQL.
+NM3062     05  CT-SI                       PIC X(2) VALUE 'S '.
+NM3062     05  CT-05                       PIC 9(2) VALUE 05.
+      *SATI-314232-I
+           05  CT-INDSITTAR                PIC 9(02) VALUE 05.
+      *SATI-314232-F
+
+
+      *SATI-314232-I
+      *cOPY DE LA TABLA DE CONTRATOS DE TARJETA
+
+       01  WS-CTATAR.
+           EXEC  SQL
+               INCLUDE ATCTATAR
+           END-EXEC.
+      *SATI-314232-F
+
+      *------------------------------------------------------------*            
+      *                        TABLAS-SQL                          *            
+      *------------------------------------------------------------*            
+                                                                                
+      *  TABLA DE CONTRATOS                                  
+                                                                                
+           EXEC SQL                                                             
+              INCLUDE MPDT007                                                  
+           END-EXEC.       
+
+      *  TABLA DE TARJETAS
+                                                                                
+           EXEC SQL                                                             
+              INCLUDE MPDT009                                                
+           END-EXEC.                 
+
+           EXEC SQL
+              INCLUDE ATTARJET
+           END-EXEC.
+
+      *  TABLA DE BENEFICIARIOS
+
+           EXEC SQL
+              INCLUDE MPDT013
+           END-EXEC.
+
+           EXEC SQL
+              INCLUDE ATBENEFI
+           END-EXEC.
+
+      *SATI-314232-I 
+  
+      *+-----------------------------------------------------------+
+      *            DECLARACION DEL CURSOR DE TABLA MPDT009         *
+      *+-----------------------------------------------------------+
+           EXEC SQL
+              DECLARE ATE950_1 CURSOR
+                 FOR SELECT PAN,
+                            INDTIPT,
+                            CODMAR,
+                            NOMBENRED
+                       FROM MPDT009
+                      WHERE CODENT    = :W09CODENT
+                        AND CENTALTA  = :W09CENTALTA
+                        AND CUENTA    = :W09CUENTA
+                        AND NUMBENCTA = :W09NUMBENCTA
+                        AND INDSITTAR = :CT-INDSITTAR
+                        ORDER BY NUMPLASTICO DESC
+           END-EXEC.
+      *SATI-314232-F
+
+           EXEC SQL END DECLARE SECTION END-EXEC.
+           
+       01  FILLER                          PIC X(25)
+               VALUE 'FINAL WORKING ATE950'.
+    
+     
+      *------------------------------------------------------------*            
+      *                       LINKAGE SECTION                      *            
+      *                       ===============                      *            
+      *------------------------------------------------------------*            
+                                                                                
+      *----------------*                                                        
+       LINKAGE SECTION.                                                           
+      *----------------*                                                        
+                   
+       01 LI-DATOS.
+
+          COPY ATDATTAS.
+
+
+                                                                                
+      *------------------------------------------------------------*            
+      *               PROCEDURE DIVISION                           *            
+      *               ==================                           *            
+      *------------------------------------------------------------*            
+       PROCEDURE DIVISION USING LI-DATOS.                                                                                
+       
+      *-------------------------------------------------------------*
+      *                                                             *
+      *                   COMIENZO ATE950                            *
+      *                                                             *
+      * ESTE PROCESO PERMITE CONSULTAR EN TIEMPO REAL LA INFORMACION*
+      *        RELATIVA A LOS DATOS DE UNA TARJETA.                 *
+      *-------------------------------------------------------------*
+       COMIENZO-ATE950.
+      *---------------.
+            DISPLAY 'INICIO'
+
+           PERFORM 10000-INICIO
+
+           PERFORM 20000-PROCESO
+
+           PERFORM 30000-FINAL.
+
+      *--------------------------------------------------------------*
+      *                                                              *
+      *                   10000-INICIO.                              *
+      *                                                              *
+      * - INICIALIZACION DE LAS VARIABLES DEL PROGRAMA               *
+      * - INICIALIZACION DE LOS FLAG DEL PROGRAMA                    *
+      *                                                              *
+      *--------------------------------------------------------------+     
+       10000-INICIO.
+      *----------------*         
+        
+           INITIALIZE ATDATTAS-DATOS-SALIDA
+           SET  ATDATTAS-CODRET-OK   TO   TRUE.
+
+
+      *--------------------------------------------------------------*
+      *                                                              *
+      *                   20000-PROCESO                              *
+      *--------------------------------------------------------------+          
+       20000-PROCESO.
+      *----------------* 
+ 
+           PERFORM 21000-VALIDAR-CAMPOS-ENTRADA
+           IF ACCESO-CUENTA
+              PERFORM 22000-ACCESAR-CUENTA
+           ELSE
+              PERFORM 23000-ACCESAR-PAN
+           END-IF
+ 
+NM3062     PERFORM 24000-ACCESO-TBBENEFI
+
+           PERFORM 25000-INFORMAR-SALIDA.
+
+      *--------------------------------------------------------------*
+      *                                                              *
+      *                   20100-VALIDAR-CAMPOS-ENTRADA               *         
+      *--------------------------------------------------------------+ 
+       21000-VALIDAR-CAMPOS-ENTRADA.
+      *----------------*        
+
+           IF ATDATTAS-PAN  EQUAL SPACES OR LOW-VALUES 
+              IF ATDATTAS-CUENTA EQUAL SPACES OR LOW-VALUES
+                 MOVE CT-MPE0199           TO ATDATTAS-COD-ERROR1 
+                 SET ATDATTAS-CODRET-ERROR TO TRUE 
+                 PERFORM  30000-FINAL
+              ELSE 
+      * INC-NM001-I
+                 IF ATDATTAS-CODENT EQUAL SPACES OR LOW-VALUES
+                    MOVE CT-MPE0199        TO ATDATTAS-COD-ERROR1
+                    SET ATDATTAS-CODRET-ERROR TO TRUE
+                    PERFORM  30000-FINAL
+                 ELSE
+                    IF ATDATTAS-CENTALTA EQUAL SPACES OR LOW-VALUES
+                       MOVE CT-MPE0199        TO ATDATTAS-COD-ERROR1
+                       SET ATDATTAS-CODRET-ERROR TO TRUE
+                       PERFORM  30000-FINAL
+                    ELSE
+                       SET  ACCESO-CUENTA        TO TRUE
+                    END-IF
+                 END-IF
+      * INC-NM001-F
+              END-IF
+           ELSE
+              SET     ACCESO-TARJETA       TO TRUE
+           END-IF.
+
+      *---------------------------------------------------------------*
+      *                                                               *
+      *                   22000-ACCESAR-CUENTA                        *
+      *                                                               *
+      * SE ACCEDE A TBCTATAR CON CUENTA PARA RECUPERAR DATOS.         *
+      *                                                               *
+      *---------------------------------------------------------------*         
+       22000-ACCESAR-CUENTA.   
+      *--------------------*
+           
+           MOVE ATDATTAS-CENTALTA      TO W07CENTALTA
+           MOVE ATDATTAS-CODENT        TO W07CODENT
+           MOVE ATDATTAS-CUENTA        TO W07CUENTA
+
+           EXEC SQL
+                SELECT CODENT,
+                       CENTALTA,
+                       PRODUCTO,
+                       SUBPRODU
+NM3062                ,CODPROLIQ
+NM3062                ,GRUPOLIQ
+NM3062                ,IDENTCLI
+                  INTO :W07CODENT,
+                       :W07CENTALTA,
+                       :W07PRODUCTO,
+                       :W07SUBPRODU
+NM3062                ,:W07CODPROLIQ
+NM3062                ,:W07GRUPOLIQ
+NM3062                ,:W07IDENTCLI
+                  FROM MPDT007
+                WHERE  CUENTA = :W07CUENTA
+                  AND  CODENT = :W07CODENT
+                  AND  CENTALTA = :W07CENTALTA
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+              IF REG-NO-EXISTENTE-BD
+                 MOVE CT-MPA0705            TO ATDATTAS-COD-ERROR1
+                 SET ATDATTAS-CODRET-ERROR  TO TRUE     
+                 PERFORM  30000-FINAL
+              ELSE
+                 MOVE CT-TBCTATAR       TO  ATDATTAS-NOMBRE-BD
+                 MOVE CT-PROGRAMA       TO  ATDATTAS-NOMBRE-RUTINA
+                 MOVE CT-TBCTATAR       TO  ATDATTAS-NOMBRE-TABLA
+                 MOVE CT-SELECT         TO  ATDATTAS-OPERACION
+                 MOVE CT-ERROR-4        TO  ATDATTAS-COD-ERROR1
+                 MOVE SQLCODE           TO  ATDATTAS-SQLCODE
+                 SET  ATDATTAS-CODRET-ERROR-DB2 TO TRUE
+                 PERFORM 30000-FINAL
+              END-IF
+           ELSE 
+NM0306*       PERFORM 24000-RECUPERAR-MARTIP   
+NM0306        PERFORM 24000-RECUPERAR-MARTIP-EN-CLI
+           END-IF.
+
+      *---------------------------------------------------------------*
+      *                                                               *
+      *                   24000-RECUP-MARTIP-EN-CLI                   *
+      *                                                               *
+      * SE RECUPERA LA MARCA, TIPO Y PAN DE LA TARJETA TITULAR CON LOS*
+      * DATOS DE CONTRATO CUANDO LA TARJETA ESTA EN PODER DE CL       *
+      *                                                               *
+      *---------------------------------------------------------------*
+       24000-RECUPERAR-MARTIP-EN-CLI.
+      *-----------------------------.
+      
+      *SATI-314232-I
+      *    MOVE W07CUENTA                TO W09CUENTA
+      *    MOVE W07CODENT                TO W09CODENT
+      *    MOVE W07CENTALTA              TO W09CENTALTA
+      *    MOVE CT-VALOR-1               TO W09NUMBENCTA
+NM3062*    MOVE CT-05                    TO W09INDSITTAR
+
+      *    EXEC SQL
+      *         SELECT CODMAR,
+      *                INDTIPT,
+      *                PAN
+NM3062*               ,NOMBENRED
+      *           INTO :W09CODMAR,
+      *                :W09INDTIPT,
+      *                :W09PAN
+NM3062*               ,:W09NOMBENRED
+      *           FROM MPDT009
+      *         WHERE  CODENT    = :W09CODENT
+      *         AND    CENTALTA  = :W09CENTALTA
+      *         AND    CUENTA    = :W09CUENTA
+      *         AND    NUMBENCTA = :W09NUMBENCTA
+NM3062*         AND    INDSITTAR = :W09INDSITTAR
+      *    END-EXEC
+
+      *    MOVE SQLCODE                TO ATSQLERR
+
+      *    IF NOT ACCESO-CORRECTO-BD
+      * INC-6495-I
+      *       IF REG-NO-EXISTENTE-BD OR MAS-DE-UN-REG-SELE
+      * INC-6495-F
+      *          PERFORM  24000-RECUPERAR-MARTIP
+      *       ELSE
+      *          MOVE CT-TBTARJET       TO  ATDATTAS-NOMBRE-BD
+      *          MOVE CT-PROGRAMA       TO  ATDATTAS-NOMBRE-RUTINA
+      *          MOVE CT-TBTARJET       TO  ATDATTAS-NOMBRE-TABLA
+      *          MOVE CT-SELECT         TO  ATDATTAS-OPERACION
+      *          MOVE CT-ERROR-4        TO  ATDATTAS-COD-ERROR1
+      *          MOVE SQLCODE           TO  ATDATTAS-SQLCODE
+      *          SET  ATDATTAS-CODRET-ERROR-DB2 TO TRUE
+      *          PERFORM 30000-FINAL
+      *       END-IF
+      *    END-IF.
+
+           PERFORM 24000-OPEN-TBTARJET
+
+           PERFORM 24000-FETCH-CURSOR-TBTARJET
+      *      UNTIL  REG-NO-EXISTENTE-BD
+
+           IF REG-NO-EXISTENTE-BD
+              PERFORM 24000-RECUPERAR-MARTIP
+           END-IF
+
+           PERFORM 24000-CLOSE-CURSOR-TBTARJET.
+
+      *****************************************************************
+      *                                                               *
+      *                    21100-OPEN-TBTARJET                        *
+      *                                                               *
+      *                                                               *
+      *****************************************************************
+       24000-OPEN-TBTARJET.
+      *-------------------.
+
+           MOVE W07CODENT           TO W09CODENT
+           MOVE W07CENTALTA          TO W09CENTALTA
+           MOVE W07CUENTA            TO W09CUENTA
+           MOVE CT-VALOR-1           TO W09NUMBENCTA
+
+           EXEC SQL
+              OPEN ATE950_1
+           END-EXEC.
+      *
+           MOVE SQLCODE                TO ATSQLERR.
+      *
+           IF NOT ACCESO-CORRECTO-BD
+               MOVE CT-MP            To ATDATTAS-NOMBRE-BD
+               MOVE CT-TBTARJET      TO ATDATTAS-NOMBRE-TABLA
+               MOVE CT-ABRIR-CURSOR  TO ATDATTAS-OPERACION
+               MOVE CT-PROGRAMA      TO ATDATTAS-NOMBRE-RUTINA
+               MOVE SQLCODE          TO ATDATTAS-SQLCODE
+               SET ATDATTAS-CODRET-ERROR-DB2     TO TRUE
+               PERFORM 30000-FINAL
+           END-IF.
+
+
+      *****************************************************************
+      *                                                               *
+      *                    21100-FECH-CURSOR-TBTARJET                 *
+      *                                                               *
+      *                                                               *
+      *****************************************************************
+
+       24000-FETCH-CURSOR-TBTARJET.
+      *---------------------------
+           EXEC SQL
+                FETCH ATE950_1 INTO
+                            :W09PAN,
+                            :W09INDTIPT,
+                            :W09CODMAR,
+                            :W09NOMBENRED
+           END-EXEC.
+      *
+           MOVE SQLCODE                TO ATSQLERR.
+      *
+           IF  ACCESO-CORRECTO-BD OR
+               REG-NO-EXISTENTE-BD
+               CONTINUE
+           ELSE
+              IF NOT ACCESO-CORRECTO-BD
+                 MOVE CT-MP            TO ATDATTAS-NOMBRE-BD
+                 MOVE CT-TBTARJET      TO ATDATTAS-NOMBRE-TABLA
+                 MOVE CT-LEER-CURSOR   TO ATDATTAS-OPERACION
+                 MOVE CT-PROGRAMA      TO ATDATTAS-NOMBRE-RUTINA
+                 MOVE SQLCODE          TO ATDATTAS-SQLCODE
+                 SET ATDATTAS-CODRET-ERROR-DB2     TO TRUE
+                 PERFORM 30000-FINAL
+              END-IF
+           END-IF.
+
+      *****************************************************************
+      *                                                               *
+      *                    24000-CLOSE-CURSOR-TBTARJET                *
+      *                                                               *
+      *                                                               *
+      *****************************************************************
+
+       24000-CLOSE-CURSOR-TBTARJET.
+      *---------------------------
+           EXEC SQL
+                CLOSE ATE950_1
+           END-EXEC
+      *
+           MOVE SQLCODE                TO ATSQLERR.
+      *
+           IF NOT ACCESO-CORRECTO-BD
+              MOVE CT-MP            TO ATDATTAS-NOMBRE-BD
+              MOVE CT-TBTARJET       TO ATDATTAS-NOMBRE-TABLA
+              MOVE CT-CERRAR-CURSOR TO ATDATTAS-OPERACION
+              MOVE CT-PROGRAMA      TO ATDATTAS-NOMBRE-RUTINA
+              MOVE SQLCODE          TO ATDATTAS-SQLCODE 
+              SET ATDATTAS-CODRET-ERROR-DB2     TO TRUE           
+              PERFORM 30000-FINAL
+           END-IF.
+
+      *SATI-314232-F
+
+      *---------------------------------------------------------------*
+      *                                                               *
+      *                   24000-RECUPERAR-MARTIP                      *
+      *                                                               *
+      * SE RECUPERA LA MARCA, TIPO Y PAN DE LA TARJETA TITULAR CON LOS*
+      * DATOS DE CONTRATO.                                            *
+      *                                                               *
+      *---------------------------------------------------------------*
+       24000-RECUPERAR-MARTIP.
+      *----------------------.
+           
+           MOVE W07CUENTA                TO W09CUENTA          
+           MOVE W07CODENT                TO W09CODENT          
+           MOVE W07CENTALTA              TO W09CENTALTA        
+           MOVE CT-VALOR-1               TO W09NUMBENCTA       
+NM3062     MOVE CT-SI                    TO W09INDULTTAR
+
+           EXEC SQL
+                SELECT CODMAR,
+                       INDTIPT,
+                       PAN    
+NM3062                ,NOMBENRED
+                  INTO :W09CODMAR,         
+                       :W09INDTIPT,             
+                       :W09PAN
+NM3062                ,:W09NOMBENRED
+                  FROM MPDT009
+                WHERE  CODENT    = :W09CODENT
+                AND    CENTALTA  = :W09CENTALTA        
+                AND    CUENTA    = :W09CUENTA     
+                AND    NUMBENCTA = :W09NUMBENCTA  
+NM3062          AND    INDULTTAR = :W09INDULTTAR
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+              IF REG-NO-EXISTENTE-BD
+                 MOVE CT-MPA0170            TO ATDATTAS-COD-ERROR1
+                 SET ATDATTAS-CODRET-ERROR  TO TRUE     
+                 PERFORM  30000-FINAL
+              ELSE
+                 MOVE CT-TBTARJET       TO  ATDATTAS-NOMBRE-BD
+                 MOVE CT-PROGRAMA       TO  ATDATTAS-NOMBRE-RUTINA
+                 MOVE CT-TBTARJET       TO  ATDATTAS-NOMBRE-TABLA
+                 MOVE CT-SELECT         TO  ATDATTAS-OPERACION
+                 MOVE CT-ERROR-4        TO  ATDATTAS-COD-ERROR1
+                 MOVE SQLCODE           TO  ATDATTAS-SQLCODE
+                 SET  ATDATTAS-CODRET-ERROR-DB2 TO TRUE
+                 PERFORM 30000-FINAL
+              END-IF
+           END-IF.
+           
+      *---------------------------------------------------------------*
+      *                                                               *
+      *                   23000-ACCESAR-PAN                           *
+      *                                                               *
+      * SE RECUPERA LA MARCA, TIPO Y CUENTA DEL PAN INFORMADO COMO    *
+      * ENTRADA.                                                      *
+      *                                                               *
+      *---------------------------------------------------------------*
+       23000-ACCESAR-PAN.
+      *-----------------.
+
+           MOVE ATDATTAS-PAN             TO W09PAN
+
+           EXEC SQL
+                SELECT CODENT,
+                       CODMAR,
+                       INDTIPT,
+                       CENTALTA,
+                       CUENTA
+NM3062                ,NUMBENCTA
+NM3062                ,NOMBENRED
+                  INTO :W09CODENT,
+                       :W09CODMAR,
+                       :W09INDTIPT,
+                       :W09CENTALTA,
+                       :W09CUENTA
+NM3062                ,:W09NUMBENCTA
+NM3062                ,:W09NOMBENRED
+                  FROM MPDT009
+                WHERE  PAN       = :W09PAN
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+              IF REG-NO-EXISTENTE-BD
+                 MOVE CT-MPE0037            TO ATDATTAS-COD-ERROR1
+                 SET ATDATTAS-CODRET-ERROR  TO TRUE
+                 PERFORM  30000-FINAL
+              ELSE
+                 MOVE CT-TBTARJET       TO  ATDATTAS-NOMBRE-BD
+                 MOVE CT-PROGRAMA       TO  ATDATTAS-NOMBRE-RUTINA
+                 MOVE CT-TBTARJET       TO  ATDATTAS-NOMBRE-TABLA
+                 MOVE CT-SELECT         TO  ATDATTAS-OPERACION
+                 MOVE CT-ERROR-4        TO  ATDATTAS-COD-ERROR1
+                 MOVE SQLCODE           TO  ATDATTAS-SQLCODE
+                 SET  ATDATTAS-CODRET-ERROR-DB2 TO TRUE
+                 PERFORM 30000-FINAL
+              END-IF
+           ELSE
+              PERFORM 24000-RECUPERA-PROD-SUBPRO
+           END-IF.
+
+      *---------------------------------------------------------------*
+      *                                                               *
+      *                   24000-RECUPERA-PROD-SUBPRO                  *
+      *                                                               *
+      * SE ACCEDE A TBCTATAR PARA RECUPERAR PRODUCTO/SUBPRODUCTO      *
+      *                                                               *
+      *---------------------------------------------------------------*
+       24000-RECUPERA-PROD-SUBPRO.
+      *--------------------------*
+
+           MOVE W09CODENT        TO W07CODENT
+           MOVE W09CENTALTA      TO W07CENTALTA
+           MOVE W09CUENTA        TO W07CUENTA
+
+           EXEC SQL
+                SELECT CODENT,
+                       CENTALTA,
+                       PRODUCTO,
+                       SUBPRODU
+NM3062                ,CODPROLIQ
+NM3062                ,GRUPOLIQ
+NM3062                ,IDENTCLI
+                  INTO :W07CODENT,
+                       :W07CENTALTA,
+                       :W07PRODUCTO,
+                       :W07SUBPRODU
+NM3062                ,:W07CODPROLIQ
+NM3062                ,:W07GRUPOLIQ
+NM3062                ,:W07IDENTCLI
+                  FROM MPDT007
+                WHERE  CUENTA   = :W07CUENTA
+                  AND  CODENT   = :W07CODENT
+                  AND  CENTALTA = :W07CENTALTA
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+              IF REG-NO-EXISTENTE-BD
+                 MOVE CT-MPA0705            TO ATDATTAS-COD-ERROR1
+                 SET ATDATTAS-CODRET-ERROR  TO TRUE
+                 PERFORM  30000-FINAL
+              ELSE
+                 MOVE CT-TBCTATAR       TO  ATDATTAS-NOMBRE-BD
+                 MOVE CT-PROGRAMA       TO  ATDATTAS-NOMBRE-RUTINA
+                 MOVE CT-TBCTATAR       TO  ATDATTAS-NOMBRE-TABLA
+                 MOVE CT-SELECT         TO  ATDATTAS-OPERACION
+                 MOVE CT-ERROR-4        TO  ATDATTAS-COD-ERROR1
+                 MOVE SQLCODE           TO  ATDATTAS-SQLCODE
+                 SET  ATDATTAS-CODRET-ERROR-DB2 TO TRUE
+                 PERFORM 30000-FINAL
+              END-IF
+           END-IF.
+
+      * INC-NM3062-INI
+       24000-ACCESO-TBBENEFI.
+      *---------------------.
+
+           MOVE W07CODENT             TO W13CODENT
+           MOVE W07CENTALTA           TO W13CENTALTA
+           MOVE W07CUENTA             TO W13CUENTA
+           MOVE W09NUMBENCTA          TO W13NUMBENCTA
+
+           EXEC SQL
+                SELECT
+                       CALPART,
+                       IDENTCLI
+                INTO
+                      :W13CALPART,
+                      :W13IDENTCLI
+                FROM   MPDT013
+               WHERE   CODENT        = :W13CODENT
+                AND    CENTALTA      = :W13CENTALTA
+                AND    CUENTA        = :W13CUENTA
+                AND    NUMBENCTA     = :W13NUMBENCTA
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+              IF REG-NO-EXISTENTE-BD
+                 MOVE CT-TBBENEFI       TO  ATDATTAS-NOMBRE-BD
+                 MOVE CT-PROGRAMA       TO  ATDATTAS-NOMBRE-RUTINA
+                 MOVE CT-TBBENEFI       TO  ATDATTAS-NOMBRE-TABLA
+                 MOVE CT-SELECT         TO  ATDATTAS-OPERACION
+                 MOVE CT-ERROR-5        TO ATDATTAS-COD-ERROR1
+                 SET ATDATTAS-CODRET-ERROR  TO TRUE
+                 PERFORM  30000-FINAL
+              ELSE
+                 MOVE CT-TBBENEFI       TO  ATDATTAS-NOMBRE-BD
+                 MOVE CT-PROGRAMA       TO  ATDATTAS-NOMBRE-RUTINA
+                 MOVE CT-TBBENEFI       TO  ATDATTAS-NOMBRE-TABLA
+                 MOVE CT-SELECT         TO  ATDATTAS-OPERACION
+                 MOVE CT-ERROR-4        TO  ATDATTAS-COD-ERROR1
+                 MOVE SQLCODE           TO  ATDATTAS-SQLCODE
+                 SET  ATDATTAS-CODRET-ERROR-DB2 TO TRUE
+                 PERFORM 30000-FINAL
+              END-IF
+           END-IF.
+
+      * INC-NM3062-FIN
+
+      *--------------------------------------------------------------*
+      *                                                              *
+      *                  25000-INFORMAR-SALIDA                       *
+      *--------------------------------------------------------------+
+       25000-INFORMAR-SALIDA.
+      *---------------------*
+
+           MOVE W07CUENTA              TO ATDATTAS-CUENTA-SAL
+                                          ATDATTAS-CUENTA
+           MOVE W07PRODUCTO            TO ATDATTAS-PRODUCTO-SAL
+           MOVE W07SUBPRODU            TO ATDATTAS-SUBPRODU-SAL
+           MOVE W09CODMAR              TO ATDATTAS-MARCA-SAL
+           MOVE W09INDTIPT             TO ATDATTAS-TIPO-SAL
+NM3062     MOVE W07CODPROLIQ           TO ATDATTAS-CODPROLIQ-SAL
+NM3062     MOVE W07GRUPOLIQ            TO ATDATTAS-GRUPOLIQ-SAL
+NM3062     MOVE W07IDENTCLI            TO ATDATTAS-IDENTCLI-SAL
+NM3062     MOVE W13CALPART             TO ATDATTAS-CALPART-SAL
+NM3062     MOVE W13IDENTCLI            TO ATDATTAS-NUMPER-SAL
+NM3062     MOVE W07CODENT              TO ATDATTAS-CODENT-SAL
+NM3062     MOVE W07CENTALTA            TO ATDATTAS-CENTALTA-SAL
+NM3062     MOVE W09NOMBENRED           TO ATDATTAS-NOMBENRED-SAL
+           MOVE W09PAN                 TO ATDATTAS-PAN    .
+
+      *-----------*
+       30000-FINAL.
+      *-----------*
+
+           GOBACK.           

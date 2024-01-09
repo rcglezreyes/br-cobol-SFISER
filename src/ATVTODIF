@@ -1,0 +1,34 @@
+      *****************************************************************
+      *    COPY  ATVTODIF.
+      *****************************************************************
+
+           05 ATVTODIF.
+               10 ATVTODIF-ENTRADA.
+                  15 ATVTODIF-CODENT           PIC X(04).
+                  15 ATVTODIF-CENTALTA         PIC X(04).
+                  15 ATVTODIF-CUENTA           PIC X(12).
+                  15 ATVTODIF-PAN              PIC X(22).
+                  15 ATVTODIF-LINEA            PIC X(04).
+                  15 ATVTODIF-FECHCOM          PIC X(10).
+                  15 ATVTODIF-FECHVTO          PIC X(10).
+                  15 ATVTODIF-INDLIQCAR        PIC X(01).
+                  15 ATVTODIF-MES-CAREN        PIC 9(02).
+                  
+               10 ATVTODIF-SALIDA.
+                  15 ATVTODIF-DATOS-TAB       OCCURS 100.
+                     20 ATVTODIF-CARENCIA      PIC 9(02).
+                     20 ATVTODIF-LIQ-CUOTA     PIC X(10).
+                  15 ATVTODIF-CODRET           PIC 9(02).
+                     88 ATVTODIF-CODRET-OK     VALUE 00.
+                     88 ATVTODIF-CODRET-NOOK   VALUE 01.
+                     88 ATVTODIF-CODRET-BD     VALUE 02.
+                     88 ATVTODIF-CODRET-PAR    VALUE 03.
+                     
+                  15 ATVTODIF-MSJERROR.
+                     20 ATVTODIF-NOM-RUTINA    PIC X(08).
+                     20 ATVTODIF-NOMBRE-TABLA  PIC X(11).
+                     20 ATVTODIF-OPERACION     PIC X(20).
+                     20 ATVTODIF-CODERROR.
+                        25 FILLER              PIC X(10) VALUE
+                           'SQLCODE : '.
+                        25 ATVTODIF-SQLCODE    PIC S9(10).

@@ -1,0 +1,49 @@
+#! /bin/ksh
+
+echo ""
+echo "   **********************************************************************"
+echo `date +"%Y-%m-%d %H:%M:%S"`
+echo ""
+echo "   .sh1 - whoami: `whoami`"
+echo "   .sh1 - groups: `groups`"
+echo ""
+echo "   ----------------------------------------------------------------------"
+echo "   .sh1 - V A R I A B L E S"
+echo "   ----------------------------------------------------------------------"
+echo "   HOME_SERVICIOS[$HOME_SERVICIOS]"
+echo "   HOME_SERVICIOS2[$HOME_SERVICIOS2]"
+echo "   NLSPATH[$NLSPATH]"
+echo "   LIBPATH[$LIBPATH]"
+echo "   LD_LIBRARY_PATH[$LD_LIBRARY_PATH]"
+echo "   PATH[$PATH]"
+echo "   ORACLE_HOME[$ORACLE_HOME]"
+echo "   COBDIR[$COBDIR]"
+echo "   COBPATH[$COBPATH]"
+
+export PATH=$PATH:$HOME_SERVICIOS
+
+echo ""
+echo ""
+
+umask 000
+
+cd $HOME_SERVICIOS
+
+echo "   ----------------------------------------------------------------------"
+echo "    .sh1 - Ejecucion servicio SFISERS515C - Inicio - `date +'%Y-%m-%d %H:%M:%S'`"
+echo "   ----------------------------------------------------------------------"
+echo "               |||||||||||||||||||||||||||||||||||||||||||               "
+echo ""
+
+./SFISERS515C ./SFISERS515C.ini
+
+retorno=$?
+
+echo ""
+echo "               |||||||||||||||||||||||||||||||||||||||||||               "
+echo "   ----------------------------------------------------------------------"
+echo "    .sh1 - Resultado Salida: $retorno"
+echo "    .sh1 - Ejecucion servicio SFISERS515C -   Fin  - `date +'%Y-%m-%d %H:%M:%S'`"
+echo "   ----------------------------------------------------------------------"
+echo ""
+echo ""

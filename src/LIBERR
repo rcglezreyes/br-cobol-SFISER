@@ -1,0 +1,13 @@
+      *-----------------------------------------------------------------*
+      *  ESTA COPY CORRESPONDE AL FORMATO QUE USA LA RUTINA DE ERRORES
+      *              DE SERVICIOS (SFISERSERR)                          *
+      *                                                                 *
+      *-----------------------------------------------------------------*
+      * COPY LIBERR                                                    *
+      *-----------------------------------------------------------------*
+
+           05  LIBERR. 
+               10  LERR-COD-ERROR                  PIC 9(003).
+               10  LERR-COD-PAIS                   PIC 9(003).
+               10  LERR-NOM-SERVICIO               PIC X(010).
+               10  LERR-MENSAJE-ERROR              PIC X(100).           

@@ -1,0 +1,118 @@
+      *----------------------------------------------------------------*
+      *  ESTA COPY CORRESPONDE A LA CONSULTA DE CONTRATOS 
+      *----------------------------------------------------------------*
+      * LIB070R-CODENT               CODIGO DE ENTIDAD
+      * LIB070R-CENTALTA             CENTRO DE ALTA
+      * LIB070R-CUENTA               CUENTA
+      * LIB070R-FECALTA              FECHA DE ALTA
+      * LIB070R-PRODUCTO             CODIGO DE PRODUCTO
+      * LIB070R-SUBPRODU             CODIGO DE SUBPRODUCTO
+      * LIB070R-CONPROD              CODIGO CONDICION ECONOMICA
+      * LIB070R-CODCAM               INDICADOR DE CAMPANAS
+      * LIB070R-CODCONVEN            CODIGO DE CONVENIO
+      * LIB070R-FORPAGO              FORMA DE PAGO DEL EXTRACTO
+      * LIB070R-FECULTCAR            FECHA ULTIMO CARGO
+      * LIB070R-FECBAJA              FECHA DE BAJA
+      * LIB070R-MOTBAJA              MOTIVO DE BAJA
+      * LIB070R-FORPAGOTEM           FORMA DE PAGO TEMPORAL
+      * LIB070R-FIFORPAGT            FECHA INICIO FORMA PAGO TEMPORAL
+      * LIB070R-FFFORPAGT            FECHA FIN FORMA PAGO TEMPORAL
+      * LIB070R-CODESTCTA            INDICADOR DE ESTADO DEL CONTRATO
+      * LIB070R-FECULTESTCTA         FECHA ULTIMO CAMBIO DE ESTADO
+      * LIB070R-CODESTRPT            INDICADOR DE ESTADO DE REPACTACION
+      * LIB070R-FECULTESTRPT         FECHA ULTIMO CAMBIO DE ESTADO REPAC.
+      * LIB070R-INDBLQOPE            INDICADOR BLOQUEO OPERATIVIDAD
+      * LIB070R-INDBLQCON            INDICADOR BLOQUEO CONSULTA
+      * LIB070R-INDCTAEMP            INDICADOR CUENTA EMPRESA
+      * LIB070R-INDNOMEMP            INDICACION DE ESTAMP.NOMBRE EMP.
+      * LIB070R-NOMBREEMP            NOMBRE EMP. PARA ESTAMPACION
+      * LIB070R-INDSITCTA            INDICADOR SITUACION DEL CONTRATO
+      * LIB070R-FECRESOL             FECHA DE RESOLUCION DEL CONTRATO
+      * LIB070R-INDCTATRAS           INDICADOR CUENTA TRASPASADA
+      * LIB070R-CODPROLIQ            CODIGO PROCESO DE LIQUIDACION
+      * LIB070R-GRUPOLIQ             GRUPO DE LIQUIDACION
+      * LIB070R-CODPROCUO            CODIGO DE PROCESO DE CUOTA
+      * LIB070R-GRUPOCUO             GRUPO DE PROCESO DE CUOTA
+      * LIB070R-RESEMIEXT            RESTRICCION DE MESES DE EMISION
+      * LIB070R-TIPBON               TIPO DE BONIFICACION
+      * LIB070R-CALPART              CALIDAD DE PARTICIPACION
+      * LIB070R-NUMULTPLAS           ULTIMO NUMERO DE PLASTICO
+      * LIB070R-CODPROMO             CODIGO DE PROMOCION
+      * LIB070R-INDPERCUO            IND. DE PERIODIFICACION DE CUOTA
+      * LIB070R-NUMMESTOT            NUMERO TOTAL DE MESES     
+      * LIB070R-CODREGIMEN           CODIGO DE REGIMEN FISCAL
+      * LIB070R-NUMFACSC             CONTADOR DE FACTURACIONES
+      * LIB070R-NUMULTMOVD           NUMERO ULTIMO MOV. DE DEBITO
+      * LIB070R-IDENTCLI             IDENTIFICACION DEL CLIENTE
+      * LIB070R-NUMBEN               NUMERO DE BENEFICIARIOS  DE LA CTA
+      * LIB070R-OFIGESTORA           OFICINA GESTORA DEL CONTRATO
+      * LIB070R-CODFORMATO           CODIGO FORMATO DE IMPRESION
+      * LIB070R-INDDOMCARCRE         IND. DE DOMICILIACION DEL CARGO
+      * LIB070R-FECULTCGLIQ          FECHA ULTIMO CAMBIO DE GRUPO LIQ.
+      * LIB070R-DESCPLANILLA         IND. DESCUENTO POR PLANILLA
+      * LIB070R-FACTCLI              FACTOR DE COMPORTAMIENTO
+      * LIB070R-CODENTUMO            ENTIDAD ULTIMA MODIFICACION
+      * LIB070R-CODOFIUMO            OFICINA UILTIMA MODIFICACION
+      * LIB070R-USUARIOUMO           USUARIO ULTIMA MODIFICACION
+      * LIB070R-CODTERMUMO           TERMINAL ULTIMA MODIFICACION
+      * LIB070R-CONTCUR              CONTROL DE CONCURRENCIA
+      *----------------------------------------------------------------*
+      *  COPY LIB070R                                                  *
+      *  LONG = 322                                                    *
+      *----------------------------------------------------------------*
+           05 LIB070R.
+              10 LIB070R-CODENT               PIC  X(04).
+              10 LIB070R-CENTALTA             PIC  X(04).     
+              10 LIB070R-CUENTA               PIC  X(12).       
+              10 LIB070R-FECALTA              PIC  X(10).      
+              10 LIB070R-PRODUCTO             PIC  X(02).     
+              10 LIB070R-SUBPRODU             PIC  X(04).     
+              10 LIB070R-CONPROD              PIC  X(03).      
+              10 LIB070R-CODCAM               PIC  X(06).       
+              10 LIB070R-CODCONVEN            PIC  X(04).    
+              10 LIB070R-FORPAGO              PIC  9(02).      
+              10 LIB070R-FECULTCAR            PIC  X(10).    
+              10 LIB070R-FECBAJA              PIC  X(10).      
+              10 LIB070R-MOTBAJA              PIC  X(02).      
+              10 LIB070R-FORPAGOTEM           PIC  9(02).   
+              10 LIB070R-FIFORPAGT            PIC  X(10).    
+              10 LIB070R-FFFORPAGT            PIC  X(10).    
+              10 LIB070R-CODESTCTA            PIC  9(02).    
+              10 LIB070R-FECULTESTCTA         PIC  X(10). 
+              10 LIB070R-CODESTRPT            PIC  9(02).    
+              10 LIB070R-FECULTESTRPT         PIC  X(10). 
+              10 LIB070R-INDBLQOPE            PIC  X(01).    
+              10 LIB070R-INDBLQCON            PIC  X(01).    
+              10 LIB070R-INDCTAEMP            PIC  9(01).    
+              10 LIB070R-INDNOMEMP            PIC  9(01).    
+              10 LIB070R-NOMBREEMP            PIC  X(30).    
+              10 LIB070R-INDSITCTA            PIC  9(01).    
+              10 LIB070R-FECRESOL             PIC  X(10).     
+              10 LIB070R-INDCTATRAS           PIC  X(01).   
+              10 LIB070R-CODPROLIQ            PIC  9(02).     
+              10 LIB070R-GRUPOLIQ             PIC  9(02).     
+              10 LIB070R-CODPROCUO            PIC  9(02).     
+              10 LIB070R-GRUPOCUO             PIC  9(02).     
+              10 LIB070R-RESEMIEXT            PIC  X(12).    
+              10 LIB070R-TIPBON               PIC  X(06).       
+              10 LIB070R-CALPART              PIC  X(02).      
+              10 LIB070R-NUMULTPLAS           PIC  9(12).    
+              10 LIB070R-CODPROMO             PIC  X(03).     
+              10 LIB070R-INDPERCUO            PIC  X(01).    
+              10 LIB070R-NUMMESTOT            PIC  9(02).    
+              10 LIB070R-CODREGIMEN           PIC  9(04).   
+              10 LIB070R-NUMFACSC             PIC  9(02).     
+              10 LIB070R-NUMULTMOVD           PIC  9(09).    
+              10 LIB070R-IDENTCLI             PIC  X(08).      
+              10 LIB070R-NUMBEN               PIC  9(05).
+              10 LIB070R-OFIGESTORA           PIC  X(04).    
+              10 LIB070R-CODFORMATO           PIC  X(10).    
+              10 LIB070R-INDDOMCARCRE         PIC  X(01).  
+              10 LIB070R-FECULTCGLIQ          PIC  X(10).   
+              10 LIB070R-DESCPLANILLA         PIC  X(01).  
+              10 LIB070R-FACTCLI              PIC  S9(03)V9(4).       
+              10 LIB070R-CODENTUMO            PIC  X(04).     
+              10 LIB070R-CODOFIUMO            PIC  X(04).     
+              10 LIB070R-USUARIOUMO           PIC  X(08).    
+              10 LIB070R-CODTERMUMO           PIC  X(08).    
+              10 LIB070R-CONTCUR              PIC  X(26).

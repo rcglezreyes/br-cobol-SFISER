@@ -1,0 +1,58 @@
+      *----------------------------------------------------------------*
+      *  ESTA COPY CORRESPONDE AL SERVICIO DE MANTENIMIENTO            *
+      *  DE CONVENIOS DE RECAUDACION DE LA ENTIDAD                     *
+      *  DEL SUBSISTEMA DE PARAMETROS (PARAMETROS EMISOR)              *
+      *----------------------------------------------------------------*
+      *  ML510-CODENT          CODIGO DE ENTIDAD                       *
+      *  ML510-CODCONREC       CODIGO DE CONVENIO DE RECAUDACION       *
+      *  ML510-IDENTCLI        IDENTIFICACION DE CLIENTE EN EL SISTEMA *
+      *                        CORPORATIVO DE LA ENTIDAD               *
+      *  ML510-DESCONRED       DESCRIPCION REDUCIDA DEL CONVENIO DE    *
+      *                        RECAUDACION                             *
+      *  ML510-FECINICONREC    FECHA DE INICIO DE VIGENCIA DEL CONVENIO*
+      *                        DE RECAUDACION                          *
+      *  ML510-FECFINCONREC    FECHA DE FIN DE VIGENCIA DEL CONVENIO   *
+      *                        DE RECAUDACION                          *
+      *  ML510-INDRIESGO       INDICADOR DE RIESGO                     *
+      *  ML510-CONTCUR         CONTROL DE TIMESTAMP                    *
+      *----------------------------------------------------------------*
+      *  COPY MPML510                                                  *
+      *  LONG = 6300                                                   *
+      *----------------------------------------------------------------*
+      ** 10 ML510-CODENT          O[R]                                         
+      *_ ENTIDAD                                                                
+      ** 15 ML510-CODCONREC       O[R]
+      *_ CONVENIO RECAUDACION         
+      ** 15 ML510-IDENTCLI      
+      *_ CLIENTE                      
+      ** 15 ML510-DESCONRED     
+      *_ DESCRIPCION CONVENIO         
+      ** 15 ML510-FECINICONREC  
+      *_ INICIO VIGENCIA CONVENIO     
+      ** 15 ML510-FECFINCONREC  
+      *_ FIN VIGENCIA CONVENIO        
+      ** 15 ML510-INDRIESGO     
+      *_ RIESGO                       
+      ** 15 ML510-CONTCUR         NV[R]
+      *_ CONTROL DE CONCURRENCIA       
+         05  MPML510.
+           10 FILLER                    PIC  X(12).
+           10 ML510-CODENT-ATR          PIC  X(1).
+           10 ML510-CODENT              PIC  X(4).
+           10 ML510-DETALLES  OCCURS 81.            
+              15 ML510-CODCONREC-ATR    PIC  X(1).
+              15 ML510-CODCONREC        PIC  X(4).
+              15 ML510-IDENTCLI-ATR     PIC  X(1).
+              15 ML510-IDENTCLI         PIC  X(8).
+              15 ML510-DESCONRED-ATR    PIC  X(1).
+              15 ML510-DESCONRED        PIC  X(10).
+              15 ML510-FECINICONREC-ATR PIC  X(1).
+              15 ML510-FECINICONREC     PIC  X(10).
+              15 ML510-FECFINCONREC-ATR PIC  X(1).
+              15 ML510-FECFINCONREC     PIC  X(10).
+              15 ML510-INDRIESGO-ATR    PIC  X(1).
+              15 ML510-INDRIESGO        PIC  X(1).
+              15 ML510-CONTCUR-ATR      PIC  X(1).
+              15 ML510-CONTCUR          PIC  X(26).
+              15 ML510-INDCONTINUAR     PIC  X(1).
+           10 FILLER                    PIC  X(46).

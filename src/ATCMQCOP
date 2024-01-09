@@ -1,0 +1,81 @@
+      *--------------------------------------------------------------*
+      *  -- COPY MQCOPY --                                           *
+      *                                                              *
+      *     AREA DE COMUNICACION CON LA RUTINA DE PUT/GET DE         *
+      *     MQSERIES.                                                *
+      *                                                              *
+      *  < LONGITUD :7947 >                                          *   POS LON
+      *--------------------------------------------------------------*
+
+           10  MQCOPY.                                                     1  20
+
+               15  DATOS-CABECERA.
+                   20 MQCOPY-INSTALACION             PIC X(04).
+                   20 MQCOPY-ENTIDAD                 PIC X(04).
+                   20 MQCOPY-TIPO-TERMINAL           PIC X(06).
+                   20 MQCOPY-USUARIO                 PIC X(08).
+                   20 MQCOPY-ENT-USUARIO             PIC X(04).
+                   20 MQCOPY-OFICINA                 PIC X(04).
+                   20 MQCOPY-TERM-FISICO             PIC X(04).
+                   20 MQCOPY-TERM-CONTA              PIC X(08).
+                   20 MQCOPY-FECHA-OPE               PIC X(10).
+                   20 MQCOPY-FECHA-CONTA             PIC X(10).
+                   20 MQCOPY-HORA-OPE                PIC X(06).
+                   20 MQCOPY-PROGRAMA                PIC X(07).
+                   20 MQCOPY-COD-APLICACION          PIC X(02).
+                   20 MQCOPY-IDIOMA                  PIC X(02).
+                   20 MQCOPY-PAIS                    PIC X(02).
+                   20 MQCOPY-MAPA-BITS               PIC X(32).
+                   20 MQCOPY-SESION                  PIC 9(05).
+                   20 MQCOPY-PROGRAMA-REAL           PIC X(07).
+                   20 MQCOPY-COLA-SALIDA             PIC X(04).
+                   20 FILLER                         PIC X(254).
+
+               15  DATOS-RETORNO.
+                   20 MQCOPY-RETORNO                 PIC X(002).
+                      88 MQCOPY-CORRECTO     VALUE '00'.                   1   6
+                      88 MQCOPY-INFOR        VALUE '10'.                   1   6
+                      88 MQCOPY-AVISO        VALUE '20'.                   1   6
+                      88 MQCOPY-ERROR        VALUE '20'.                   1   6
+                      88 MQCOPY-ERROR-DB2    VALUE '30'.                   1   6
+                      88 MQCOPY-ROLLBACK     VALUE '40'.                   1   6
+                      88 MQCOPY-CICS-IMS     VALUE '50'.                   1   6
+                   20 MQCOPY-COD-AVISO.
+                      25 MQCOPY-COD-AVISO1           PIC X(007).
+                      25 MQCOPY-COD-AVISO2           PIC X(007).
+                   20 MQCOPY-MENS-AVISO-ERROR.
+                      25 MQCOPY-TEXT1-AVISO1         PIC X(100).
+                      25 MQCOPY-TEXT2-AVISO1         PIC X(100).
+                      25 MQCOPY-TEXT1-AVISO2         PIC X(100).
+                      25 MQCOPY-TEXT2-AVISO2         PIC X(100).
+                   20 MQCOPY-COD-ERROR1.
+                      25 MQCOPY-COD-ERROR            PIC X(007).
+                   20 MQCOPY-MENSAJE-ERROR.
+                      25 MQCOPY-NOMBRE-BD            PIC X(024).
+                      25 MQCOPY-NOMBRE-RUTINA        PIC X(008).
+                      25 MQCOPY-CLAVE-TABLA          PIC X(200).
+                      25 MQCOPY-NOMBRE-TABLA         PIC X(011).
+                      25 MQCOPY-OPERACION            PIC X(006).
+LMB   *               25 MQCOPY-SQLCODE              PIC S9(10).        
+LMB   *               25 MQCOPY-SQLCODE-RED REDEFINES MQCOPY-SQLCODE    
+LMB   *                                              PIC X(10).         
+                      25 MQCOPY-SQLCODE              PIC S9(10).        
+      *               25 MQCOPY-SQLCODE              PIC S9(09)
+      *                                      SIGN TRAILING SEPARATE.        
+                      25 MQCOPY-SQLERM               PIC X(70).
+                      25 MQCOPY-OTROS-DATOS          PIC X(10).
+
+               15  DATOS-PREVIOS-ENTRADA.
+                   20 IND-PAGINACION                 PIC X(001).
+                      88 MQCOPY-SIGUIENTE    VALUE 'S'.                    1   6
+                      88 MQCOPY-ANTERIOR     VALUE 'A'.                    1   6
+                      88 MQCOPY-UNITARIA     VALUE 'U'.                    1   6
+                      88 MQCOPY-RESTO        VALUE ' '.                    1   6
+                   20 MQCOPY-CLAVE-INICIO            PIC X(200).
+                   20 MQCOPY-CLAVE-FIN               PIC X(200).
+                   20 MQCOPY-PANTALLA-PAG            PIC 9(003).
+                   20 MQCOPY-IND-MAS-DATOS           PIC X(001).
+                   20 MQCOPY-OTROS-DATOS             PIC X(090).
+               15  DATOS-ENTRADA-SALIDA.
+                   20 MQCOPY-MENSAJE                 PIC X(6300).
+

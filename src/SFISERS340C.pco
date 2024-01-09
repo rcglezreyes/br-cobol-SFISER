@@ -1,0 +1,2131 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. SFISERS340C.
+      *
+      * AUTOR.        : Ricardo Fuentes Ruiz.
+      * ANALISTA      : Miriam Olate Valenzuela
+      * FECHA         : 02 DE ABRIL DE 2007
+      * REQUERIMIENTO : 
+      * OBSERVACIONES : Informacion Ultima Facturacion
+      *
+      *    COMENTARIOS PARA CAMBIOS CON ***RAFR
+      *    ------------------------------------
+      *
+CHV   * MODIFICACIONES
+CHV   *------------------------------
+CHV   * 21-11-13   CHV     KIBERNUM
+CHV   * ------------------------------
+CHV   * El servicio  debe ser modificado para que entregue los datos                                                     
+CHV   * correspondiente a  un cliente Castigado si corresponde.
+CHV   *
+CHV   * se debe incluir nuevas llamadas a rutinas SAT :                                                               
+CHV   *    Consulta Deuda (ATD260) 
+CHV   *    Recibos Impagados(ATD648)
+CHV   *
+CHV   * Las rutinas solo serán invocadas si el cliente se encuentra
+CHV   * en estado CASTIGADO.
+CHV   *--------------------------------------------------------------*
+       ENVIRONMENT DIVISION.
+       CONFIGURATION SECTION.
+       SPECIAL-NAMES.
+           DECIMAL-POINT IS COMMA.
+      *
+       INPUT-OUTPUT SECTION.
+       FILE-CONTROL.
+                SELECT ARCHIVO ASSIGN TO "LOG340C.txt"
+                       ORGANIZATION LINE SEQUENTIAL
+                       FILE STATUS IS WS-FILE-STATUS.
+
+       DATA DIVISION.
+       FILE SECTION.
+       FD  ARCHIVO.
+       01  REG-ARCHIVO.
+           05 LINEA-ARCHIVO    PIC X(7120).
+
+       WORKING-STORAGE SECTION.
+       01  WS-FILE-STATUS                        PIC XX.
+
+      *+-----------------------------------------------------------+
+      *          INDICES DEL PROGRAMA
+      *+-----------------------------------------------------------+
+       01  I-LINEA                     PIC 9(02)   VALUE ZEROS.
+       01  I-IND                       PIC 9(02)   VALUE ZEROES.
+       01  I                           PIC 9(02)   VALUE ZEROES.
+       01  J                           PIC 9(02)   VALUE ZEROES.
+       01  w                           PIC 9(02)   VALUE ZEROES.
+       01  WS-CODOPX                   PIC X(04)   VALUE ZEROES.
+       01  WS-DES-OPX                  PIC X(20)   VALUE SPACES.
+
+      *+-----------------------------------------------------------+
+      *          CONSTANTES DEL PROGRAMA
+      *+-----------------------------------------------------------+
+       01  CT-CONSTANTES.
+           05  CT-APLICACION             PIC X(02)  VALUE "MP".
+           05  CT-ISER010                PIC X(08)  VALUE "ISER010 ".
+           05  CT-ISER070                PIC X(08)  VALUE "ISER070 ".
+           05  CT-ATD405                 PIC X(08)  VALUE "ATD405  ".
+CHV   * Modificacion del 21/11/2013  CHV. Kibernum  
+CHV        05  CT-ATD648                 PIC X(08)  VALUE "ATD648  ".
+CHV        05  CT-ATPC260                PIC X(08)  VALUE "ATPC260 ".
+CHV        05  CT-152                    PIC 9(03)  VALUE 152.           
+CHV   * FIN Modificacion del 21/11/2013  CHV. Kibernum 
+
+           05  CT-ATPC490                PIC X(08)  VALUE "ATPC490 ".
+           05  CT-ATPC493                PIC X(08)  VALUE "ATPC493 ".
+           05  CT-ATD512                 PIC X(08)  VALUE "ATD512  ".
+           05  CT-ATD646                 PIC X(08)  VALUE "ATD646  ".
+           05  CT-ATD780                 PIC X(08)  VALUE "ATD780  ".
+           05  CT-ATPC085                PIC X(08)  VALUE "ATPC085 ".
+           05  CT-SFISERS090C            PIC X(12)  VALUE "SFISERS090C".
+           05  CT-SFISERS100C            PIC X(12)  VALUE "SFISERS100C".
+           05  CT-SFISERS080C            PIC X(12)  VALUE "SFISERS080C".
+
+           05  CT-PL-BOPERS              PIC X(25)  VALUE 
+               "Bopers_prc_cos_ver_pel".
+           05  CT-PL-OPX                 PIC X(25)  VALUE 
+               "Cropx1_prc_cons_prepago".                
+           05  CT-RUTINA                 PIC X(11)  VALUE "SFISERS340C".
+           05  CT-TABLA-CAT-SERV         PIC X(18)  VALUE
+               "SFISER_MAE_CAG_SVC".
+           05  CT-COD-SERVICIO           PIC X(04)  VALUE "0017".
+           05  CT-OPEN                   PIC X(09)  VALUE "OPEN  ".
+           05  CT-FETCH                  PIC X(09)  VALUE "FECTH ".
+           05  CT-CLOSE                  PIC X(09)  VALUE "CLOSE ".
+           05  CT-UPDATE                 PIC X(06)  VALUE "UPDATE".
+           05  CT-SELECCION              PIC X(06)  VALUE "SELECT".
+           05  CT-INSERTAR               PIC X(06)  VALUE "INSERT".
+           05  CT-ERROR-DB               PIC X(02)  VALUE "30".
+           05  CT-CORRECTO               PIC X(02)  VALUE "00".
+           05  CT-CORRECTO-REG-INV       PIC 9(10)  VALUE 0.
+           05  CT-INFOR                  PIC X(02)  VALUE "10".
+           05  CT-SI                     PIC X(01)  VALUE "S".
+CHV   * Modificacion del 21/11/2013  CHV. Kibernum
+CHV        05  CT-I                      PIC X(01)  VALUE "I".
+CHV        05  CT-O                      PIC X(01)  VALUE "O".
+CHV        05  CT-U                      PIC X(01)  VALUE "U".
+CHV   * FIN modificacion del 21/11/2013  CHV. Kibernum
+           05  CT-N                      PIC X(01)  VALUE "N".
+           05  CT-01                     PIC 9(02)  VALUE 01.
+           05  CT-02                     PIC 9(02)  VALUE 02.
+           05  CT-S                      PIC X(01)  VALUE "S".
+           05  CT-C                      PIC X(01)  VALUE "C".
+           05  CT-10                     PIC 9(02)  VALUE 10.
+           05  CT-MP                     PIC X(24)  VALUE
+               "NOMBRE DE LA BD".
+           05  CT-TABLENAME013          PIC  X(20)   VALUE "XXXXXXXX ".
+
+           05  CT-ERROR-3                PIC X(07)  VALUE "MPE0003".
+           05  CT-ERROR-4                PIC X(07)  VALUE "MPE0004".
+           05  CT-ERROR-6                PIC X(07)  VALUE "MPE0006".
+           05  CT-ERROR-7                PIC X(07)  VALUE "MPE0007".
+           05  CT-ERROR-8                PIC X(07)  VALUE "MPE0008".
+           05  CT-CEROS                  PIC 9(10)  VALUE 0.
+           05  CT-LARGO-MENSAJE-ERROR    PIC 9(04)  VALUE 1259.
+           05  CT-LARGO-MENSAJE-FIJO      PIC 9(04)  VALUE 1595.
+           05  CT-LARGO-MENSAJE-30       PIC 9(04)  VALUE 1000.
+           05  CT-LARGO-MENSAJE-60       PIC 9(04)  VALUE 1000.
+
+           05  CT-LARGO-MENSAJE-70       PIC 9(04)  VALUE 1000.
+           05  CT-ERROR30-IDENT-CONT     PIC X(70) VALUE
+               "ERROR CONTRATO NO ENCONTRATO              ".
+           05  CT-ERROR30-BUSC-REC       PIC X(70) VALUE
+               "ERROR AL BUSCAR ULTIMO RECIBO       ".
+           05  CT-ERROR30-SALDOS         PIC X(70) VALUE 
+               "ERROR AL BUSCAR SALDO DEL CONTRATO         ".
+           05  CT-ERROR30-MAS-MONEDAS    PIC X(70) VALUE
+               "ERROR AL BUSCAR INFORMACION SALDO (MONEDA) ".
+
+           05  CT-ERROR20-DESC           PIC X(34)  VALUE 
+               "RUTINA INACTIVA DE USO OBLIGATORIO".
+           05  CT-ERROR30-DESC           PIC X(34)  VALUE
+               "RESPUESTA DEL SERVICIO CON ERRROR".
+           05  CT-ERROR60-DESC           PIC X(70)  VALUE
+            "PROBLEMA DE BD (OPEN, FETCH, CLOSE, SELECT) MODELO SFISER".
+
+           05  CT-AVISO-CUENTA           PIC X(70)  VALUE
+               "EL CAMPO CUENTA ES OBLIGATORIO ".
+           05  CT-AVISO-CENTALTA         PIC X(70)  VALUE
+               "EL CAMPO CENTRO DE ALTA ES OBLIGATORIO ".
+           05  CT-AVISO-CODENT           PIC X(70)  VALUE
+               "EL CAMPO ENTIDAD ES OBLIGATORIO ".
+           05  CT-AVISO-IND-OPX          PIC X(70)  VALUE
+               "EL CAMPO INDICADOR DE OPX ES OBLIGATORIO ".
+           05  CT-AVISO-CLAMON           PIC X(70)  VALUE
+               "EL CAMPO MONEDA ES OBLIGATORIO ".
+           05  CT-AVISO-CUO-FUT1         PIC X(70)  VALUE
+               "EL CAMPO CANTIDAD DE CUOTAS FUTURAS ES OBLIGATORIO".
+           05  CT-AVISO-CUO-FUT2         PIC X(70)  VALUE
+               "EL CAMPO CANTIDAD DE CUOTAS NO ES SUPERIOR A 10".
+           05  CT-AVISO-IND-NOMBRE       PIC X(70)  VALUE
+               "INDICADOR NOMBRE NO VALIDO DEBE SER S/N".
+           05  CT-AVISO-NO-EXISTE        PIC X(70)  VALUE
+               "EL REGISTRO NO EXISTE EN LA BD".
+           05  CT-AVISO-ENC-ENTIDAD      PIC X(70)  VALUE 
+               "EL CAMPO CODIGO ENTIDAD ES OBLIGATORIO ".
+           05  CT-AVISO-ENC-FECHA        PIC X(70)  VALUE
+               "EL CAMPO FECHA ES OBLIGATORIO".
+
+           05  CT-CERO                   PIC 9(10) VALUE 0.
+           05  CT-CLAMON-PRIN            PIC 9(03) VALUE 152.
+           05  CT-OPRD                   PIC x(04) VALUE "OPRD".
+           05  CT-OPR                    PIC x(03) VALUE "OPR".
+
+      *+-----------------------------------------------------------+
+      *         VARIABLES DE TRABAJO
+      *+-----------------------------------------------------------+
+       01  WS-ARREGLO-OPX.
+           05 WSTOP-CANT-OPC-PAGO           PIC 9(02).
+           05 WSTOP-ARREGLO-OPX             OCCURS 10 TIMES.  
+              10 WSTOP-COD-OPX              PIC X(4).  
+              10 WSTOP-DES-OPX              PIC X(12).     
+              10 WSTOP-FECFIN-OPX           PIC 9(08). 
+              10 WSTOP-TASA-OPX             PIC 9(3)V9(4).     
+              10 WSTOP-CLAMON-OPX           PIC 9(3).     
+              10 WSTOP-PAG-MINIMO-OPX       PIC S9(15)V99.  
+              10 WSTOP-MON-FINAN-OPX        PIC S9(15)V99. 
+              10 WSTOP-CANT-PLAZOS-OPX      PIC 9(2). 
+              10 WSTOP-ARREGLO-PLAZOS-OPX   OCCURS 4 TIMES.        
+                 20 WSTOP-NRO-OFE-OPX       PIC 9(06).   
+                 20 WSTOP-PLAZO-OPX         PIC 9(2).    
+                 20 WSTOP-VALOR-CUOTA-OPX   PIC S9(09)V99. 
+              10 WSTOP-PRIOROPX             PIC 9(02).                 
+       01  WS-TABLA-OPX.
+           05 WST-TAB-OPX                   OCCURS 50.
+              10 WST-CODOPX                 PIC X(04).
+              10 WST-PRIOROPX               PIC 9(02).
+              10 WST-DESOFEOPX              PIC X(30).
+              10 WST-DESOFERED              PIC X(10).
+              10 WST-TIPOPX                 PIC X(02).
+           05 WS-IO                         PIC 9(02) VALUE 0.
+           05 WS-O                          PIC 9(02) VALUE 0.
+           05 WS-FIN-OPX                    PIC X VALUE SPACES.
+           05 WS-PRIORIDAD                  PIC 9(02).
+           05 WS-DESOFEOPX                  PIC X(30).   
+           05 WC-CLAMON-PRIN                PIC X(03) VALUE SPACES.
+
+       01  WS-VARIABLES.
+           05  WS-CARGA-INI            PIC 9 VALUE 0.
+           05  WS-SQLCODE              PIC S9(09).
+           05  WS-PAGO-MINIMO          PIC S9(15)V99.
+           05  WS-FEC-SIS-AMD          PIC  9(08).
+           05  WS-NUM-SEC              PIC  9(04) VALUE ZEROES.
+           05  WS-LARGO                PIC 9(04).
+           05  IMP-DEUDA               PIC  9(15)V99. 
+           05  IMP-FAC                 PIC  9(15)V99. 
+           05  WS-HORA                 PIC  9(08) VALUE ZEROES.
+           05  WS-FECHA.
+                10 WS-ANO               PIC 99.
+                10 WS-MES               PIC 99.
+                10 WS-DIA               PIC 99.
+           05  WS-FECHA-SYS.
+                10 WS-ANO-SYS           PIC 9999.
+                10 ws-GUION1            PIC X.
+                10 WS-MES-SYS           PIC 99.
+                10 WS-GUION2            PIC X.
+                10 WS-DIA-SYS           PIC 99.
+                10 WS-GUION3            PIC X.
+           05  WS-FECHA-SYS1.
+                10 WS-ANO-SYS1           PIC 9999.
+                10 WS-MES-SYS1           PIC 99.
+                10 WS-DIA-SYS1           PIC 99.
+           05  WS-FECHA-AMD.
+                10 WS-ANO-AMD           PIC 9(04).
+                10 WS-MES-AMD           PIC 9(02).
+                10 WS-DIA-AMD           PIC 9(02).
+
+           05  WS-FECHA-AMD-GUION.
+                10 WS-ANO-AMD-GUI       PIC 9(04).
+                10 WS-GUI1             PIC X.
+                10 WS-MES-AMD-GUI       PIC 99.
+                10 WS-GUI2             PIC X.
+                10 WS-DIA-AMD-GUI       PIC 99.
+
+           05  WS-FECHA-VCTO.
+                10 WS-ANO-VCTO          PIC 9(04).
+                10 WS-MES-VCTO          PIC 9(02).
+                10 WS-DIA-VCTO          PIC 9(02).
+
+           05 WS-IDENCLI                PIC X(08).
+
+      *+-----------------------------------------------------------+
+      *         SWITCHES DEL PROGRAMA
+      *+-----------------------------------------------------------+
+RDC   * INI -Incorporar switch de consulta recaudaciones
+       01  SWREC                       PIC X(01)    VALUE 'N'.
+RDC   * FIN - Incorporar switch de consulta recaudaciones
+       01  SW-USO-SERV-RECIBO          PIC X(01)   VALUE "S".
+           88  SI-USO-RECIBO-ATO                   VALUE "S".
+           88  NO-USO-RECIBO-ATO                   VALUE "N".
+
+       01  SW-USO-SERV-PL-BOPERS       PIC X(01)   VALUE "S".
+           88  SI-USO-PL-BOPERS                    VALUE "S".
+           88  NO-USO-PL-BOPERS                    VALUE "N".
+
+       01  SW-USO-SERV-PL-OPX          PIC X(01)   VALUE "S".
+           88  SI-USO-PL-OPX                       VALUE "S".
+           88  NO-USO-PL-OPX                       VALUE "N".
+
+       01  SW-USO-SERV-CONS-SALDOS     PIC X(01)   VALUE "S".
+           88  SI-USO-CONS-SALDOS                  VALUE "S".
+           88  NO-USO-CONS-SALDOS                  VALUE "N".
+
+       01  SW-USO-SERV-CUO-FUTU        PIC X(01)   VALUE "S".
+           88  SI-USO-CUO-FUTU                     VALUE "S".
+           88  NO-USO-CUO-FUTU                     VALUE "N".
+
+       01  SW-USO-SERV-CONS-RECA       PIC X(01)   VALUE "S".
+           88  SI-USO-CONS-RECA                    VALUE "S".
+           88  NO-USO-CONS-RECA                    VALUE "N".
+
+       01  SW-USO-SERV-CONS-CONTRATO   PIC X(01)   VALUE "S".
+           88  SI-USO-CONS-CON                     VALUE "S".
+           88  NO-USO-CONS-CON                     VALUE "N".
+
+       01  SW-USO-SERV-CONS-ITF        PIC X(01)   VALUE "S".
+           88  SI-USO-CONS-ITF                     VALUE "S".
+           88  NO-USO-CONS-ITF                     VALUE "N".
+
+       01  SW-FIN-CURSOR               PIC X(01)   VALUE "S".
+           88  SI-FIN-CURSOR                       VALUE "S".
+           88  NO-FIN-CURSOR                       VALUE "N".
+
+
+       01  SW-FIN-512               PIC X(01)   VALUE "S".
+           88  SI-FIN-512                       VALUE "S".
+           88  NO-FIN-512                       VALUE "N".
+ 
+       01  SW-OPX-OPRD              PIC X(01)   VALUE "N".
+           88  SI-ES-OPRD                       VALUE "S".
+           88  NO-ES-OPRD                       VALUE "N".
+           
+      *+-----------------------------------------------------------+
+      *        COPY DE CONSULTA PAGOS DE RECAUDACIONES
+      *+-----------------------------------------------------------+
+       01  WS-MPML512.
+           COPY "MPML512".
+
+      *+-----------------------------------------------------------+
+      *        COPY DE ENTRADA PARA CONSULTA CONTRATO
+      *+-----------------------------------------------------------+
+       01  WS-LIB070R.
+           COPY "LIB070R".
+
+
+      *+-----------------------------------------------------------+
+      *        COPY DE ENTRADA PARA CONSULTA PAN
+      *+-----------------------------------------------------------+
+       01  WS-MPM0405.
+           COPY "MPM0405".
+
+      *+-----------------------------------------------------------+
+      *        COPY DE ENTRADA PARA SIMULACION ITF
+      *+-----------------------------------------------------------+
+      * 01  WS-ATCIMPTO.
+      *     COPY "ATCIMPTO".
+
+      *+-----------------------------------------------------------+
+      *        COPY DE ATOMICO ULTIMO RECIBO
+      *+-----------------------------------------------------------+
+       01  WS-LIB010R.
+           COPY "LIB010R".
+
+      *+-----------------------------------------------------------+
+      *        COPY DE COMPUESTO CONSULTA DE SALDOS
+      *+-----------------------------------------------------------+
+       01  WS-LIB090C.
+           COPY "LIB090C".
+
+      *+-----------------------------------------------------------+
+      *        COPY DE COMPUESTO CONSULTA CUOTAS FUTURAS
+      *+-----------------------------------------------------------+
+       01  WS-LIB100C.
+           COPY "LIB100C".
+
+      *+-----------------------------------------------------------+
+      *        COPY DE COMPUESTO CONSULTA FECHAS PROCESO
+      *+-----------------------------------------------------------+
+       01  WS-LIB080C.
+           COPY "LIB080C".
+
+       01  WS-MPM0780.
+           COPY "MPM0780".
+      *+-----------------------------------------------------------+
+      *        COPY SERVICIO SAT CONSULTA INTERES Y GASTO AL DIA
+      *+-----------------------------------------------------------+
+       01  WS-MPM0646. 
+           COPY MPM0646.
+      *+-----------------------------------------------------------+
+      *        COPYS DE LAS TABLAS CORPORATIVAS
+      *+-----------------------------------------------------------+
+       01  WS-TBSQLERR.
+           COPY "ATSQLERR".
+
+      *+-----------------------------------------------------------+
+      *        COPY DE RUTINAS SAT
+      *+-----------------------------------------------------------+
+       01  WS-MQCOPY.
+           COPY "ATCMQCOP".
+
+      *+-----------------------------------------------------------+
+      *        COPY DE RUTINAS SAT
+      *+-----------------------------------------------------------+
+       01  WS-MPM0085.
+           COPY "MPM0085".
+
+      *+-----------------------------------------------------------+
+      *        COPY DE ATPC490
+      *+-----------------------------------------------------------+
+       01  WS-MPML490.
+           COPY "MPML490".
+      *+-----------------------------------------------------------+
+      *        COPY DEL SERVICIO COMPUESTO
+      *+-----------------------------------------------------------+
+       01  WS-LIB340C.
+           COPY "LIB340C".
+      *+-----------------------------------------------------------+
+      *        COPY DE ATPC493
+      *+-----------------------------------------------------------+
+       01  WS-MPML493.
+           COPY "MPML623".
+CHV   * Modificacion del 21/11/2013  CHV. Kibernum
+      *+-----------------------------------------------------------+
+      *        COPY SERVICIO SAT CONSULTA CONTRATOS CASTIGADOS
+      *+-----------------------------------------------------------+
+       01  WS-MPM0260.
+           COPY "MPM0260". 
+CHV   *+-----------------------------------------------------------+
+CHV   *  COPY SERVICIO SAT LISTADO DE RECIBOS IMPAGADOS     
+CHV   *+-----------------------------------------------------------+
+CHV    01  WS-MPML648.
+CHV         COPY MPML648.
+CHV   * FIN Modificacion del 21/11/2013  CHV. Kibernum
+ 
+           EXEC SQL BEGIN DECLARE SECTION END-EXEC.
+
+       01  SW-LOGGEA-SERVICIO          PIC X(01).
+           88  SI-LOGGEA-SERVICIO                  VALUE "S".
+           88  NO-LOGGEA-SERVICIO                  VALUE "N".
+
+           
+       01  WO-AC.
+           05  WO-ISPUS_COD_RTI                  PIC 9(04).
+           05  WO-ISPUS_SWT_USO                  PIC X(01).
+           05  WO-ISMCR_NOM_RTI                  PIC X(07).
+           05  WO-ISMCS_COD_SRV                  PIC X(04).
+           05  WO-ISLRS_COD_RTI                  PIC 9(04).
+
+
+       01  WO-PL.
+           05  WO-ENT-COD_TIP_SAL                PIC 9(01).
+           05  WO-ENT-COD_APP_FIN_ACL            PIC 9(05).
+           05  WO-ENT-COD_PRO_FIN_ACL            PIC 9(05).
+           05  WO-ENT-GLS_USR_FIN_ACL            PIC X(15).
+           05  WO-ENT-NRO_REG_INC                PIC 9(05).
+           05  WO-ENT-TOT_REG_PGN                PIC 9(02).
+           05  WO-ENT-EST_VIG_TDO                PIC 9(05).
+           05  WO-ENT-COD_PAI                    PIC 9(03).
+           05  WO-ENT-COD_TIP_DCT_IDE            PIC 9(05).
+           05  WO-ENT-GLS_NRO_DCT_IDE            PIC X(10).
+           05  WO-ENT-NRO_INN_IDE                PIC X(10).
+           05  WO-ENT-GLS_APL_PAT                PIC X(30).
+           05  WO-ENT-GLS_APL_MAT                PIC X(30).
+           05  WO-ENT-GLS_NOM_PEL                PIC X(30).
+           05  WO-ENT-COD_PAI_PRD                PIC 9(03).
+           05  WO-ENT-COD_TIP_NEG                PIC 9(05).
+           05  WO-ENT-COC_PRD                    PIC X(20).
+           05  WO-ENT-COC_SUB_PRD                PIC X(20).
+           05  WO-ENT-COC_EDA_ADM                PIC X(20).
+           05  WO-ENT-COC_SUC_ADM                PIC X(20).
+           05  WO-ENT-NRO_IDE_PRD                PIC X(12).
+           05  WO-ENT-COD_TIP_REL_PRD            PIC 9(05).
+           05  WO-SALIDA.
+               10  WO-SAL_NRO_MSJ                PIC S9(05).
+               10  WO-SAL_GLS_MSJ                PIC X(200).
+           05  WO-SAL-CURSOR OCCURS 50 TIMES.  
+               10  WO-SAL-COD_PAI                PIC 9(03).
+               10  WO-SAL-GLS_PAI                PIC X(60).
+               10  WO-SAL-COD_TIP_DCT_IDE        PIC 9(05).
+               10  WO-SAL-GLS_TIP_DCT_IDE        PIC X(25). 
+               10  WO-SAL-GLS_NRO_DCT_IDE        PIC X(20).
+               10  WO-SAL-DVR_NRO_DCT_IDE        PIC X(01).
+               10  WO-SAL-GLS_APL_PAT            PIC X(30).
+               10  WO-SAL-GLS_APL_MAT            PIC X(30).
+               10  WO-SAL-GLS_NOM_PEL            PIC X(30).
+               10  WO-SAL-COD_PAI_PRD            PIC 9(03).
+               10  WO-SAL-GLS_PAI_PRD            PIC X(60).
+               10  WO-SAL-COD_TIP_NEG            PIC 9(05).
+               10  WO-SAL-GLS_TIP_NEG            PIC X(25). 
+               10  WO-SAL-COC_PRD                PIC X(20).
+               10  WO-SAL-GLS_NOM_PRD            PIC X(30).
+               10  WO-SAL-COC_SUB_PRD            PIC X(20).
+               10  WO-SAL-COC_EDA_ADM            PIC X(20).
+               10  WO-SAL-COC_SUC_ADM            PIC X(20).
+               10  WO-SAL-NRO_IDE_PRD            PIC X(12).
+               10  WO-SAL-COD_TIP_REL_PRD        PIC 9(05).
+               10  WO-SAL-GLS_TIP_REL_PRD        PIC X(25). 
+               10  WO-SAL-COD_EST_PRD            PIC 9(05).
+               10  WO-SAL-GLS_EST_PRD            PIC X(25). 
+               10  WO-SAL-FCH_ALS_CTT            PIC X(10).
+               10  WO-SAL-FCH_BAJ_CTT            PIC X(10).
+               10  WO-SAL-GLS_EDA_ADM            PIC X(25).
+
+       01  WO_SCLB_VAR_PRD               SQL-CLOB.
+       01  WS-SCLB-VAR-PRD               PIC X(200) VARYING.
+       01  LARGO-TEXT-PRD                PIC S9(9) COMP.
+       01  SCUR_CUR_PRD                  SQL-CURSOR.
+       01  WS-RECIBE-PRD.
+           05  WS-SAL-COD_PAI              PIC 9(03).
+           05  WS-SAL-GLS_PAI              PIC X(60).
+           05  WS-SAL-COD_TIP_DCT_IDE      PIC 9(05).
+           05  WS-SAL-GLS_TIP_DCT_IDE      PIC X(25).
+           05  WS-SAL-GLS_NRO_DCT_IDE      PIC X(20).
+           05  WS-SAL-DVR_NRO_DCT_IDE      PIC X(01).
+           05  WS-SAL-GLS_APL_PAT          PIC X(30).
+           05  WS-SAL-GLS_APL_MAT          PIC X(30).
+           05  WS-SAL-GLS_NOM_PEL          PIC X(30).
+           05  WS-SAL-COD_PAI_PRD          PIC 9(03).
+           05  WS-SAL-GLS_PAI_PRD          PIC X(60).
+           05  WS-SAL-COD_TIP_NEG          PIC 9(05).
+           05  WS-SAL-GLS_TIP_NEG          PIC X(25).
+           05  WS-SAL-COC_PRD              PIC X(20).
+           05  WS-SAL-GLS_NOM_PRD          PIC X(30).
+           05  WS-SAL-COC_SUB_PRD          PIC X(20).
+           05  WS-SAL-COC_EDA_ADM          PIC X(20).
+           05  WS-SAL-COC_SUC_ADM          PIC X(20).
+           05  WS-SAL-NRO_IDE_PRD          PIC X(12).
+           05  WS-SAL-COD_TIP_REL_PRD      PIC 9(05).
+           05  WS-SAL-GLS_TIP_REL_PRD      PIC X(25).
+           05  WS-SAL-COD_EST_PRD          PIC 9(05).
+           05  WS-SAL-GLS_EST_PRD          PIC X(25).
+           05  WS-SAL-FCH_ALS_CTT          PIC X(10).
+           05  WS-SAL-FCH_BAJ_CTT          PIC X(10).
+           05  WS-SAL-GLS_EDA_ADM          PIC X(25).
+
+
+      *+-------------------------------------------------------------+
+      ***           ESQUEMA DE BOPERS_PRC_COS_VER_PEL              ***
+      *+-------------------------------------------------------------+
+       01  BOP.
+           05  BOPERS-DE-ENTRADA.
+               10  ENUM_COD_TIP_SAL       PIC  9(01).
+               10  ENUM_COD_APP_FIN_ACL   PIC  9(05).
+               10  ENUM_COD_PRO_FIN_ACL   PIC  9(05).
+               10  ENUM_COD_PAI           PIC  9(03).
+               10  EVC2_GLS_USR_FIN_ACL   PIC  X(15).
+               10  ENUM_COD_TIP_DCT_IDE   PIC  9(05).
+               10  EVC2_GLS_NRO_DCT_IDE   PIC  X(10).
+               10  ENUM_NRO_INN_IDE       PIC  9(10).
+
+           05  BOPERS-DE-SALIDA.
+               10  COD_PAI                PIC  9(03).
+               10  GLS_PAI                PIC  X(60).
+               10  COD_TIP_DCT_IDE        PIC  9(05).
+               10  GLS_TIP_DCT_IDE        PIC  X(25).
+               10  NRO_DCT_IDE            PIC  X(20).
+               10  DVR_NRO_DCT_IDE        PIC  X(01).
+               10  NRO_INN_IDE            PIC  9(10).
+               10  GLS_SER_DCT_IDE        PIC  X(20).
+               10  COD_TIP_PEL            PIC  9(05).
+               10  GLS_TIP_PEL            PIC  X(25).
+               10  GLS_APL_PAT            PIC  X(30).
+               10  GLS_APL_MAT            PIC  X(30).
+               10  GLS_NOM_PEL            PIC  X(30).
+               10  GLS_RAZ_SOC            PIC  X(50).
+               10  GLS_NOM_FTS            PIC  X(30).
+
+
+      *+-------------------------------------------------------------+
+      ***           ESQUEMA DE CROPX1_PRC_CONS_PREPAGO             ***
+      *+-------------------------------------------------------------+
+       01  CRO.
+           05  CROPX1-DE-ENTRADA.
+               10  CODENT              PIC  X(04).
+               10  PRODUCTO-E          PIC  X(02).
+               10  SUBPRODU-E          PIC  X(04).
+               10  CENTALTA            PIC  X(04).
+               10  CUENTA              PIC  X(12).
+               10  FECFACT             PIC  X(10).
+               10  FECVENOPX-E         PIC  X(10).
+           05  CROPX1-DE-SALIDA.
+               10  MSG_OPX             PIC  9(01).
+               10  PRODUCTO-S          PIC  X(02).
+               10  SUBPRODU-S          PIC  X(04).
+               10  FECVENOPX-S         PIC  X(10).
+               10  NRO_OPX             PIC  9(01).
+               10  CODOPX              PIC  9(05).
+               10  DESOPX              PIC  X(50).
+               10  CUOOPXPM            PIC  9(10)V99.
+               10  NRO_PLZ             PIC  9(01).
+               10  PLAOPX              PIC  9(04).
+               10  TASA                PIC  9(04)V99.
+               10  CUOOPX              PIC  9(10)V99.
+
+       01  WO-OTRAS-DEF.
+           03  W1-SNUM_SAL_NRO_MSJ        PIC S9(006).
+           03  W1-SVC2_SAL_GLS_MSJ        PIC X(200).
+
+       01  WO-SCLB_SAL_VAR_RES            SQL-CLOB.
+       01  WO-SVC2_SAL_GLS_MSJ            PIC  X(200) VARYING.
+       01  WO-SNUM_SAL_NRO_MSJ            PIC S9(009) COMP.
+       01  WO-SCUR_SAL_CUR_REF            SQL-CURSOR.
+
+           EXEC SQL
+                INCLUDE SQLCA
+           END-EXEC.
+       
+      *+-----------------------------------------------------------+
+      *%%%%%
+      *        COPY DE LOGUEO DE TRANSACCION
+      *+-----------------------------------------------------------+
+           EXEC SQL
+                INCLUDE MPMLOG
+           END-EXEC.
+       
+      *+-------------------------------------------------------------+
+      *             DECLARACION DE CURSORES
+      *+-------------------------------------------------------------+
+           EXEC SQL
+              DECLARE ISER340C_1 CURSOR FOR
+                  SELECT ISPUS_COD_RTI_K,
+                         ISPUS_SWT_USO,
+                         ISMCR_NOM_RTI
+                  FROM   SFISER_MAE_CAG_RTI,
+                         SFISER_PAR_USO_SVC
+                  WHERE  ISPUS_COD_SRV_K = :WO-ISMCS_COD_SRV AND
+                         ISPUS_COD_RTI_K = ISMCR_COD_RTI_K
+           END-EXEC.
+
+           EXEC SQL
+                END DECLARE SECTION
+           END-EXEC.
+
+
+       01  DFHCOMMAREA.
+           COPY "STCOPY".
+
+       01  WS-STCOPY1.
+
+               10  STCOPY1.                        
+                   15 STCOPY1-CONECTOR.
+                      20 STCOPY1-COD-RESPUESTA         PIC 9(10).
+                      20 STCOPY1-NOMBRE-SERVICIO       PIC X(50).
+                      20 STCOPY1-LARGO-MENSAJE         PIC 9(09).
+                   15 STCOPY1-CABECERA.
+                      20 STCOPY1-COD-ENTIDAD           PIC X(04).
+                      20 STCOPY1-TIPO-TERMINAL         PIC X(06).
+                      20 STCOPY1-COD-USUARIO           PIC X(08).
+                      20 STCOPY1-COD-OFICINA           PIC X(04).
+                      20 STCOPY1-TERM-FISICO           PIC X(04).
+                      20 STCOPY1-FECHA-CONTA           PIC X(10).
+                      20 STCOPY1-COD-APLICACION        PIC X(02).
+                      20 STCOPY1-COD-PAIS              PIC X(02).
+                      20 STCOPY1-IND-COMMIT            PIC X(01).
+                   15 STCOPY1-PAGINACION.
+                      20 STCOPY1-IND-PAGINACION        PIC X(01).
+                         88 STCOPY1-SIGUIENTE          VALUE "S". 
+                         88 STCOPY1-ANTERIOR           VALUE "A".
+                         88 STCOPY1-UNITARIA           VALUE "U". 
+                         88 STCOPY1-RESTO              VALUE " ". 
+                      20 STCOPY1-CLAVE-INICIO          PIC X(200).
+                      20 STCOPY1-CLAVE-FIN             PIC X(200).
+                      20 STCOPY1-PANTALLA-PAG          PIC 9(03).
+                      20 STCOPY1-IND-MAS-DATOS         PIC X(01).
+                      20 STCOPY1-OTROS-DATOS           PIC X(90).
+                   15 STCOPY1-ENTRADA-SALIDA.
+                      20 STCOPY1-MENSAJE               PIC X(6300).
+                   15 FILLER                          PIC X(151).
+
+       01  REGISTRO-INVOCACION1.
+           05  INV-COD-RETORNO1                PIC 9(10).
+           05  INV-NOMBRE-SERVICIO1            PIC X(50).
+           05  INV-LARGO-MENSAJE1              PIC 9(9).
+           05  INV-PARAMETROS1                 PIC X(6987).
+
+       LINKAGE SECTION.
+      *---------------.
+
+       01  REGISTRO-INVOCACION.
+           05  INV-COD-RETORNO                PIC 9(10).
+           05  INV-NOMBRE-SERVICIO            PIC X(50).
+           05  INV-LARGO-MENSAJE              PIC 9(9).
+           05  INV-PARAMETROS                 PIC X(6987).
+
+
+       PROCEDURE DIVISION USING REGISTRO-INVOCACION.
+      *---------------------------------------------.
+
+
+
+       COMIENZO-SFISERS340C.
+      *---------------------
+           PERFORM 100000-INICIO.
+           PERFORM 200000-PROCESO.
+           PERFORM 300000-FINAL.
+
+       100000-INICIO.
+      *--------------
+           MOVE INV-PARAMETROS TO DFHCOMMAREA.
+           ACCEPT WS-HORA     FROM TIME.
+           MOVE WS-HORA            TO HORA_TRANSACCION OF MPMLOG.
+           MOVE ZEROES             TO WS-FECHA.
+           ACCEPT WS-FECHA FROM DATE.
+           MOVE "-" TO WS-GUION1 WS-GUION2
+           ADD 2000 TO  WS-ANO     GIVING WS-ANO-SYS WS-ANO-SYS1
+           MOVE WS-MES         TO WS-MES-SYS WS-MES-SYS1
+           MOVE WS-DIA         TO WS-DIA-SYS WS-DIA-SYS1
+           MOVE WS-FECHA-SYS   TO FECHA_TRANSACCION OF MPMLOG.
+           
+           MOVE 1                       TO  WS-NUM-SEC.
+
+           ACCEPT WS-FEC-SIS-AMD FROM  DATE YYYYMMDD.
+           MOVE CT-COD-SERVICIO TO WO-ISMCS_COD_SRV.
+
+           EXEC SQL
+               SELECT ISMCS_SWT_LOG
+               INTO  :SW-LOGGEA-SERVICIO
+               FROM   SFISER_MAE_CAG_SVC 
+               WHERE  ISMCS_COD_SRV_K = :WO-ISMCS_COD_SRV
+           END-EXEC.
+
+           MOVE SQLCODE                TO  ATSQLERR,   WS-SQLCODE.
+      
+      * DK - En caso de error generar un stop run
+      *------------------------------------------
+          IF WS-SQLCODE NOT = ZEROS
+             SET NO-LOGGEA-SERVICIO TO TRUE
+             PERFORM 300000-FINAL-STOP
+          END-IF.
+      *------------------------------------------
+      * DK - Fin modificacion
+
+           IF  NOT REG-NO-EXISTENTE-BD
+               IF  ACCESO-CORRECTO-BD
+                   IF SW-LOGGEA-SERVICIO = "S"
+                      SET SI-LOGGEA-SERVICIO  TO TRUE
+                   ELSE
+                      SET NO-LOGGEA-SERVICIO TO TRUE
+                   END-IF
+               ELSE
+                  STRING CT-SELECCION
+                         CT-TABLA-CAT-SERV
+                         WS-SQLCODE
+                         CT-RUTINA
+                         CT-MP
+                         CT-ERROR-4
+                         CT-ERROR-DB  DELIMITED BY SIZE
+                    INTO STCOPY-MENSAJE
+                  END-STRING
+                  MOVE 0060                TO  STCOPY-COD-RESPUESTA
+                  MOVE CT-ERROR60-DESC     TO  STCOPY-MENSAJE
+                  PERFORM 999999-ERROR-PROGRAMA
+               END-IF
+           END-IF.
+
+           IF SI-LOGGEA-SERVICIO
+              OPEN EXTEND ARCHIVO
+              IF WS-FILE-STATUS NOT = "00"
+                 SET NO-LOGGEA-SERVICIO TO TRUE
+              END-IF
+           END-IF.
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "I"                TO INDICADOR_I-O OF MPMLOG
+              MOVE "340C"             TO CODIGO_RUTINA OF MPMLOG
+              MOVE CT-RUTINA          TO NOMBRE_RUTINA OF MPMLOG
+              MOVE DFHCOMMAREA        TO MENSAJE_COPY  OF MPMLOG              
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+RDC   * INI -Incorporar switch de consulta recaudaciones
+           DISPLAY "SWREC" UPON ENVIRONMENT-NAME.
+           ACCEPT SWREC FROM ENVIRONMENT-VALUE.
+ 
+           display " SW Consulta Recaudaciones -> " SWREC.
+RDC   * FIN - Incorporar switch de consulta recaudaciones
+
+       200000-PROCESO.
+      *---------------
+           IF WS-CARGA-INI = 0
+              PERFORM CARGAR-PRIORIDAD-OPX
+              MOVE 1 TO WS-CARGA-INI
+           END-IF.
+           INITIALIZE WS-ARREGLO-OPX
+          
+           MOVE CT-CERO TO WS-FECHA-VCTO.
+           MOVE STCOPY-MENSAJE         TO  LIB340C.
+           PERFORM VALIDAR-CAMPOS.
+           IF L340C-IND-NOMBRE = "S"
+              PERFORM BUSCAR-DATOS-NOMBRE
+           END-IF.
+CHV   * Modificacion del 21/11/2013  CHV. Kibernum
+CHV        IF L340C-CLAMON-PRIN NOT NUMERIC 
+CHV           MOVE CT-152            TO L340C-CLAMON-PRIN    
+CHV        END-IF.
+CHV   * FIN de Modificacion del 21/11/2013  CHV. Kibernum
+           PERFORM INFORMACION-ULTIMO-RECIBO.
+           PERFORM INFORMACION-SALDOS
+           
+RDC   * INI -Incorporar switch de consulta recaudaciones
+           IF SWREC ='S'
+              PERFORM BUSCAR-RECAUDACIONES
+           ELSE
+              MOVE 0 TO L340C-CANT-RECA
+              MOVE 0 TO L340C-MONTO-PAGO-RECA
+           END-IF.
+RDC   * FIN -Incorporar switch de consulta recaudaciones
+
+CHV   * Modificacion del 21/11/2013  CHV. Kibernum
+CHV   *    IF L340C-IND-OPX = 'S'
+CHV        MOVE ZEROS          TO L340C-CANT-OPC-PAGO
+CHV        IF L340C-IND-OPX = 'S' AND
+CHV                               LIB070R-CODESTCTA NOT = 6
+CHV   * FIN de Modificacion del 21/11/2013  CHV. Kibernum
+
+              PERFORM MOVER-SALIDA-OPXMQCOPY
+              PERFORM MOVER-A-ATPC493
+              PERFORM LLAMADA-A-ATPC493
+              PERFORM MOVER-OPX-SALIDA
+           END-IF
+
+           IF L340C-CANT-CUO-FUT > 0
+              PERFORM BUSCAR-DATOS-CUOTAS-FUTURAS
+           END-IF.
+
+           MOVE LIB070R-CODESTCTA TO STCOPY-OTROS-DATOS(5:2)
+           
+CHV   * Modificacion del 21/11/2013  CHV. Kibernum
+CHV        IF LIB070R-CODESTCTA = 6
+CHV           PERFORM BUSCAR-CASTIGO
+CHV        ELSE
+CHV   * FIN de Modificacion del 21/11/2013  CHV. Kibernum
+              PERFORM  MOVER-A-ATD780
+              PERFORM  LLAMADA-A-ATD780
+              EVALUATE MQCOPY-RETORNO
+                  WHEN CT-CORRECTO
+                       MOVE MP780-DEUDA-MOROSA TO IMP-DEUDA
+                       MOVE MP780-DEUDA-MOROSA TO IMP-FAC
+                  WHEN CT-INFOR
+                       MOVE MP780-DEUDA-MOROSA TO IMP-DEUDA
+                       MOVE MP780-DEUDA-MOROSA TO IMP-FAC
+                  WHEN OTHER
+                       MOVE 0 TO  IMP-DEUDA
+                       MOVE 0 TO  L340C-MONTO-INT-ALDIA
+                       MOVE 0 TO  L340C-MONTO-GAS-ALDIA
+              END-EVALUATE           
+              IF IMP-DEUDA > 0 
+                 PERFORM  MOVER-A-ATD646
+                 PERFORM  LLAMADA-A-ATD646
+                 MOVE  MP646-IMPINTER          TO L340C-MONTO-INT-ALDIA
+                 MOVE  MP646-IMPGASTO          TO L340C-MONTO-GAS-ALDIA
+              END-IF.
+
+       CARGAR-PRIORIDAD-OPX.
+      *--------------------
+           PERFORM MOVER-SALIDA-OPXMQCOPY
+           INITIALIZE WS-TABLA-OPX
+           MOVE 0   TO WS-O.
+           MOVE 'N' TO WS-FIN-OPX.
+           PERFORM PAGINACION-ATPC490
+                   UNTIL WS-FIN-OPX = 'S' OR WS-O > 50.
+
+       PAGINACION-ATPC490.
+      *-------------------
+            PERFORM MOVER-DATOS-ATPC490.
+            PERFORM LLAMADA-A-ATPC490.
+       
+       MOVER-DATOS-ATPC490.
+      *--------------------
+            INITIALIZE MPML490.
+            MOVE STCOPY-COD-ENTIDAD  TO ML490-CODENT.
+            IF WS-O > 0
+               MOVE "S"              TO IND-PAGINACION
+               MOVE WST-CODOPX(WS-O) TO MQCOPY-CLAVE-FIN(19:4)
+            END-IF.
+            
+       LLAMADA-A-ATPC490.
+      *------------------
+            MOVE CT-RUTINA              TO MQCOPY-PROGRAMA
+            MOVE MPML490                TO MQCOPY-MENSAJE
+            MOVE "00"                   TO MQCOPY-RETORNO
+            IF SI-LOGGEA-SERVICIO
+               MOVE "I"                 TO INDICADOR_I-O OF MPMLOG
+               MOVE CT-ATPC490          TO CODIGO_RUTINA OF MPMLOG
+               MOVE MQCOPY              TO MENSAJE_COPY  OF MPMLOG
+               PERFORM 888888-LOGGEAR-TRANSACCION
+            END-IF
+       
+            CALL  CT-ATPC490            USING WS-MQCOPY.
+       
+            IF SI-LOGGEA-SERVICIO
+               MOVE "O"                 TO INDICADOR_I-O OF MPMLOG
+               MOVE CT-ATPC490          TO CODIGO_RUTINA OF MPMLOG
+               MOVE MQCOPY              TO MENSAJE_COPY  OF MPMLOG
+               PERFORM 888888-LOGGEAR-TRANSACCION
+            END-IF
+       
+            MOVE MQCOPY-MENSAJE         TO MPML490.
+       
+            IF MQCOPY-RETORNO = "00" OR "10"
+               PERFORM VARYING WS-IO FROM 1 BY 1 UNTIL WS-IO > 10           
+
+                 ADD 1 TO WS-O
+                 MOVE ML490-CODOPX   (WS-IO) TO WST-CODOPX    (WS-O)
+                 MOVE ML490-PRIOROPX (WS-IO) TO WST-PRIOROPX  (WS-O)
+                 MOVE ML490-DESOFEOPX(WS-IO) TO WST-DESOFEOPX (WS-O)
+                 MOVE ML490-DESOFEOPXRED(WS-IO)
+                                             TO WST-DESOFERED (WS-O)
+                 MOVE ML490-TIPOPX   (WS-IO) TO WST-TIPOPX    (WS-O)
+
+                 IF ML490-INDCONTINUAR(WS-IO) = "@"
+                    MOVE 61 TO WS-IO
+                 END-IF 
+               END-PERFORM
+            ELSE
+               MOVE 'S' TO WS-FIN-OPX
+            END-IF.
+            IF MQCOPY-IND-MAS-DATOS = 'N'
+               MOVE 'S' TO WS-FIN-OPX
+            END-IF.
+
+       VALIDAR-CAMPOS.
+      *---------------
+           PERFORM VALIDAR-ENCABEZADO.
+           PERFORM VALIDAR-PAN-CONTRATO.
+           PERFORM VALIDAR-INDICADOR-NOMBRE.
+           PERFORM VALIDAR-INDICADOR-OPX.
+           PERFORM VALIDAR-CUOTAS-FUTURAS.
+
+       VALIDAR-ENCABEZADO.
+      *-------------------
+           IF STCOPY-COD-ENTIDAD = SPACES  OR  LOW-VALUES  OR  ZEROS
+              MOVE 0010                TO  STCOPY-COD-RESPUESTA
+              MOVE CT-AVISO-ENC-ENTIDAD TO  MENSAJE_COPY OF MPMLOG
+                                           STCOPY-MENSAJE
+              PERFORM 999999-ERROR-PROGRAMA
+           END-IF.
+
+           IF STCOPY-FECHA-CONTA = SPACES  OR  LOW-VALUES  OR  ZEROS
+              MOVE 0010                TO  STCOPY-COD-RESPUESTA
+              MOVE CT-AVISO-ENC-FECHA TO  MENSAJE_COPY OF MPMLOG
+                                           STCOPY-MENSAJE
+              PERFORM 999999-ERROR-PROGRAMA
+           END-IF.
+
+
+       VALIDAR-PAN-CONTRATO.
+      *---------------------
+           IF L340C-PAN = SPACES  OR  LOW-VALUES  OR  ZEROS
+              PERFORM VALIDAR-CODENT
+              PERFORM VALIDAR-CENTALTA
+              PERFORM VALIDAR-CUENTA
+              PERFORM VALIDAR-EXISTENCIA-CONTRATO
+           ELSE
+              PERFORM VALIDAR-EXISTENCIA-PAN
+              PERFORM VALIDAR-EXISTENCIA-CONTRATO
+           END-IF.
+
+
+       VALIDAR-CODENT.
+      *---------------
+           IF L340C-CODENT = SPACES  OR  LOW-VALUES  OR  ZEROS
+              MOVE 0010                TO  STCOPY-COD-RESPUESTA
+              MOVE CT-AVISO-CODENT     TO  MENSAJE_COPY OF MPMLOG
+                                           L340C-SALIDA
+              PERFORM 999999-ERROR-PROGRAMA
+           END-IF.
+
+       VALIDAR-CENTALTA.
+      *-----------------
+           IF L340C-CENTALTA = SPACES  OR  LOW-VALUES  OR  ZEROS
+              MOVE 0010                TO  STCOPY-COD-RESPUESTA
+
+              MOVE CT-AVISO-CENTALTA   TO  MENSAJE_COPY OF MPMLOG
+                                           L340C-SALIDA
+              PERFORM 999999-ERROR-PROGRAMA
+           END-IF.
+
+       VALIDAR-CUENTA.
+      *---------------
+           IF L340C-CUENTA = SPACES  OR  LOW-VALUES  OR  ZEROS
+              MOVE 0010                TO  STCOPY-COD-RESPUESTA
+              MOVE CT-AVISO-CUENTA     TO  MENSAJE_COPY OF MPMLOG
+                                           L340C-SALIDA
+              PERFORM 999999-ERROR-PROGRAMA
+           END-IF.
+
+       VALIDAR-INDICADOR-NOMBRE.
+      *-------------------------
+           IF L340C-IND-NOMBRE NOT = "S"  AND   NOT = "N"
+              MOVE 0010                TO  STCOPY-COD-RESPUESTA
+              MOVE CT-AVISO-IND-NOMBRE TO  MENSAJE_COPY OF MPMLOG
+                                           L340C-SALIDA
+              PERFORM 999999-ERROR-PROGRAMA
+           END-IF.
+
+       VALIDAR-INDICADOR-OPX.
+      *----------------------
+           IF L340C-IND-OPX NOT = "S"  AND  NOT = "N"
+              MOVE 0010                TO  STCOPY-COD-RESPUESTA
+              MOVE CT-AVISO-IND-OPX    TO  MENSAJE_COPY OF MPMLOG
+                                           L340C-SALIDA
+              PERFORM 999999-ERROR-PROGRAMA
+           END-IF.
+
+       VALIDAR-CUOTAS-FUTURAS.
+      *-----------------------
+           IF L340C-CANT-CUO-FUT NOT NUMERIC
+              MOVE 0010                TO  STCOPY-COD-RESPUESTA
+              MOVE CT-AVISO-CUO-FUT1   TO  MENSAJE_COPY OF MPMLOG
+                                           L340C-SALIDA
+              PERFORM 999999-ERROR-PROGRAMA
+           ELSE
+              IF L340C-CANT-CUO-FUT > CT-10 
+                 MOVE 0010                TO  STCOPY-COD-RESPUESTA
+                 MOVE CT-AVISO-CUO-FUT2   TO  MENSAJE_COPY OF MPMLOG
+                                              L340C-SALIDA
+                 PERFORM 999999-ERROR-PROGRAMA
+              END-IF
+           END-IF.
+
+
+       VALIDAR-EXISTENCIA-PAN.
+      *-----------------------
+           PERFORM MOVER-SALIDA-OPXMQCOPY
+           INITIALIZE WS-MPM0405.
+           MOVE L340C-PAN              TO  MP405-PAN.
+           PERFORM LLAMADA-A-ATD405.
+
+       MOVER-SALIDA-OPXMQCOPY.
+      *----------------------
+           MOVE STCOPY-COD-ENTIDAD     TO  MQCOPY-ENTIDAD.
+           MOVE STCOPY-TIPO-TERMINAL   TO  MQCOPY-TIPO-TERMINAL.
+           MOVE STCOPY-COD-USUARIO     TO  MQCOPY-USUARIO.
+           MOVE STCOPY-COD-OFICINA     TO  MQCOPY-OFICINA.
+           MOVE STCOPY-TERM-FISICO     TO  MQCOPY-TERM-FISICO.
+           MOVE STCOPY-FECHA-CONTA     TO  MQCOPY-FECHA-CONTA.
+           MOVE STCOPY-FECHA-CONTA     TO  MQCOPY-FECHA-OPE.
+           MOVE STCOPY-COD-APLICACION  TO  MQCOPY-COD-APLICACION.
+           MOVE STCOPY-COD-PAIS        TO  MQCOPY-PAIS.
+           MOVE STCOPY-PAGINACION      TO  DATOS-PREVIOS-ENTRADA.
+           MOVE "00"                   TO  MQCOPY-RETORNO
+           MOVE SPACES                 TO  MQCOPY-COD-AVISO1
+           MOVE SPACES                 TO  MQCOPY-COD-AVISO2
+           MOVE SPACES                 TO  MQCOPY-MENS-AVISO-ERROR
+           MOVE SPACES                 TO  MQCOPY-COD-ERROR.
+           MOVE SPACES                 TO  MQCOPY-NOMBRE-BD
+           MOVE SPACES                 TO  MQCOPY-NOMBRE-RUTINA
+           MOVE SPACES                 TO  MQCOPY-CLAVE-TABLA
+           MOVE SPACES                 TO  MQCOPY-NOMBRE-TABLA
+           MOVE SPACES                 TO  MQCOPY-OPERACION
+           MOVE 0                      TO  MQCOPY-SQLCODE
+           MOVE  ' '                   TO  IND-PAGINACION.
+
+       LLAMADA-A-ATD405.
+      *-----------------
+           MOVE CT-ATD405              TO  MQCOPY-PROGRAMA.
+           MOVE MPM0405                TO  MQCOPY-MENSAJE.
+           IF SI-LOGGEA-SERVICIO
+              MOVE "I"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE CT-ATD405           TO  CODIGO_RUTINA OF MPMLOG
+              MOVE MQCOPY              TO  MENSAJE_COPY  OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+           CALL   CT-ATD405    USING    WS-MQCOPY.
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "O"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE CT-ATD405           TO  CODIGO_RUTINA OF MPMLOG
+              MOVE MQCOPY              TO  MENSAJE_COPY  OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+           
+           EVALUATE MQCOPY-RETORNO
+               WHEN CT-CORRECTO
+                    CONTINUE
+               WHEN CT-INFOR
+                    CONTINUE
+               WHEN OTHER
+                    MOVE 0030                  TO  STCOPY-COD-RESPUESTA
+                    MOVE CT-ERROR30-IDENT-CONT TO  L340C-SALIDA
+                    PERFORM 999999-ERROR-PROGRAMA
+           END-EVALUATE
+
+           MOVE MQCOPY-MENSAJE         TO  MPM0405.
+
+           MOVE MP405-CODENT           TO  L340C-CODENT.
+           MOVE MP405-CENTALTA         TO  L340C-CENTALTA.
+           MOVE MP405-CUENTA           TO  L340C-CUENTA.
+           MOVE MP405-NUMPER           TO  WS-IDENCLI.
+
+       MOVER-A-ATPC493.
+      *----------------
+           INITIALIZE  MPML623 
+           MOVE "A"                    TO  ML623-FINDESTADO
+           MOVE L340C-CODENT           TO  ML623-CODENT 
+           MOVE L340C-CENTALTA         TO  ML623-CENTALTA(1)
+           MOVE L340C-CUENTA           TO  ML623-CUENTA(1).
+
+       LLAMADA-A-ATPC493.
+      *-----------------
+           MOVE CT-ATPC493              TO  MQCOPY-PROGRAMA.
+           MOVE MPML623                 TO  MQCOPY-MENSAJE.
+           IF SI-LOGGEA-SERVICIO
+              MOVE "I"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE CT-ATPC493         TO  CODIGO_RUTINA OF MPMLOG
+              MOVE MQCOPY              TO  MENSAJE_COPY  OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+           CALL   CT-ATPC493    USING    WS-MQCOPY.
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "O"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE CT-ATPC493          TO  CODIGO_RUTINA OF MPMLOG
+              MOVE MQCOPY              TO  MENSAJE_COPY  OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+      *--> MLG 02/09/2009 A SOLICITUD DE RIPLEY SIEMPRE DEBE CONTINUAR
+      *                   PROCESANDO OPX
+      *     EVALUATE MQCOPY-RETORNO
+      *         WHEN CT-CORRECTO
+      *              CONTINUE
+      *         WHEN CT-INFOR
+      *              CONTINUE
+      *         WHEN OTHER
+      *              MOVE 0030                  TO  STCOPY-COD-RESPUESTA
+      *              MOVE CT-ERROR30-IDENT-CONT TO  L340C-SALIDA
+      *              PERFORM 999999-ERROR-PROGRAMA
+      *     END-EVALUATE.
+      *--> MLG 02/09/2009, Fin
+      
+           MOVE MQCOPY-MENSAJE         TO  MPML623.
+           
+           IF MQCOPY-RETORNO = '00'
+
+      **      INITIALIZE  L340C-SALIDA
+
+              MOVE ZEROS  TO  WS-CODOPX 
+              MOVE SPACES TO  WS-DES-OPX
+              MOVE 0      TO J W
+              SET  NO-ES-OPRD  TO TRUE
+              PERFORM VARYING I FROM 1 BY 1 UNTIL I > 10 
+      **                OR ML623-INDCONTINUAR(I) = CT-FIN-TABLA 
+        
+                 IF (ML623-INDESTADO(I) = 'A')
+                    AND (STCOPY-FECHA-CONTA NOT < ML623-FECINI-OPX(I))
+                    AND (STCOPY-FECHA-CONTA NOT > ML623-FECFIN-OPX(I))
+      
+                    IF ML623-CODOPX(I) NOT = WS-CODOPX
+                       MOVE 1 TO W
+                       ADD  1 TO J
+                       MOVE ML623-CODOPX(I) TO WS-CODOPX
+                       IF J > 10
+                          SUBTRACT 1 FROM J
+                          MOVE 11 TO I
+                       END-IF
+                       SET NO-ES-OPRD TO TRUE
+                    ELSE
+                       IF (ML623-CODOPX(I) = CT-OPRD)
+                          OR (ML623-CODOPX(I) = CT-OPR)
+                          SET SI-ES-OPRD TO TRUE
+                       ELSE
+                          ADD  1 TO W  
+                       END-IF   
+                    END-IF
+
+                    IF I < 11 AND NO-ES-OPRD
+                    MOVE ML623-CODOPX(I)    TO WSTOP-COD-OPX(J)
+
+                    PERFORM BUSCA-PRIORIDAD 
+                    MOVE WS-PRIORIDAD TO WSTOP-PRIOROPX(J)
+                    MOVE WS-DESOFEOPX TO WSTOP-DES-OPX(J)                    
+
+      **-------- OBTIENE DESCRIPCION DE TRX  ( ATC490 --------------------
+      *             
+      *             MOVE L340C-CODENT       TO  ML490-CODENT 
+      *             MOVE ML623-CODOPX(I)    TO  ML490-CODOPX(1)
+      *             PERFORM LLAMADA-A-ATP490
+      *
+      *             MOVE WS-DES-OPX         TO L340C-DES-OPX(J)
+          
+                   MOVE 0                  TO WSTOP-TASA-OPX(J)
+                   MOVE L340C-CLAMON-PRIN  TO WSTOP-CLAMON-OPX(J)
+                   MOVE ML623-IMPMINIMO(I) TO WSTOP-PAG-MINIMO-OPX(J)
+      *            COMPUTE L340C-PAG-MINIMO-OPX(J) = 
+      *              ( ML623-IMPBASE(I) * ML623-PARABONO(I) ) / 100
+                   
+                   SUBTRACT ML623-IMPMINIMO(I) FROM 
+                            ML623-IMPBASE(I) GIVING 
+                            WSTOP-MON-FINAN-OPX(J)
+                   
+                   MOVE ML623-NUMOPXCTA(I) TO WSTOP-NRO-OFE-OPX(J,W)          
+                   MOVE ML623-NUMPLAZO(I) TO WSTOP-PLAZO-OPX(J,W) 
+                   MOVE ML623-IMPCUOTA(I) TO WSTOP-VALOR-CUOTA-OPX(J,W)
+                   
+                   
+                   MOVE ML623-PORINT(I)   TO WSTOP-TASA-OPX(J)
+                   MOVE ML623-FECFIN-OPX(I) 
+                                          TO WS-FECHA-AMD-GUION
+                   MOVE WS-ANO-AMD-GUI    TO WS-ANO-AMD
+                   MOVE WS-MES-AMD-GUI    TO WS-MES-AMD
+                   MOVE WS-DIA-AMD-GUI    TO WS-DIA-AMD
+                   MOVE WS-FECHA-AMD      TO WSTOP-FECFIN-OPX(J)
+                   MOVE W                 TO WSTOP-CANT-PLAZOS-OPX (J)
+                  END-IF
+                 END-IF
+              END-PERFORM
+             MOVE J TO WSTOP-CANT-OPC-PAGO
+           END-IF.     
+
+       BUSCA-PRIORIDAD.
+      *---------------
+           MOVE 'N'    TO WS-FIN-OPX.
+           MOVE SPACES TO WS-DESOFEOPX.
+           MOVE 00     TO WS-PRIORIDAD.
+           PERFORM VARYING WS-O FROM 1 BY 1 UNTIL WS-O > 50
+                   OR WS-FIN-OPX = 'S'
+
+                IF ML623-CODOPX(I) = WST-CODOPX(WS-O)
+                   MOVE 'S' TO WS-FIN-OPX
+                   MOVE WST-PRIOROPX (WS-O) TO WS-PRIORIDAD
+                   MOVE WST-DESOFERED(WS-O) TO WS-DESOFEOPX
+                END-IF
+                
+           END-PERFORM.
+
+       MOVER-OPX-SALIDA.
+      *-----------------
+           MOVE 0 TO J
+           PERFORM VARYING WS-IO FROM 1 BY 1 UNTIL WS-IO > 50
+                           OR WST-CODOPX(WS-IO) = SPACES
+               PERFORM VARYING WS-O FROM 1 BY 1 UNTIL WS-O > 10
+                               OR J NOT < 3
+                               OR WSTOP-COD-OPX(WS-O) = SPACES
+                               
+                   IF WSTOP-PRIOROPX(WS-O) = WS-IO 
+                      ADD 1 TO J       
+                      MOVE WSTOP-ARREGLO-OPX(WS-O) 
+                           TO L340C-ARREGLO-OPX(J)
+                   END-IF
+               END-PERFORM
+           END-PERFORM.
+           MOVE J  TO L340C-CANT-OPC-PAGO.
+           
+       LLAMADA-A-ATP490.
+      *----------------
+
+           MOVE CT-ATPC490             TO  MQCOPY-PROGRAMA.
+           MOVE MPML490                TO  MQCOPY-MENSAJE.
+           IF SI-LOGGEA-SERVICIO
+              MOVE "I"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE CT-ATPC490           TO  CODIGO_RUTINA OF MPMLOG
+              MOVE MQCOPY              TO  MENSAJE_COPY  OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+           CALL   CT-ATPC490    USING    WS-MQCOPY.
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "O"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE CT-ATPC490          TO  CODIGO_RUTINA OF MPMLOG
+              MOVE MQCOPY              TO  MENSAJE_COPY  OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+           EVALUATE MQCOPY-RETORNO
+               WHEN CT-CORRECTO
+                    CONTINUE
+               WHEN CT-INFOR
+                    CONTINUE
+               WHEN OTHER
+                    MOVE 0030                  TO  STCOPY-COD-RESPUESTA
+                    MOVE CT-ERROR30-IDENT-CONT TO  L340C-SALIDA
+                    PERFORM 999999-ERROR-PROGRAMA
+           END-EVALUATE.
+
+           MOVE MQCOPY-MENSAJE         TO  MPML490
+
+           IF MQCOPY-RETORNO = '00'
+              MOVE ML490-DESOFEOPXRED(1)     TO WS-DES-OPX
+           ELSE
+              MOVE SPACES                    TO WS-DES-OPX
+           END-IF.
+
+CHV   * Modificacion del 21/11/2013  CHV. Kibernum   (Nuevo Parrafo)
+CHV   *                                                                 
+       BUSCAR-CASTIGO.         
+      *--------------         
+            PERFORM CONSULTA-DEUDA 
+            PERFORM CALCULO-INTERES-DEUDA.
+      *     MOVE ZEROS              TO L340C-MONTO-DE-LA-CUOTA.
+
+      *------------------------------------------------------------------
+      * Mediante el Nro. de Contrato se obtiene la informacion de Deuda  
+      * Castigada.   se invoca rutina ATPC260
+      *-----------------------------------------------------------------
+       CONSULTA-DEUDA.         
+      *--------------         
+           PERFORM    MOVER-SALIDA-OPXMQCOPY.
+           MOVE CT-U  TO IND-PAGINACION.
+           PERFORM  MOVER-DATOS-ATPC260.
+           PERFORM  LLAMADA-A-ATPC260. 
+
+        MOVER-DATOS-ATPC260.
+      *--------------------
+           COPY "MPM0260_SRV".
+           MOVE L340C-CODENT         TO MP260-CODENT.
+           MOVE L340C-CENTALTA       TO MP260-CENTALTA.
+           MOVE L340C-CUENTA         TO MP260-CUENTA.
+           MOVE L340C-CLAMON-PRIN    TO MP260-CLAMON.
+ 
+        LLAMADA-A-ATPC260.
+      *-------------------
+           MOVE CT-ATPC260     TO MQCOPY-PROGRAMA
+           MOVE MPM0260        TO MQCOPY-MENSAJE
+           IF SI-LOGGEA-SERVICIO
+              MOVE CT-I        TO INDICADOR_I-O OF MPMLOG
+              MOVE CT-ATPC260  TO CODIGO_RUTINA OF MPMLOG
+              MOVE MQCOPY      TO MENSAJE_COPY  OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+           CALL CT-ATPC260     USING WS-MQCOPY
+           
+           IF SI-LOGGEA-SERVICIO
+              MOVE CT-O        TO INDICADOR_I-O OF MPMLOG
+              MOVE CT-ATPC260  TO CODIGO_RUTINA OF MPMLOG
+              MOVE MQCOPY      TO MENSAJE_COPY  OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+           
+           MOVE MQCOPY-MENSAJE       TO MPM0260
+           
+           EVALUATE MQCOPY-RETORNO
+              WHEN CT-CORRECTO
+                   IF MP260-INDESTADO = 'F'
+                      SUBTRACT MP260-IMPAPLFIN FROM MP260-IMPCASFIN 
+                        GIVING L340C-IMP-TOT-PAGAR
+                      MOVE L340C-IMP-TOT-PAGAR TO L340C-IMP-PAGO-MINIMO
+                   ELSE
+                      IF MP260-INDESTADO = 'T'
+                         SUBTRACT MP260-IMPAPLTRI FROM MP260-IMPCASTRI
+                           GIVING L340C-IMP-TOT-PAGAR
+                         MOVE L340C-IMP-TOT-PAGAR TO 
+                                                 L340C-IMP-PAGO-MINIMO
+                      END-IF
+                   END-IF
+              WHEN OTHER
+                    MOVE ZEROS        TO L340C-IMP-TOT-PAGAR
+                                         L340C-IMP-PAGO-MINIMO
+           END-EVALUATE.
+
+      *------------------------------------------------------------------
+      * Mediante el Nro. de Contrato se obtiene la informacion de Intereses
+      * De la Deuda Castigada.   se invoca rutina ATD648 
+      *-----------------------------------------------------------------
+       CALCULO-INTERES-DEUDA.
+      *---------------------
+           PERFORM  MOVER-SALIDA-OPXMQCOPY.
+           MOVE CT-U                 TO IND-PAGINACION.
+           PERFORM  MOVER-DATOS-ATD648. 
+           PERFORM  LLAMADA-A-ATD648.  
+
+       MOVER-DATOS-ATD648.  
+      *--------------------
+      *    INICIALIZA WS-MPML648
+           COPY "MPML648_SRV".
+           .
+           MOVE L340C-CODENT         TO ML648-CODENT.
+           MOVE L340C-CENTALTA       TO ML648-CENTALTA.
+           MOVE L340C-CUENTA         TO ML648-CUENTA.
+           MOVE L340C-CLAMON-PRIN    TO ML648-CLAMON.     
+
+        LLAMADA-A-ATD648.  
+      *-------------------
+           MOVE CT-ATD648      TO MQCOPY-PROGRAMA
+           MOVE MPML648        TO MQCOPY-MENSAJE
+           IF SI-LOGGEA-SERVICIO
+              MOVE CT-I        TO INDICADOR_I-O OF MPMLOG
+              MOVE CT-ATD648   TO CODIGO_RUTINA OF MPMLOG
+              MOVE MQCOPY      TO MENSAJE_COPY  OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF. 
+           CALL CT-ATD648      USING WS-MQCOPY.
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE CT-O        TO INDICADOR_I-O OF MPMLOG
+              MOVE CT-ATD648   TO CODIGO_RUTINA OF MPMLOG
+              MOVE MQCOPY      TO MENSAJE_COPY  OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+           EVALUATE MQCOPY-RETORNO
+              WHEN CT-CORRECTO
+                    MOVE MQCOPY-MENSAJE       TO MPML648  
+                    MOVE ML648-IMPINTMORA(1)  TO L340C-MONTO-INT-ALDIA
+                    MOVE ML648-IMPCOMMORA(1)  TO L340C-MONTO-GAS-ALDIA
+               WHEN OTHER
+                    MOVE ZEROS                TO L340C-MONTO-INT-ALDIA
+                                                 L340C-MONTO-GAS-ALDIA.
+CHV   *
+CHV   * FIN  Modificacion del 21/11/2013  CHV. Kibernum   (Nuevo Parrafo)
+
+       MOVER-A-ATD780.
+      *----------------
+           INITIALIZE  MPM0780
+           MOVE L340C-CODENT      TO MP780-CODENT
+           MOVE L340C-CENTALTA    TO MP780-CENTALTA
+           MOVE L340C-CUENTA      TO MP780-CUENTA
+           MOVE L340C-CLAMON-PRIN TO MP780-CLAMONE.
+
+       LLAMADA-A-ATD780.
+      *-----------------
+           MOVE CT-ATD780               TO  MQCOPY-PROGRAMA.
+           MOVE MPM0780                  TO  MQCOPY-MENSAJE.
+           IF SI-LOGGEA-SERVICIO
+              MOVE "I"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE CT-ATD780           TO  CODIGO_RUTINA OF MPMLOG
+              MOVE MQCOPY              TO  MENSAJE_COPY  OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+           CALL   CT-ATD780    USING    WS-MQCOPY.
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "O"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE CT-ATD780           TO  CODIGO_RUTINA OF MPMLOG
+              MOVE MQCOPY              TO  MENSAJE_COPY  OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+      *   EVALUATE MQCOPY-RETORNO
+      *       WHEN CT-CORRECTO
+      *            CONTINUE
+      *       WHEN CT-INFOR
+      *            CONTINUE
+      *       WHEN OTHER
+      *            MOVE 0030                TO  STCOPY-COD-RESPUESTA
+      *            MOVE CT-ERROR30-IDENT-CONT TO  L340C-SALIDA
+      *            PERFORM 999999-ERROR-PROGRAMA
+      *   END-EVALUATE.
+
+           MOVE MQCOPY-MENSAJE         TO  MPM0780.
+
+
+       MOVER-A-ATD646.
+      *---------------
+           PERFORM MOVER-SALIDA-OPXMQCOPY
+           INITIALIZE  WS-MPM0646.
+
+           MOVE  L340C-CODENT         TO MP646-CODENT
+           MOVE  L340C-CENTALTA       TO MP646-CENTALTA
+           MOVE  L340C-CUENTA         TO MP646-CUENTA
+           MOVE  L340C-CLAMON-PRIN    TO MP646-CLAMON
+           MOVE  SPACES               TO MP646-LINEA
+           MOVE  "T"                  TO MP646-OPCION
+           MOVE  WS-FECHA-SYS         TO MP646-FECFAC
+           MOVE  MP780-DEUDA-MOROSA   TO MP646-IMPFAC.
+RDC        MOVE  CT-N                 TO MP646-PAG-AUT-CONFIR.
+           
+ 
+       LLAMADA-A-ATD646.
+      *-----------------
+           MOVE CT-ATD646              TO  MQCOPY-PROGRAMA-REAL.
+           MOVE WS-MPM0646             TO  MQCOPY-MENSAJE.
+           MOVE "00"                   TO  MQCOPY-RETORNO.
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "I"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE CT-ATD646           TO  CODIGO_RUTINA OF MPMLOG
+              MOVE WS-MQCOPY           TO  MENSAJE_COPY  OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+           CALL CT-ATD646              USING WS-MQCOPY.
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "O"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE CT-ATD646           TO  CODIGO_RUTINA OF MPMLOG
+              MOVE WS-MQCOPY           TO  MENSAJE_COPY  OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+           MOVE MQCOPY-MENSAJE         TO  WS-MPM0646.
+           
+           IF MQCOPY-RETORNO NOT = "00" AND 
+              MQCOPY-RETORNO NOT = "10"
+               MOVE 0                  TO  MP646-IMPINTER
+               MOVE 0                  TO  MP646-IMPGASTO
+           END-IF.
+
+
+       VALIDAR-EXISTENCIA-CONTRATO.
+      *-------------------------
+           PERFORM MOVER-SALIDA-OPXMQCOPY
+           PERFORM MOVER-DATOS-LIB070R.
+           PERFORM LLAMADA-A-ISER070.
+
+       MOVER-DATOS-LIB070R.
+      *--------------------
+           INITIALIZE WS-LIB070R.
+ 
+           MOVE L340C-CODENT              TO  LIB070R-CODENT
+           MOVE L340C-CENTALTA            TO  LIB070R-CENTALTA
+           MOVE L340C-CUENTA              TO  LIB070R-CUENTA.
+
+       LLAMADA-A-ISER070.
+      *-----------------
+           MOVE CT-ISER070              TO  MQCOPY-PROGRAMA.
+           MOVE LIB070R                TO  MQCOPY-MENSAJE.
+           IF SI-LOGGEA-SERVICIO
+              MOVE "I"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE CT-ISER070           TO  CODIGO_RUTINA OF MPMLOG
+              MOVE MQCOPY              TO  MENSAJE_COPY  OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+           CALL   CT-ISER070    USING    WS-MQCOPY.
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "O"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE CT-ISER070           TO  CODIGO_RUTINA OF MPMLOG
+              MOVE MQCOPY              TO  MENSAJE_COPY  OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+           MOVE MQCOPY-MENSAJE         TO  LIB070R.
+
+           EVALUATE MQCOPY-RETORNO
+               WHEN CT-CORRECTO
+                    CONTINUE
+               WHEN CT-INFOR
+                    CONTINUE
+               WHEN OTHER
+                    MOVE 0030            TO  STCOPY-COD-RESPUESTA
+                    MOVE CT-ERROR30-IDENT-CONT TO  L340C-SALIDA
+                    PERFORM 999999-ERROR-PROGRAMA
+           END-EVALUATE.
+
+           MOVE LIB070R-CODENT           TO  L340C-CODENT.
+           MOVE LIB070R-CENTALTA         TO  L340C-CENTALTA.
+           MOVE LIB070R-CUENTA           TO  L340C-CUENTA.
+
+           MOVE LIB070R-IDENTCLI          TO  WS-IDENCLI.
+
+
+       BUSCAR-DATOS-NOMBRE.
+      *--------------------
+           PERFORM MOVER-DATOS-PL-BOPERS-IDENCLI
+           PERFORM LLAMADA-A-PL-BOPERS.
+
+       MOVER-DATOS-PL-BOPERS-IDENCLI.
+      *--------------------------------
+           MOVE 2                      TO  WO-ENT-COD_TIP_SAL.
+
+           MOVE 1                     TO  WO-ENT-COD_APP_FIN_ACL.
+           MOVE 1                     TO  WO-ENT-COD_PRO_FIN_ACL.
+           MOVE "test"                TO  WO-ENT-GLS_USR_FIN_ACL.
+           MOVE 1                     TO  WO-ENT-NRO_REG_INC.
+           MOVE 35                    TO  WO-ENT-TOT_REG_PGN.
+           MOVE 1                     TO  WO-ENT-EST_VIG_TDO.
+           MOVE L340C-CODPAI           TO  WO-ENT-COD_PAI.
+           MOVE 99999                 TO  WO-ENT-COD_TIP_DCT_IDE.
+           MOVE "NULO"                TO  WO-ENT-GLS_NRO_DCT_IDE.
+           MOVE WS-IDENCLI            TO  WO-ENT-NRO_INN_IDE.
+           MOVE "NULO"                TO  WO-ENT-GLS_APL_PAT.
+           MOVE "NULO"                TO  WO-ENT-GLS_APL_MAT.
+           MOVE "NULO"                TO  WO-ENT-GLS_NOM_PEL.
+           MOVE 999                   TO  WO-ENT-COD_PAI_PRD.
+           MOVE 99999                 TO  WO-ENT-COD_TIP_NEG.
+           MOVE "NULO"                TO  WO-ENT-COC_PRD.
+           MOVE "NULO"                TO  WO-ENT-COC_SUB_PRD.
+           MOVE "NULO"                TO  WO-ENT-COC_EDA_ADM.
+           MOVE "NULO"                TO  WO-ENT-COC_SUC_ADM.
+           MOVE "NULO"                TO  WO-ENT-NRO_IDE_PRD.
+           MOVE 99999                 TO  WO-ENT-COD_TIP_REL_PRD.
+
+
+
+       LLAMADA-A-PL-BOPERS.
+      *--------------------
+      *%%%%%
+           IF SI-LOGGEA-SERVICIO
+              MOVE "I"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE "VER-PEL"           TO  NOMBRE_RUTINA OF MPMLOG
+              MOVE WS-IDENCLI          TO  MENSAJE_COPY  OF MPMLOG
+              MOVE "PL COS_VER_PEL: "  TO  CODIGO_RUTINA OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+           EXEC SQL
+                ALLOCATE :WO-SCLB_SAL_VAR_RES
+           END-EXEC.
+
+           EXEC SQL
+                ALLOCATE :WO-SCUR_SAL_CUR_REF
+           END-EXEC.
+
+           IF SQLCODE NOT = ZEROS
+              EXEC SQL
+                      CLOSE :WO-SCUR_SAL_CUR_REF
+              END-EXEC
+              EXEC SQL
+                      FREE :WO-SCUR_SAL_CUR_REF
+              END-EXEC
+           END-IF.
+
+
+           EXEC SQL EXECUTE
+                BEGIN
+                  BOPERS_ADM.BOPERS_PRC_COS_VER_PEL
+                         (TO_NUMBER(:WO-ENT-COD_TIP_SAL),
+                       TO_NUMBER(:WO-ENT-COD_APP_FIN_ACL),
+                       TO_NUMBER(:WO-ENT-COD_PRO_FIN_ACL),
+                       TRIM(:WO-ENT-GLS_USR_FIN_ACL),
+                       TO_NUMBER(:WO-ENT-COD_PAI),
+                       TO_NUMBER(:WO-ENT-COD_TIP_DCT_IDE),
+                       TRIM(:WO-ENT-GLS_NRO_DCT_IDE),
+                       TO_NUMBER(TRIM(:WO-ENT-NRO_INN_IDE)),
+                       :WO-SCLB_SAL_VAR_RES,
+                       :WO-SAL_NRO_MSJ,
+                       :WO-SAL_GLS_MSJ,
+                       :WO-SCUR_SAL_CUR_REF);
+                END;
+           END-EXEC.
+
+           MOVE SQLCODE                TO  ATSQLERR,   WS-SQLCODE.
+           IF NOT ACCESO-CORRECTO-BD
+              STRING CT-CLOSE
+                     CT-TABLA-CAT-SERV
+                     WS-SQLCODE
+                     CT-RUTINA
+                     CT-MP
+                     CT-ERROR-8
+                     CT-ERROR-DB     DELIMITED BY SIZE
+                INTO L340C-SALIDA
+              END-STRING
+              MOVE 0030                TO  STCOPY-COD-RESPUESTA
+              IF SI-LOGGEA-SERVICIO
+                 MOVE "O"              TO  INDICADOR_I-O OF MPMLOG
+                 MOVE STCOPY-MENSAJE   TO  MENSAJE_COPY OF MPMLOG
+                 PERFORM 888888-LOGGEAR-TRANSACCION
+              END-IF
+              PERFORM 999999-ERROR-PROGRAMA
+           END-IF.
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "O"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE "VER-PEL"           TO  NOMBRE_RUTINA OF MPMLOG
+              STRING   WO-ENT-COD_TIP_SAL,
+                       WO-ENT-COD_APP_FIN_ACL,
+                       WO-ENT-COD_PRO_FIN_ACL,
+                       WO-ENT-GLS_USR_FIN_ACL,
+                       WO-ENT-COD_PAI,
+                       WO-ENT-COD_TIP_DCT_IDE,
+                       WO-ENT-GLS_NRO_DCT_IDE,
+                       WO-ENT-NRO_INN_IDE DELIMITED BY SIZE
+                INTO   L340C-SALIDA
+              END-STRING
+              MOVE  L340C-SALIDA       TO  MENSAJE_COPY  OF MPMLOG
+              MOVE "PL COS_VER_PEL: "  TO  CODIGO_RUTINA OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+
+           IF WS-SQLCODE = ZEROES
+              PERFORM LEE-CURSOR-BOPERS
+              PERFORM CICLO-CURSOR-BOPERS UNTIL SQLCODE NOT = 0
+           END-IF.
+
+           EXEC SQL
+                CLOSE :WO-SCUR_SAL_CUR_REF 
+           END-EXEC.
+           EXEC SQL
+                FREE :WO-SCUR_SAL_CUR_REF 
+           END-EXEC.
+
+
+       CICLO-CURSOR-BOPERS.
+      *----------------------
+           MOVE GLS_NOM_PEL            TO  L340C-NOMBRE.
+           MOVE GLS_APL_PAT            TO  L340C-APE-PATERNO.
+           MOVE GLS_APL_MAT            TO  L340C-APE-MATERNO.
+           PERFORM LEE-CURSOR-BOPERS.
+
+       LEE-CURSOR-BOPERS.
+      *----------------------
+           EXEC SQL
+                 FETCH :WO-SCUR_SAL_CUR_REF  INTO :COD_PAI,
+                       :GLS_PAI,
+                       :COD_TIP_DCT_IDE,
+                       :GLS_TIP_DCT_IDE,
+                       :NRO_DCT_IDE,
+                       :DVR_NRO_DCT_IDE,
+                       :NRO_INN_IDE,
+                       :GLS_SER_DCT_IDE,
+                       :COD_TIP_PEL,
+                       :GLS_TIP_PEL,
+                       :GLS_APL_PAT,
+                       :GLS_APL_MAT,
+                       :GLS_NOM_PEL,
+                       :GLS_RAZ_SOC,
+                       :GLS_NOM_FTS
+           END-EXEC.
+
+
+       INFORMACION-ULTIMO-RECIBO.
+      *--------------------------
+           PERFORM MOVER-SALIDA-OPXMQCOPY
+           PERFORM MOVER-DATOS-LIB010R.
+           PERFORM LLAMADA-A-ISER010.
+
+
+       MOVER-DATOS-LIB010R.
+      *--------------------
+           INITIALIZE WS-LIB010R.
+           MOVE L340C-CODENT           TO  L010R-CODENT.
+           MOVE L340C-CENTALTA         TO  L010R-CENTALTA.
+           MOVE L340C-CUENTA           TO  L010R-CUENTA.
+           MOVE CT-CERO                TO  L010R-CLAMON.
+
+       LLAMADA-A-ISER010.
+      *------------------
+           MOVE CT-ISER010             TO  MQCOPY-PROGRAMA.
+           MOVE LIB010R                TO  MQCOPY-MENSAJE.
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "I"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE CT-ISER010          TO  NOMBRE_RUTINA OF MPMLOG
+              MOVE MQCOPY              TO  MENSAJE_COPY  OF MPMLOG
+              MOVE "MQCOPY:::        " TO  CODIGO_RUTINA OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+
+           CALL   CT-ISER010   USING  WS-MQCOPY.
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "O"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE CT-ISER010          TO  NOMBRE_RUTINA OF MPMLOG
+              MOVE MQCOPY              TO  MENSAJE_COPY  OF MPMLOG
+              MOVE "MQCOPY:::        " TO  CODIGO_RUTINA OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+           MOVE MQCOPY-MENSAJE         TO  LIB010R.
+
+           IF MQCOPY-RETORNO = CT-CORRECTO OR CT-INFOR
+             MOVE L010R-IMPMIN        TO  L340C-IMP-PAGO-MINIMO
+             STRING L010R-FECEMIMOV(1:4) DELIMITED BY "-"
+                    L010R-FECVENMOV(6:2) DELIMITED BY "-"
+                    L010R-FECVENMOV(9:2) DELIMITED BY "-"
+                     INTO WS-FECHA-VCTO
+             END-STRING
+           ELSE
+             MOVE CT-CERO   TO WS-FECHA-VCTO
+             MOVE CT-CERO   TO L340C-IMP-PAGO-MINIMO 
+           END-IF. 
+
+ 
+
+
+
+       INFORMACION-SALDOS.
+      *-------------------
+           PERFORM MOVER-STCOPY1-A-STCOPY.
+           PERFORM MOVER-DATOS-LIB090C.
+           PERFORM LLAMADA-A-SFISERS090C.
+
+       MOVER-STCOPY1-A-STCOPY.
+      *----------------------
+           INITIALIZE REGISTRO-INVOCACION1.
+           MOVE DFHCOMMAREA  TO WS-STCOPY1.
+
+
+       MOVER-DATOS-LIB090C.
+      *--------------------
+           MOVE CT-SFISERS090C         TO  INV-NOMBRE-SERVICIO1
+                                           STCOPY1-NOMBRE-SERVICIO
+           INITIALIZE WS-LIB090C.
+           MOVE L340C-CODENT           TO  L090C-CODENT.
+           MOVE L340C-CENTALTA         TO  L090C-CENTALTA.
+           MOVE L340C-CUENTA           TO  L090C-CUENTA.
+           MOVE L010R-CLAMON           TO  L090C-CLAMONF
+           MOVE ZEROES                 TO  L090C-LINEAF.
+           MOVE CT-N                   TO  L090C-INDDETLIN.
+
+       LLAMADA-A-SFISERS090C.
+      *----------------------
+           MOVE LIB090C                TO STCOPY1-MENSAJE
+           MOVE STCOPY1                TO INV-PARAMETROS1.
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "I"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE "SF090C"            TO  NOMBRE_RUTINA OF MPMLOG
+              MOVE LIB090C             TO  MENSAJE_COPY  OF MPMLOG
+              MOVE "LIB090C:    "      TO CODIGO_RUTINA OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+           CALL   CT-SFISERS090C    USING  REGISTRO-INVOCACION1.
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "O"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE "SF090C"            TO  NOMBRE_RUTINA OF MPMLOG
+              MOVE LIB090C             TO  MENSAJE_COPY  OF MPMLOG
+              MOVE "LIB090C:    "      TO CODIGO_RUTINA OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+           MOVE INV-PARAMETROS1              TO WS-STCOPY1.
+           MOVE STCOPY1-MENSAJE              TO LIB090C.
+
+             
+           IF STCOPY1-COD-RESPUESTA = CT-CORRECTO-REG-INV
+              MOVE L090C-SALDOTOT (L090C-CANMON) TO L340C-SALDOTOT
+              MOVE L090C-SALMORA  (L090C-CANMON) TO L340C-MONTO-MORA
+              MOVE L090C-PAGAPLIUFAC(L090C-CANMON)
+                                        TO  L340C-IMP-PAG-EFECTUADOS
+              MOVE L090C-SALNETUFAC(L090C-CANMON)
+                                       TO  L340C-IMP-TOT-PAGAR
+
+      *INI-NBV MANTIS 12424 20130528
+              IF   L340C-IMP-TOT-PAGAR <= 0
+                   MOVE 0 TO L340C-IMP-TOT-PAGAR
+              END-IF
+      *FIN-NBV MANTIS 12424 20130528  
+
+      *INI-NBV SATI:418507
+               COMPUTE WS-PAGO-MINIMO = 
+                       L340C-IMP-PAGO-MINIMO - L340C-IMP-PAG-EFECTUADOS
+               IF WS-PAGO-MINIMO <= 0
+                  MOVE ZEROES           TO  L340C-IMP-PAGO-MINIMO
+               ELSE
+                  MOVE WS-PAGO-MINIMO   TO  L340C-IMP-PAGO-MINIMO
+               END-IF
+
+RDC            IF L340C-IMP-PAGO-MINIMO = 0
+                  IF L340C-MONTO-MORA > 0
+                     MOVE L340C-MONTO-MORA TO L340C-IMP-PAGO-MINIMO
+                  END-IF
+               END-IF
+
+      *FIN-NBV SATI:418507
+              MOVE L090C-CLAMON(L090C-CANMON) TO L340C-CLAMON-PRIN
+              MOVE L090C-FECHAUFAC(L090C-CANMON) TO
+                                             L340C-FEC-ULT-FACT
+
+              MOVE L090C-DEUDAFAC(L090C-CANMON) TO 
+                                             L340C-MONTO-DE-LA-CUOTA
+              MOVE L090C-DIASMORA(L090C-CANMON)
+                                           TO STCOPY-OTROS-DATOS(1:4)
+
+           ELSE
+               MOVE CT-CERO  TO L340C-SALDOTOT
+               MOVE CT-CERO  TO L340C-MONTO-MORA
+               MOVE CT-CERO  TO L340C-IMP-PAG-EFECTUADOS
+               MOVE CT-CERO  TO L340C-IMP-TOT-PAGAR
+               MOVE 00010101 TO L340C-FEC-ULT-FACT
+               MOVE CT-CERO  TO L340C-MONTO-DE-LA-CUOTA
+               MOVE "0000"   TO STCOPY-OTROS-DATOS(1:4)
+           END-IF.
+
+
+       BUSCAR-RECAUDACIONES.
+      *---------------------
+           PERFORM MOVER-SALIDA-OPXMQCOPY
+           PERFORM MOVER-DATOS-MPML512
+           PERFORM LLAMADA-A-ATD512.
+
+       MOVER-DATOS-MPML512.
+      *--------------------
+           MOVE " " TO IND-PAGINACION.
+           INITIALIZE WS-MPML512.
+           MOVE L340C-CODENT           TO  ML512-CODENT.
+           STRING L340C-CODENT
+                  L340C-CENTALTA
+                  L340C-CUENTA DELIMITED BY SIZE
+                  INTO ML512-CODCONPERF
+           END-STRING.
+           MOVE "C" TO ML512-INDTIPREC(1).
+
+       LLAMADA-A-ATD512.
+      *-----------------
+           MOVE CT-ATD512              TO  MQCOPY-PROGRAMA.
+           MOVE MPML512                TO  MQCOPY-MENSAJE.
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "I"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE CT-ATD512           TO  NOMBRE_RUTINA OF MPMLOG
+              MOVE MQCOPY-MENSAJE      TO  MENSAJE_COPY  OF MPMLOG
+              MOVE "MQCOPY:       "    TO  CODIGO_RUTINA OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+           CALL   CT-ATD512      USING   WS-MQCOPY.
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "O"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE CT-ATD512           TO  NOMBRE_RUTINA OF MPMLOG
+              MOVE MQCOPY-MENSAJE      TO  MENSAJE_COPY  OF MPMLOG
+              MOVE "MQCOPY:       "    TO  CODIGO_RUTINA OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+           MOVE MQCOPY-MENSAJE         TO  MPML512.
+
+           MOVE 0 TO L340C-CANT-RECA
+           MOVE 0 TO L340C-MONTO-PAGO-RECA
+
+           IF MQCOPY-RETORNO = CT-CORRECTO 
+              OR MQCOPY-RETORNO = CT-INFOR
+                 SET NO-FIN-512 TO TRUE
+                 PERFORM VARYING I-IND FROM 1 BY 1 
+                              UNTIL I-IND > 10
+                                   OR SI-FIN-512
+                       IF ML512-CODCONREC(I-IND) NOT = ZEROS AND 
+                           NOT = SPACES AND 
+                           NOT = LOW-VALUES
+                          IF ML512-INDESTPAG(I-IND) = 0
+                           MOVE ML512-CODCONREC (I-IND) 
+                             TO  L340C-CODCONREC (I-IND)
+                           MOVE ML512-NUMMOVREC (I-IND) 
+                             TO  L340C-NUMMOVREC (I-IND)
+                           MOVE ML512-IMPREC    (I-IND) 
+                             TO  L340C-VALOR-REC (I-IND)
+                           ADD ML512-IMPREC(I-IND) 
+                              TO  L340C-MONTO-PAGO-RECA
+                           MOVE I-IND TO L340C-CANT-RECA
+                          END-IF
+                          IF ML512-INDCONTINUAR (I-IND) = "@"
+                            SET SI-FIN-512 TO TRUE
+                          END-IF
+                       ELSE
+                          SET SI-FIN-512 TO TRUE
+                       END-IF
+                 END-PERFORM
+            END-IF.
+
+
+       BUSCAR-DATOS-CUOTAS-FUTURAS.
+      *----------------------------
+           PERFORM MOVER-STCOPY1-A-STCOPY
+           PERFORM MOVER-DATOS-LIB100C
+           PERFORM LLAMADA-A-SFISERS100C.
+
+       MOVER-DATOS-LIB100C.
+      *--------------------
+           MOVE REGISTRO-INVOCACION TO REGISTRO-INVOCACION1
+           MOVE DFHCOMMAREA            TO  WS-STCOPY1
+
+           MOVE CT-SFISERS100C         TO  INV-NOMBRE-SERVICIO1
+                                           STCOPY1-NOMBRE-SERVICIO
+           INITIALIZE WS-LIB100C.
+           MOVE L340C-CODENT           TO  L100C-CODENT.
+           MOVE L340C-CENTALTA         TO  L100C-CENTALTA.
+           MOVE L340C-CUENTA           TO  L100C-CUENTA.
+           MOVE L340C-CLAMON-PRIN      TO  L100C-CLAMON.
+           MOVE ZEROES                 TO  L100C-LINEA.
+           MOVE CT-N                   TO  L100C-IND-CUOTAS-VENC.
+           MOVE CT-SI                  TO  L100C-IND-CUOTAS-FUTU.
+           MOVE L340C-CANT-CUO-FUT     TO  L100C-CAN-CUOTAS-FUTU.
+
+       LLAMADA-A-SFISERS100C.
+      *----------------------
+
+           MOVE LIB100C                TO STCOPY1-MENSAJE
+           MOVE STCOPY1                TO INV-PARAMETROS1
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "I"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE "SF100C"            TO  NOMBRE_RUTINA OF MPMLOG
+              MOVE LIB100C             TO  MENSAJE_COPY  OF MPMLOG
+              MOVE "LIB100C:     "     TO  CODIGO_RUTINA OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+           CALL   CT-SFISERS100C    USING  REGISTRO-INVOCACION1.
+
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "O"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE "SF100C"            TO  NOMBRE_RUTINA OF MPMLOG
+              MOVE LIB100C             TO  MENSAJE_COPY  OF MPMLOG
+              MOVE "LIB100C:     "     TO  CODIGO_RUTINA OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+           MOVE INV-PARAMETROS1    TO  WS-STCOPY1
+           MOVE STCOPY1-MENSAJE TO LIB100C
+
+           EVALUATE STCOPY1-COD-RESPUESTA
+               WHEN CT-CORRECTO-REG-INV
+                 IF SI-LOGGEA-SERVICIO
+                    MOVE "I"                 
+                                       TO  INDICADOR_I-O OF MPMLOG
+                    MOVE "CUOFUTINF"           
+                                       TO  NOMBRE_RUTINA OF MPMLOG
+                    MOVE L100C-CANT-CUOTAS-INFOR 
+                                       TO  MENSAJE_COPY  OF MPMLOG
+                    PERFORM 888888-LOGGEAR-TRANSACCION
+                  END-IF
+
+                  IF L100C-CANT-CUOTAS-INFOR > L340C-CANT-CUO-FUT 
+                     MOVE L340C-CANT-CUO-FUT 
+                                    TO L100C-CANT-CUOTAS-INFOR
+                  END-IF
+
+                  MOVE L100C-CANT-CUOTAS-INFOR 
+                                       TO L340C-CANT-CUO-FUTU
+
+                 IF SI-LOGGEA-SERVICIO
+                    MOVE "I"                 
+                                       TO  INDICADOR_I-O OF MPMLOG
+                    MOVE "CUOFUTINF"           
+                                       TO  NOMBRE_RUTINA OF MPMLOG
+                    MOVE L100C-CANT-CUOTAS-INFOR 
+                                       TO  MENSAJE_COPY  OF MPMLOG
+                    PERFORM 888888-LOGGEAR-TRANSACCION
+                  END-IF
+
+                  PERFORM VARYING I-IND FROM 1 BY 1 
+                       UNTIL I-IND > L100C-CANT-CUOTAS-INFOR
+                     MOVE L100C-FECCUO(I-IND)(1:4) TO 
+                                           WS-ANO-AMD
+                     MOVE L100C-FECCUO(I-IND)(5:2) TO 
+                                           WS-MES-AMD 
+                     MOVE 0                TO WS-DIA-AMD
+                     PERFORM LLAMAR-ATPC085
+                     MOVE WS-FECHA-AMD   TO L340C-FECHA-VCTO  (I-IND)
+                     MOVE L100C-MONTOTOT (I-IND) 
+                                  TO L340C-VALOR-CUOTA (I-IND)
+                  END-PERFORM
+                  CONTINUE
+               WHEN OTHER
+                  CONTINUE
+           END-EVALUATE.
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "I"                 
+                              TO  INDICADOR_I-O OF MPMLOG
+              MOVE "CUOFUTINF"           
+                               TO  NOMBRE_RUTINA OF MPMLOG
+              MOVE L100C-CANT-CUOTAS-INFOR 
+                                 TO  MENSAJE_COPY  OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+       LLAMAR-ATPC085.
+      *----------------
+
+           INITIALIZE WS-MPM0085.
+           MOVE LIB070R-GRUPOLIQ       TO  MP085-CODGRUPO
+           MOVE CT-01                   TO  MP085-CODPROCESO
+           MOVE L340C-CODENT           TO  MP085-CODENT
+           MOVE CT-02                   TO MP085-TIPFECHA
+           MOVE WS-ANO-AMD             TO WS-ANO-AMD-GUI
+           MOVE WS-MES-AMD             TO WS-MES-AMD-GUI
+           MOVE WS-DIA-AMD             TO WS-DIA-AMD-GUI
+           MOVE "-" TO WS-GUI1 WS-GUI2.
+
+           MOVE WS-FECHA-AMD-GUION     TO  MP085-FECHA(1).
+
+           MOVE CT-ATPC085             TO  MQCOPY-PROGRAMA.
+           MOVE MPM0085             TO  MQCOPY-MENSAJE.
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "I"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE CT-ATPC085          TO  NOMBRE_RUTINA OF MPMLOG
+              MOVE MQCOPY              TO  MENSAJE_COPY  OF MPMLOG
+              MOVE "MQCOPY:::        " TO  CODIGO_RUTINA OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+
+           CALL   CT-ATPC085   USING  WS-MQCOPY.
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "O"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE CT-ATPC085          TO  NOMBRE_RUTINA OF MPMLOG
+              MOVE MQCOPY              TO  MENSAJE_COPY  OF MPMLOG
+              MOVE "MQCOPY:::        " TO  CODIGO_RUTINA OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+           MOVE MQCOPY-MENSAJE         TO  MPM0085
+
+           IF MQCOPY-RETORNO = CT-CORRECTO OR CT-INFOR
+             MOVE MP085-FECHA(1) TO WS-FECHA-AMD-GUION
+             STRING WS-FECHA-AMD-GUION(1:4) DELIMITED BY "-"
+                    WS-FECHA-AMD-GUION(6:2) DELIMITED BY "-"
+                    WS-FECHA-AMD-GUION(9:2) DELIMITED BY "-"
+                     INTO WS-FECHA-AMD
+             END-STRING
+           END-IF.  
+
+       888888-LOGGEAR-TRANSACCION.
+      *---------------------------
+           ACCEPT HORA_TRANSACCION   FROM  TIME.
+           ADD 1                       TO  WS-NUM-SEC.
+           MOVE WS-NUM-SEC             TO  SECU_SERVICIO OF MPMLOG.
+
+           MOVE MPMLOG TO LINEA-ARCHIVO.
+           WRITE REG-ARCHIVO.
+
+
+       999999-ERROR-PROGRAMA.
+      *----------------------
+             PERFORM 300000-FINAL.
+
+       300000-FINAL.
+      *---------------
+           IF L340C-IMP-TOT-PAGAR = 0 
+             MOVE 0 TO L340C-IMP-PAGO-MINIMO
+           END-IF
+
+           MOVE LIB340C TO STCOPY-MENSAJE.
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "O"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE STCOPY              TO  MENSAJE_COPY  OF MPMLOG
+              MOVE " "                 TO  NOMBRE_RUTINA OF MPMLOG
+              MOVE "STCOPY::"          TO  CODIGO_RUTINA OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF.
+
+           MOVE DFHCOMMAREA TO INV-PARAMETROS
+           MOVE STCOPY-COD-RESPUESTA TO INV-COD-RETORNO
+
+           IF STCOPY-COD-RESPUESTA = 0
+              MULTIPLY 38 BY L340C-CANT-RECA GIVING WS-LARGO
+              ADD CT-LARGO-MENSAJE-FIJO TO WS-LARGO
+           ELSE
+              MOVE CT-LARGO-MENSAJE-ERROR TO WS-LARGO
+           END-IF
+
+           MOVE WS-LARGO             TO STCOPY-LARGO-MENSAJE
+           MOVE STCOPY-LARGO-MENSAJE TO INV-LARGO-MENSAJE.
+
+           IF SI-LOGGEA-SERVICIO
+              CLOSE ARCHIVO
+           END-IF.
+
+           GOBACK.
+ 
+      * DK - En caso de error generar un stop run
+      *------------------------------------------
+       300000-FINAL-STOP.
+      *---------------
+           MOVE LIB340C TO STCOPY-MENSAJE.
+
+           MOVE DFHCOMMAREA TO INV-PARAMETROS
+           MOVE WS-SQLCODE TO STCOPY-COD-RESPUESTA
+           MOVE STCOPY-COD-RESPUESTA TO INV-COD-RETORNO
+
+
+           MOVE WS-LARGO             TO STCOPY-LARGO-MENSAJE
+           MOVE STCOPY-LARGO-MENSAJE TO INV-LARGO-MENSAJE.
+
+           MOVE STCOPY                 TO INV-PARAMETROS
+           DISPLAY "ERROR DE CONEXION A SFISER_MAE_CAG_SVC"
+           DISPLAY "--------------------------------------"
+           DISPLAY "ERROR ENCONTRADO: " WS-SQLCODE
+           STOP RUN.
+      *------------------------------------------
+      * DK - Fin modificacion 

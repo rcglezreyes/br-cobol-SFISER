@@ -1,0 +1,442 @@
+      *----------------------------------------------------------------
+      * Libreria para el manejo en memoria de los datos relacionados a
+      * la tabla de Detalle de Factura 
+      * (Estructura MPM0044 - Tabla MPDT044)
+      *
+      * Dependencias:
+      *  - Debe estar declarada la rutina para manejo de errores 
+      *    888888-LOGGEAR-TRANSACCION
+      *
+      * Procesos de uso Publicos:
+      *  - ATPC044-CARGAR-ARREGLO
+      *  - ATPC044-BUSCAR-EN-ARREGLO
+      *----------------------------------------------------------------      
+
+
+      *----------------------------------------------------------------
+      * Proceso: ATPC044-CARGAR-ARREGLO
+      *----------------------------------------------------------------
+      * Se debe cargar una sola vez al iniciar el servicio
+      * Ejemplo:
+      *     PERFORM ATPC044-CARGAR-ARREGLO
+      *----------------------------------------------------------------      
+       ATPC044-CARGAR-ARREGLO.
+           IF WS-ATPC044-TAB-CLAVE(1) = SPACES 
+
+              INITIALIZE WS-ATPC044-CONTADOR
+                         DATOS-PREVIOS-ENTRADA
+              SET WS-ATPC044-FIN    TO FALSE
+              
+      *       Tipo de Paginacion (IND-PAGINACION)                                       
+              SET MQCOPY-SIGUIENTE  TO TRUE
+
+              PERFORM UNTIL WS-ATPC044-FIN
+                 PERFORM ATPC044-ATOMICO-LLENAR
+                 PERFORM ATPC044-ATOMICO-LLAMAR
+                 EVALUATE TRUE
+                   WHEN WS-ATPC044-RETORNO-OK
+                      PERFORM ATPC044-LLENA-ARREGLO
+                      IF MQCOPY-IND-MAS-DATOS = CT-N
+                         SET WS-ATPC044-FIN TO TRUE
+                      ELSE
+                         MOVE MQCOPY-CLAVE-FIN TO MQCOPY-CLAVE-INICIO
+                         SET  MQCOPY-SIGUIENTE    TO TRUE
+                         INITIALIZE MQCOPY-CLAVE-FIN
+      *                  Armo la clave para la proxima lectura 
+                         MOVE MP044-CODENT    
+                           TO MQCOPY-CLAVE-FIN(14:4)
+                         MOVE MP044-TIPOFAC(WS-ATPC044-MP044-OCCURS)
+                           TO MQCOPY-CLAVE-FIN(19:4)
+                         MOVE MP044-INDNORCOR(WS-ATPC044-MP044-OCCURS)
+                           TO MQCOPY-CLAVE-FIN(24:1)
+                      END-IF
+                    WHEN OTHER
+                      SET WS-ATPC044-FIN TO TRUE 
+                 END-EVALUATE
+              END-PERFORM
+              
+               DISPLAY 
+           "----------------------------------------------------------"
+              DISPLAY 
+           "- CARGA DE TABLA EN MEMORIA (ATPC044)          -"
+              DISPLAY "WS-ATPC044-CODENT....: "
+                      "[" WS-ATPC044-CODENT "]"
+              DISPLAY "WS-ATPC044-TIPOFAC....: "
+                      "[" WS-ATPC044-TIPOFAC "]"
+              DISPLAY "WS-ATPC044-INDNORCOR....: "
+                      "[" WS-ATPC044-INDNORCOR "]"
+              DISPLAY "Cantidad de registros cargados: "
+                      "[" WS-ATPC044-CONTADOR "]"
+              DISPLAY " "             
+           END-IF
+           .
+      
+
+      *----------------------------------------------------------------
+      * Proceso: ATPC044-BUSCAR-EN-ARREGLO
+      *----------------------------------------------------------------
+      * Se le debe especificar los datos de entrada e invocar el proceso
+      * Ejemplo:
+      *     INITIALIZE  WS-ATPC044
+      *     MOVE LIB075R-CODENT            TO WS-ATPC044-CODENT
+      *     MOVE LIB075R-CODESTCTA         TO WS-ATPC044-CODESTCTA
+      *     PERFORM ATPC044-BUSCAR-EN-ARREGLO  
+      *     MOVE WS-ATPC044-DESESTCTA    (1)  TO L300C-DESESTCTA
+      *     MOVE WS-ATPC044-DESESTCTARED (1)  TO L300C-DESESTCTARED
+      *----------------------------------------------------------------      
+       ATPC044-BUSCAR-EN-ARREGLO.
+           INITIALIZE WS-ATPC044-RETORNO
+                      WS-ATPC044-RESPUESTA
+           SET WS-ATPC044-TAB-INDICE TO 1
+           SEARCH ALL WS-ATPC044-TAB
+                  AT END 
+                     PERFORM ATPC044-BUSCAR-NO-ENCONTRADO
+                  WHEN WS-ATPC044-TAB-CLAVE (WS-ATPC044-TAB-INDICE) 
+                                           = WS-ATPC044-CLAVE
+                     PERFORM ATPC044-MOVER-DATOS-RESPUESTA
+           END-SEARCH
+           .
+
+
+
+
+      *----------------------------------------------------------------
+      * Procesos internos de soporte
+      *----------------------------------------------------------------
+
+      * Proceso de asignación de condiciones de filtro para la busqueda
+       ATPC044-ATOMICO-LLENAR.
+           INITIALIZE WS-MPM0044
+           MOVE WS-ATPC044-CODENT         TO MP044-CODENT
+           MOVE WS-ATPC044-TIPOFAC-ALF    TO MP044-TIPOFAC-ALF(1)
+           MOVE WS-ATPC044-INDNORCOR-ALF  TO MP044-INDNORCOR-ALF(1)
+           .
+
+
+      *----------------------------------------------------------------
+      * Proceso de ejecucion de busqueda
+       ATPC044-ATOMICO-LLAMAR.
+           MOVE CT-ATPC044             TO  MQCOPY-PROGRAMA-REAL
+           MOVE CT-ATPC044             TO  MQCOPY-PROGRAMA
+           MOVE "MPDT044"              TO  MQCOPY-NOMBRE-TABLA
+           
+           MOVE WS-MPM0044             TO  MQCOPY-MENSAJE
+           MOVE ZEROES                 TO  MQCOPY-RETORNO
+
+           IF SI-LOGGEA-SERVICIO
+              MOVE "I"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE CT-ATPC044          TO  CODIGO_RUTINA OF MPMLOG
+              MOVE MQCOPY              TO  MENSAJE_COPY  OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF
+           
+      *    Llamado a programa ATPC044 que consulta la tabla MPDT044
+      *    con las condiciones expresadas en MQCOPY-MENSAJE
+           CALL  CT-ATPC044   USING  WS-MQCOPY
+           
+           IF SI-LOGGEA-SERVICIO
+              MOVE "O"                 TO  INDICADOR_I-O OF MPMLOG
+              MOVE CT-ATPC044          TO  CODIGO_RUTINA OF MPMLOG
+              MOVE MQCOPY              TO  MENSAJE_COPY  OF MPMLOG
+              PERFORM 888888-LOGGEAR-TRANSACCION
+           END-IF
+           
+           EVALUATE MQCOPY-RETORNO
+              WHEN CT-RETORNO-OK
+                   SET WS-ATPC044-RETORNO-OK    TO TRUE
+                   MOVE MQCOPY-MENSAJE          TO WS-MPM0044
+              WHEN CT-MQCOPY-INFOR
+                   SET WS-ATPC044-RETORNO-INFO  TO TRUE     
+              WHEN OTHER
+                   SET WS-ATPC044-RETORNO-ERROR TO TRUE
+                   
+                   DISPLAY "ATPC044 - MQCOPY-COD-ERROR:"
+                           "[" MQCOPY-COD-ERROR "]"
+                   DISPLAY "ATPC044 - MQCOPY-RETORNO:"
+                           "[" MQCOPY-RETORNO "]"
+
+           END-EVALUATE
+           .
+
+
+      *----------------------------------------------------------------
+      * Proceso de carga de datos en el arreglo
+       ATPC044-LLENA-ARREGLO.
+      
+           INITIALIZE WS-ATPC044-MP044-CONTADOR
+           PERFORM UNTIL WS-ATPC044-MP044-CONTADOR > 
+                             WS-ATPC044-MP044-OCCURS
+                             
+              ADD CT-01         TO WS-ATPC044-CONTADOR
+              ADD CT-01         TO WS-ATPC044-MP044-CONTADOR
+              
+              MOVE WS-ATPC044-CONTADOR TO WS-ATPC044-TAB-OCCURS
+              
+              MOVE MP044-CODENT             
+                TO WS-ATPC044-TAB-CODENT(WS-ATPC044-CONTADOR)
+              MOVE MP044-CODENT-ATR         
+                TO WS-ATPC044-TAB-CODENT-ATR(WS-ATPC044-CONTADOR)                
+                
+              MOVE MP044-TIPOFAC-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-TIPOFAC-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-TIPOFAC(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-TIPOFAC(WS-ATPC044-CONTADOR)
+              MOVE MP044-INDNORCOR-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-INDNORCOR-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-INDNORCOR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-INDNORCOR(WS-ATPC044-CONTADOR)
+              MOVE MP044-TIPOFACSIST-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-TIPOFACSIST-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-TIPOFACSIST(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-TIPOFACSIST(WS-ATPC044-CONTADOR)
+              MOVE MP044-TIPSAL-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-TIPSAL-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-TIPSAL(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-TIPSAL(WS-ATPC044-CONTADOR)
+              MOVE MP044-DESTIPSAL-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-DESTIPSAL-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-DESTIPSAL(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-DESTIPSAL(WS-ATPC044-CONTADOR)
+              MOVE MP044-SIGNO-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-SIGNO-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-SIGNO(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-SIGNO(WS-ATPC044-CONTADOR)
+              MOVE MP044-DESTIPFAC-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-DESTIPFAC-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-DESTIPFAC(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-DESTIPFAC(WS-ATPC044-CONTADOR)
+              MOVE MP044-INDAUT-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-INDAUT-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-INDAUT(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-INDAUT(WS-ATPC044-CONTADOR)
+              MOVE MP044-INDFACINF-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-INDFACINF-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-INDFACINF(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-INDFACINF(WS-ATPC044-CONTADOR)
+              MOVE MP044-INDFACFIN-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-INDFACFIN-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-INDFACFIN(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-INDFACFIN(WS-ATPC044-CONTADOR)
+              MOVE MP044-INDCOMPCUO-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-INDCOMPCUO-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-INDCOMPCUO(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-INDCOMPCUO(WS-ATPC044-CONTADOR)
+              MOVE MP044-INDAPLINT-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-INDAPLINT-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-INDAPLINT(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-INDAPLINT(WS-ATPC044-CONTADOR)
+              MOVE MP044-TIPFECINIINT-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-TIPFECINIINT-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-TIPFECINIINT(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-TIPFECINIINT(WS-ATPC044-CONTADOR)
+              MOVE MP044-TIPFECFININT-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-TIPFECFININT-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-TIPFECFININT(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-TIPFECFININT(WS-ATPC044-CONTADOR)
+              MOVE MP044-INDMODIF-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-INDMODIF-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-INDMODIF(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-INDMODIF(WS-ATPC044-CONTADOR)
+              MOVE MP044-LINEA-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-LINEA-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-LINEA(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-LINEA(WS-ATPC044-CONTADOR)
+              MOVE MP044-DESLINEA-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-DESLINEA-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-DESLINEA(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-DESLINEA(WS-ATPC044-CONTADOR)
+              MOVE MP044-INDENTREM-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-INDENTREM-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-INDENTREM(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-INDENTREM(WS-ATPC044-CONTADOR)
+              MOVE MP044-INDENTEXT-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-INDENTEXT-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-INDENTEXT(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-INDENTEXT(WS-ATPC044-CONTADOR)
+              MOVE MP044-CODIMPTO-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-CODIMPTO-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-CODIMPTO(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-CODIMPTO(WS-ATPC044-CONTADOR)
+              MOVE MP044-DESIMPTO-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-DESIMPTO-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-DESIMPTO(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-DESIMPTO(WS-ATPC044-CONTADOR)
+              MOVE MP044-FECALTA-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-FECALTA-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-FECALTA(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-FECALTA(WS-ATPC044-CONTADOR)
+              MOVE MP044-FECBAJA-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-FECBAJA-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-FECBAJA(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-FECBAJA(WS-ATPC044-CONTADOR)
+              MOVE MP044-FECINI-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-FECINI-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-FECINI(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-FECINI(WS-ATPC044-CONTADOR)
+              MOVE MP044-FECFIN-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-FECFIN-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-FECFIN(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-FECFIN(WS-ATPC044-CONTADOR)
+              MOVE MP044-CODCONCEP-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-CODCONCEP-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-CODCONCEP(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-CODCONCEP(WS-ATPC044-CONTADOR)
+              MOVE MP044-CONTCUR-ATR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-CONTCUR-ATR(WS-ATPC044-CONTADOR)
+              MOVE MP044-CONTCUR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-CONTCUR(WS-ATPC044-CONTADOR)
+              MOVE MP044-INDCONTINUAR(WS-ATPC044-MP044-CONTADOR)
+                TO WS-ATPC044-TAB-INDCONTINUAR(WS-ATPC044-CONTADOR)
+                
+      * El caracter @ en el campo MP044-INDCONTINUAR representa que ese
+      * es el último dato entregado por la base de datos, por este motivo
+      * se utiliza esta "igualdad" para cortar la carga del arreglo
+              IF MP044-INDCONTINUAR(WS-ATPC044-MP044-CONTADOR) = '@'
+                 EXIT PERFORM
+              END-IF
+
+           END-PERFORM
+           .
+
+
+      *----------------------------------------------------------------
+      * Proceso que carga los datos de respuesta en la interfaz de
+      * comunicación
+       ATPC044-MOVER-DATOS-RESPUESTA.
+           INITIALIZE WS-ATPC044-RESPUESTA
+
+           MOVE WS-ATPC044-TAB-CODENT-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-CODENT-ATR
+           MOVE WS-ATPC044-TAB-CODENT(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-CODENT
+           MOVE WS-ATPC044-TAB-TIPOFAC-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-TIPOFAC-ATR
+           MOVE WS-ATPC044-TAB-TIPOFAC(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-TIPOFAC
+           MOVE WS-ATPC044-TAB-INDNORCOR-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-INDNORCOR-ATR
+           MOVE WS-ATPC044-TAB-INDNORCOR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-INDNORCOR
+           MOVE WS-ATPC044-TAB-TIPOFACSIST-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-TIPOFACSIST-ATR
+           MOVE WS-ATPC044-TAB-TIPOFACSIST(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-TIPOFACSIST
+           MOVE WS-ATPC044-TAB-TIPSAL-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-TIPSAL-ATR
+           MOVE WS-ATPC044-TAB-TIPSAL(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-TIPSAL
+           MOVE WS-ATPC044-TAB-DESTIPSAL-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-DESTIPSAL-ATR
+           MOVE WS-ATPC044-TAB-DESTIPSAL(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-DESTIPSAL
+           MOVE WS-ATPC044-TAB-SIGNO-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-SIGNO-ATR
+           MOVE WS-ATPC044-TAB-SIGNO(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-SIGNO
+           MOVE WS-ATPC044-TAB-DESTIPFAC-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-DESTIPFAC-ATR
+           MOVE WS-ATPC044-TAB-DESTIPFAC(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-DESTIPFAC
+           MOVE WS-ATPC044-TAB-INDAUT-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-INDAUT-ATR
+           MOVE WS-ATPC044-TAB-INDAUT(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-INDAUT
+           MOVE WS-ATPC044-TAB-INDFACINF-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-INDFACINF-ATR
+           MOVE WS-ATPC044-TAB-INDFACINF(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-INDFACINF
+           MOVE WS-ATPC044-TAB-INDFACFIN-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-INDFACFIN-ATR
+           MOVE WS-ATPC044-TAB-INDFACFIN(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-INDFACFIN
+           MOVE WS-ATPC044-TAB-INDCOMPCUO-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-INDCOMPCUO-ATR
+           MOVE WS-ATPC044-TAB-INDCOMPCUO(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-INDCOMPCUO
+           MOVE WS-ATPC044-TAB-INDAPLINT-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-INDAPLINT-ATR
+           MOVE WS-ATPC044-TAB-INDAPLINT(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-INDAPLINT
+           MOVE WS-ATPC044-TAB-TIPFECINIINT-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-TIPFECINIINT-ATR
+           MOVE WS-ATPC044-TAB-TIPFECINIINT(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-TIPFECINIINT
+           MOVE WS-ATPC044-TAB-TIPFECFININT-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-TIPFECFININT-ATR
+           MOVE WS-ATPC044-TAB-TIPFECFININT(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-TIPFECFININT
+           MOVE WS-ATPC044-TAB-INDMODIF-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-INDMODIF-ATR
+           MOVE WS-ATPC044-TAB-INDMODIF(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-INDMODIF
+           MOVE WS-ATPC044-TAB-LINEA-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-LINEA-ATR
+           MOVE WS-ATPC044-TAB-LINEA(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-LINEA
+           MOVE WS-ATPC044-TAB-DESLINEA-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-DESLINEA-ATR
+           MOVE WS-ATPC044-TAB-DESLINEA(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-DESLINEA
+           MOVE WS-ATPC044-TAB-INDENTREM-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-INDENTREM-ATR
+           MOVE WS-ATPC044-TAB-INDENTREM(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-INDENTREM
+           MOVE WS-ATPC044-TAB-INDENTEXT-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-INDENTEXT-ATR
+           MOVE WS-ATPC044-TAB-INDENTEXT(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-INDENTEXT
+           MOVE WS-ATPC044-TAB-CODIMPTO-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-CODIMPTO-ATR
+           MOVE WS-ATPC044-TAB-CODIMPTO(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-CODIMPTO
+           MOVE WS-ATPC044-TAB-DESIMPTO-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-DESIMPTO-ATR
+           MOVE WS-ATPC044-TAB-DESIMPTO(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-DESIMPTO
+           MOVE WS-ATPC044-TAB-FECALTA-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-FECALTA-ATR
+           MOVE WS-ATPC044-TAB-FECALTA(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-FECALTA
+           MOVE WS-ATPC044-TAB-FECBAJA-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-FECBAJA-ATR
+           MOVE WS-ATPC044-TAB-FECBAJA(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-FECBAJA
+           MOVE WS-ATPC044-TAB-FECINI-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-FECINI-ATR
+           MOVE WS-ATPC044-TAB-FECINI(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-FECINI
+           MOVE WS-ATPC044-TAB-FECFIN-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-FECFIN-ATR
+           MOVE WS-ATPC044-TAB-FECFIN(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-FECFIN
+           MOVE WS-ATPC044-TAB-CODCONCEP-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-CODCONCEP-ATR
+           MOVE WS-ATPC044-TAB-CODCONCEP(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-CODCONCEP
+           MOVE WS-ATPC044-TAB-CONTCUR-ATR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-CONTCUR-ATR
+           MOVE WS-ATPC044-TAB-CONTCUR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-CONTCUR
+           MOVE WS-ATPC044-TAB-INDCONTINUAR(WS-ATPC044-TAB-INDICE)
+             TO WS-ATPC044-INDCONTINUAR 
+           
+           SET WS-ATPC044-RETORNO-OK         TO TRUE
+           .
+
+ 
+      *----------------------------------------------------------------
+      * Proceso ejecutado cuando no se ha encontrado datos de 
+      * Tipos de Tarjetas con los criterios de busquedas recibidos          
+       ATPC044-BUSCAR-NO-ENCONTRADO.
+           SET WS-ATPC044-RETORNO-ERROR      TO TRUE
+           STRING "No se encontro el dato buscado en ATPC044." 
+                                               DELIMITED BY SIZE
+                  " - CODENT:"                 DELIMITED BY SIZE
+                  "[" WS-ATPC044-CODENT "]"    DELIMITED BY SIZE
+                  " - TIPOFAC:"                DELIMITED BY SIZE
+                  "[" WS-ATPC044-TIPOFAC "]"   DELIMITED BY SIZE
+                  " - INDNORCOR:"              DELIMITED BY SIZE
+                  "[" WS-ATPC044-INDNORCOR "]" DELIMITED BY SIZE
+            INTO WS-ATPC044-RETORNO-DESC
+           END-STRING
+           .

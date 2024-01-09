@@ -1,0 +1,201 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. SFISERSERR.
+      * 
+      * Servicio Manejo de Errores
+      *
+       AUTHOR. Rodrigo Diaz.
+      *
+       ENVIRONMENT DIVISION.
+       CONFIGURATION SECTION.
+       SPECIAL-NAMES.
+           DECIMAL-POINT IS COMMA.
+      *
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  CT-CONSTANTES.
+           05  WS-SQLCODE                   PIC S9(9)   VALUE ZEROS.
+           05  CT-2                   PIC 9(01) VALUE 2.
+           05  CT-1                   PIC 9(01) VALUE 1.
+           05  CT-70	              PIC 9(02) VALUE 70.
+
+           EXEC SQL
+               BEGIN DECLARE SECTION
+           END-EXEC.
+
+      *--------------------------------------------------------------
+      *       ESQUEMA DE BOTGEN_PRC_ENC_PAR_DOM
+      *--------------------------------------------------------------
+       01  PARAM-MACDOM.
+           05  ENTRADA-MCD.
+               10  MCD_ENUM_COD_PAI              PIC  9(03).
+               10  MCD_ENUM_COD_MAC_DOM          PIC  9(05).
+               10  MCD_ENUM_COD_MOV_DOM          PIC  9(05).
+               10  MCD_EVC2_GLS_MOV_DOM          PIC  X(200).
+               10  MCD_ENUM_COD_APP              PIC  9(05).
+               10  MCD_ENUM_COD_PRO_APP          PIC  9(05).
+               10  MCD_EVC2_NOM_RSP              PIC  X(60).
+               10  MCD_ENUM_TIP_SAL              PIC  9(01).
+               10  MCD_ENUM_NRO_REG_INC          PIC  9(05).
+               10  MCD_ENUM_TOT_REG_PGN          PIC  9(05).
+           05  SALIDA-MCD.
+               10  MCD_SAL_NRO_MSJ               PIC S9(05).
+               10  MCD_SAL_GLS_MSJ               PIC X(200).
+           05  SALIDA-CUR-MCD OCCURS 10 TIMES.  
+               10  MCD_COD_PAI                   PIC  9(03).
+               10  MCD_GLS_PAI                   PIC  X(60).
+               10  MCD_COD_MAC_DOM               PIC  9(05).
+               10  MCD_GLS_MAC_DOM               PIC  X(60).
+               10  MCD_COD_DOM                   PIC  9(05).
+               10  MCD_COC_DOM                   PIC  X(10).
+               10  MCD_GLS_DOM                   PIC  X(100).
+               10  MCD_MRC_VIG                   PIC  X(01).
+
+       01  WO_SCLB_VAR_MCD                       SQL-CLOB.
+       01  WS-SCLB-VAR-MCD                       PIC X(200) VARYING.
+       01  LARGO-TEXT-MCD                        PIC S9(9) COMP.
+       01  SCUR_CUR_MCD                          SQL-CURSOR.
+       01  RECIBE-CUR-MCD.
+           05 MCD_TGMPA_COD_PAI                  PIC  9(03).
+           05 MCD_TGMPA_GLS_PAI                  PIC  X(60).
+           05 MCD_TGMMD_COD_MAC_DOM              PIC  9(05).
+           05 MCD_TGMMD_GLS_MAC_DOM              PIC  X(60).
+           05 MCD_TGMDO_COD_DOM                  PIC  9(05).
+           05 MCD_TGMDO_COC_DOM                  PIC  X(10).
+           05 MCD_TGMDO_GLS_DOM                  PIC  X(100).
+           05 MCD_TGMDO_MRC_VIG                  PIC  X(01).
+
+      *--------------------------------------------------------------
+
+           EXEC SQL
+                INCLUDE SQLCA
+           END-EXEC.
+
+       
+           EXEC SQL END DECLARE SECTION END-EXEC.
+      *--------------------------------------------------------------
+       01  WS-ATSQLERR.
+           COPY "ATSQLERR".
+
+      *-----------------------------------------------------------------------*
+       LINKAGE SECTION.
+      *-----------------------------------------------------------------------*
+       01  INVOCACION-ERROR.
+           05  INV-COD-ERROR                  PIC 9(003).
+           05  INV-COD-PAIS                   PIC 9(003).
+           05  INV-NOM-SERVICIO               PIC X(010).
+           05  INV-MENSAJE-ERROR              PIC X(100).
+          
+      *+-----------------------------------------------------------+
+       PROCEDURE DIVISION USING INVOCACION-ERROR.
+
+       COMIENZO.
+      *--------
+           PERFORM 100000-INICIO.
+           PERFORM 200000-PROCESO.
+           PERFORM 300000-FINAL.
+           
+       100000-INICIO.
+      *--------------
+           MOVE INV-COD-PAIS              TO MCD_ENUM_COD_PAI.
+           MOVE 788                       TO MCD_ENUM_COD_MAC_DOM.
+           MOVE INV-COD-ERROR             TO MCD_ENUM_COD_MOV_DOM.
+           MOVE "VACIO"                   TO MCD_EVC2_GLS_MOV_DOM.
+           MOVE CT-70                     TO MCD_ENUM_COD_APP.
+           MOVE CT-1                     TO MCD_ENUM_COD_PRO_APP.
+           MOVE INV-NOM-SERVICIO          TO MCD_EVC2_NOM_RSP.
+           MOVE CT-2                      TO MCD_ENUM_TIP_SAL.
+           MOVE CT-1                      TO MCD_ENUM_NRO_REG_INC.
+           MOVE CT-1                      TO MCD_ENUM_TOT_REG_PGN.
+      
+       200000-PROCESO.
+      *---------------
+           EXEC SQL
+                ALLOCATE :WO_SCLB_VAR_MCD
+           END-EXEC.
+
+           EXEC SQL
+                ALLOCATE :SCUR_CUR_MCD
+           END-EXEC.
+
+           IF SQLCODE NOT = ZEROS
+              EXEC SQL
+                      CLOSE :SCUR_CUR_MCD
+              END-EXEC
+              EXEC SQL
+                      FREE :SCUR_CUR_MCD
+              END-EXEC
+           END-IF.
+
+           EXEC SQL EXECUTE
+                BEGIN
+                  BOTGEN_ADM.BOTGEN_PRC_ENC_PAR_DOM
+                                   (TO_NUMBER(:MCD_ENUM_COD_PAI),
+                                    TO_NUMBER(:MCD_ENUM_COD_MAC_DOM),
+                                    TO_NUMBER(:MCD_ENUM_COD_MOV_DOM),
+                                    TRIM(:MCD_EVC2_GLS_MOV_DOM),
+                                    TO_NUMBER(:MCD_ENUM_COD_APP),
+                                    TO_NUMBER(:MCD_ENUM_COD_PRO_APP),
+                                    TRIM(:MCD_EVC2_NOM_RSP),
+                                    TO_NUMBER(:MCD_ENUM_TIP_SAL),
+                                    TO_NUMBER(:MCD_ENUM_NRO_REG_INC),
+                                    TO_NUMBER(:MCD_ENUM_TOT_REG_PGN),
+                                    :WO_SCLB_VAR_MCD,
+                                    :MCD_SAL_NRO_MSJ,
+                                    :MCD_SAL_GLS_MSJ,
+                                    :SCUR_CUR_MCD );
+                END;
+           END-EXEC.
+
+           MOVE SQLCODE                   TO ATSQLERR, WS-SQLCODE.
+           IF NOT  ACCESO-CORRECTO-BD
+              MOVE 'ERROR NO CATALOGADO'  TO INV-MENSAJE-ERROR
+           END-IF.
+
+           IF SQLCODE = ZEROS AND
+              MCD_SAL_NRO_MSJ = ZEROS
+              PERFORM LEE-CURSOR-MCD 
+              IF SQLCODE = ZEROS AND 
+                 MCD_TGMDO_COD_DOM = INV-COD-ERROR
+                 MOVE MCD_TGMDO_GLS_DOM      
+                                         TO INV-MENSAJE-ERROR
+              ELSE
+                 MOVE 'ERROR NO CATALOGADO' 
+                                          TO INV-MENSAJE-ERROR
+              END-IF
+           ELSE
+              MOVE 'ERROR NO CATALOGADO'  TO INV-MENSAJE-ERROR
+           END-IF.
+
+           EXEC SQL
+                CLOSE :SCUR_CUR_MCD
+           END-EXEC.
+           EXEC SQL
+                FREE :SCUR_CUR_MCD
+           END-EXEC.
+           
+
+       LEE-CURSOR-MCD.
+      *---------------
+           EXEC SQL
+               FETCH :SCUR_CUR_MCD
+               INTO  :MCD_TGMPA_COD_PAI,
+                     :MCD_TGMPA_GLS_PAI,
+                     :MCD_TGMMD_COD_MAC_DOM,
+                     :MCD_TGMMD_GLS_MAC_DOM,
+                     :MCD_TGMDO_COD_DOM,
+                     :MCD_TGMDO_COC_DOM,
+                     :MCD_TGMDO_GLS_DOM,
+                     :MCD_TGMDO_MRC_VIG     
+           END-EXEC.
+           
+           
+
+           
+
+       300000-FINAL.
+      *-------------
+           GOBACK.
+
+      *****************************************************************
+      **         H A S T A   A Q U I   E L   P R O G R A M A         **
+      *****************************************************************

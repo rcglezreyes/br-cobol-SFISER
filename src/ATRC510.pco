@@ -1,0 +1,1169 @@
+      *+-------------------------------------------------------+
+      *              CP SISTEMAS DE PAGO
+      *                     ATRC510
+      *
+      *                  PROCESO
+      *
+      *  DESCRIPCION: PROCESO PARA OBTENER, EN TIEMPO REAL, LA
+      *               INFORMACION BASICA DE UN CONVENIO DE
+      *               RECAUDACION.                          
+      *
+      *+-------------------------------------------------------+
+      *+------------------------------------------------------------+
+      * INCIDENCIA : INC-2956                                       *
+      * AUTOR      : JHONATAN MELO V.                               *
+      * FECHA      : 21-08-2009                                     *
+      * DESCRIPCION: SE RECOMPILA POR CAMBIO EN DCLGEN MPDT510.     *
+      *+------------------------------------------------------------+
+      *+------------------------------------------------------------+
+      * INCIDENCIA : INC-3024                                       *
+      * AUTOR      : LOURDES GUTIERREZ                              *
+      * FECHA      : 15-10-2009                                     *
+      * DESCRIPCION: SE RECOMPILA POR CAMBIO EN DCLGEN MPDT510.     *
+      *    Y EN MPM0510                                             *
+      *+------------------------------------------------------------+
+      * 17/11/2009 LOURDES GUTIERREZ                                *
+      *            SE RECOMPILA POR CAMBIOS EN MPDT510              *
+      ***************************************************************
+      * 20/11/2009 LOURDES GUTIERREZ                                *
+      *         SE RECOMPILA POR CAMBIOS EN MPM0510 MPM0511 MPML511 *
+      ***************************************************************
+      * INCIDENCIA : OPTIMIZACION (IN-OPT)                          *
+      * AUTOR      : TECNOCOM (LPO)                                 *
+      * FECHA      : 28-06-2010                                     *
+      * DESCRIPCION: SE MUEVEN ZEROES AL CAMPO MQCOPY-RETORNO       *
+      *-------------------------------------------------------------+
+      * INCIDENCIA : MODIF RECAUDACIONES (MOD-RE)                   *
+      * AUTOR      : TECNOCOM (LPO)                                 *
+      * FECHA      : 02-11-2010                                     *
+      * DESCRIPCION: MODIFICACION DEL GAP DE RECAUDACIONES          *
+      *              SE RECOMPILA POR MODIFICACION DE TABLAS        *
+      *              MPDT511 Y MPDT512                              *
+      ***************************************************************
+
+
+       IDENTIFICATION DIVISION.
+      *-----------------------.
+
+       PROGRAM-ID.      ATRC510.
+       AUTHOR.          GETRONICS.          
+       DATE-WRITTEN.    23 DE ENERO DE 2006.  
+
+      *+-------------------------------------------------------+
+      *               ENVIROMENT DIVISION
+      *              =====================
+      *+-------------------------------------------------------+
+
+       ENVIRONMENT DIVISION.
+      *--------------------.
+
+       CONFIGURATION SECTION.
+
+       SPECIAL-NAMES.
+           DECIMAL-POINT IS COMMA.
+
+      *+-------------------------------------------------------+
+      *                 DATA DIVISION
+      *                ===============
+      *+-------------------------------------------------------+
+       DATA DIVISION.
+      *-------------.
+       FILE SECTION.
+
+      *+-------------------------------------------------------+
+      *            WORKING  STORAGE  SECTION
+      *           ===========================
+      *+-------------------------------------------------------+
+       WORKING-STORAGE SECTION.
+
+       01 FILLER                           PIC X(25)
+                VALUE 'COMIENZO WORKING ATRC510'.
+
+      *+-------------------------------------------------------------+
+      *           FLAGS DEL PROGRAMA
+      *+-------------------------------------------------------------+
+       01  SW-FIN-CORRECTO         PIC X(2) VALUE 'SI'.
+           88  NO-CORRECTO                  VALUE 'NO'.
+           88  SI-CORRECTO                  VALUE 'SI'.
+
+      *+-------------------------------------------------------------+
+      *           WORKA CORRESPONDIENTE A LOS ERRORES DB2
+      *+-------------------------------------------------------------+
+      *
+           EXEC SQL BEGIN DECLARE SECTION END-EXEC.
+      *
+           EXEC SQL
+             INCLUDE SQLCA
+           END-EXEC.
+
+      *        WS-CLAVE-VAL.
+       01  WS-CODENT-VAL           PIC X(04).
+       01  WS-CODCONREC-VAL        PIC X(04).
+      *        WS-CLAVE-ORIG.
+       01  WS-CODENT-ORIG          PIC X(04).
+       01  WS-CODCONREC-ORIG       PIC X(04).
+      *        WS-CLAVE-PAG.
+       01  WS-CODENT-PAG           PIC X(04).
+       01  WS-CODCONREC-PAG        PIC X(04).
+
+      *****  WS-CAMPOS-HOST *****
+       01 WS-ZEROS-2                 PIC X(02) VALUE ZEROS.
+       01 WS-ESPACIOS-2              PIC X(02) VALUE SPACES.
+
+      *+-------------------------------------------------------------+
+      *                   VARIABLES DEL PROGRAMA
+      *+-------------------------------------------------------------+
+       01  WS-VARIABLES.
+           05  WS-TEXTO4-ERROR.
+               10  WS-MSG-ERROR            PIC X(71).
+               10  WS-MSG-ADI1             PIC X(71).
+               10  WS-MSG-ADI2             PIC X(71).
+               10  WS-MSG-ADI3             PIC X(71).
+           05  WS-TEXTO2-ERROR REDEFINES WS-TEXTO4-ERROR.
+               10  WS-TXT1-ERROR           PIC X(100).
+               10  WS-TXT2-ERROR           PIC X(100).
+               10  WS-TXT3-ERROR           PIC X(084).
+
+      *+-------------------------------------------------------------+
+      *                    CONSTANTES DEL PROGRAMA
+      *+-------------------------------------------------------------+
+       01  CT-CONSTANTES.
+           05  CT-VALOR-MAS                PIC X(1)    VALUE '/'.
+           05  CT-VALOR-FIN                PIC X(1)    VALUE '@'.
+           05  CT-VALOR-S                  PIC X(1)    VALUE 'S'.
+           05  CT-VALOR-5                  PIC X(1)    VALUE '5'.
+           05  CT-PROGRAMA                 PIC X(8)    VALUE 'ATRC510'.
+           05  CT-100                      PIC S9(3) COMP-3 VALUE +100.
+
+           05  CT-TABLENAME510             PIC X(7)   VALUE 'MPDT510'.
+           05  CT-TABLENAME086             PIC X(7)   VALUE 'MPDT086'.
+           05  CT-TABLENAME044             PIC X(7)   VALUE 'MPDT044'.
+           05  CT-TABLENAME21              PIC X(7)   VALUE 'MPDT021'.
+           05  CT-ABRIR-ATRC510-AB          PIC X(17)  VALUE
+                                 'ABRIR-ATRC510-AB'.
+           05  CT-LEER-ATRC510-AB           PIC X(17)  VALUE
+                                 'LEER-ATRC510-AB '.
+           05  CT-CERRAR-ATRC510-AB         PIC X(18)  VALUE
+                                 'CERRAR-ATRC510-AB'.
+           05  CT-ABRIR-ATRC510-AR          PIC X(17)  VALUE
+                                 'ABRIR-ATRC510-AR'.
+           05  CT-LEER-ATRC510-AR           PIC X(17)  VALUE
+                                 'LEER-ATRC510-AR '.
+           05  CT-CERRAR-ATRC510-AR         PIC X(18)  VALUE
+                                 'CERRAR-ATRC510-AR'.
+           05  CT-CONSULTA-BD              PIC X(15)  VALUE
+                                 'CONSULTA-BD    '.
+           05  CT-COUNT-ATRC510-AR          PIC X(15)  VALUE
+                                 'COUNT-004-AR'.
+           05  CT-SELECCION                PIC X(6)  VALUE 'SELECT'.
+           05  CT-ERROR-4                  PIC X(07) VALUE 'MPE0004'.
+           05  CT-ERROR-5                  PIC X(07) VALUE 'MPE0005'.
+           05  CT-ERROR-6                  PIC X(07) VALUE 'MPE0006'.
+           05  CT-ERROR-7                  PIC X(07) VALUE 'MPE0007'.
+           05  CT-ERROR-8                  PIC X(07) VALUE 'MPE0008'.
+           05  CT-ERROR-8888               PIC X(7)  VALUE 'MPE8888'.
+           05  CT-AVISO-2                  PIC X(07) VALUE 'MPA0002'.
+           05  CT-UNO                      PIC 9(1) VALUE 1.
+           05  CT-APLICACION               PIC X(2) VALUE 'MP'.
+           05  CT-AVISO                    PIC X(2) VALUE '20'.
+           05  CT-ERROR                    PIC X(2) VALUE '20'.
+           05  CT-ERROR-DB2                PIC X(2) VALUE '30'.
+           05  CT-RUT-ERRORES              PIC X(8) VALUE 'ATR303'.
+           05  CT-INFOR-1                  PIC X(7) VALUE 'MPI0001'.
+           05  CT-TABLA-LLENA              PIC X(32)
+                            VALUE 'E0000000000000000000000000000000'.
+           05  CT-OCCURS                   PIC 9(3) VALUE 81.
+      *+-------------------------------------------------------------+
+      *                    CONTADORES DEL PROGRAMA
+      *+-------------------------------------------------------------+
+
+       01  INDICE                         PIC  9(02)   VALUE ZEROS.
+       01  CN-CONTADOR                    PIC S9(03)   COMP.
+       01  WS-SQLCODE-FETCH               PIC S9(09)   COMP.
+
+      *+------------------------------------------------------+
+      *        COPYS DE ERROR
+      *+------------------------------------------------------+
+       01  WS-MPSQLERR.
+           COPY ATSQLERR.
+
+       01  AREA-ERROR.
+           COPY MPM0303.
+
+      *+------------------------------------------------------+
+      *        COPYS DEL PROGRAMA
+      *+------------------------------------------------------+
+
+       01  AREA-SERVICIO.
+           COPY MPM0510.
+           COPY MPML510.
+
+      *+-------------------------------------------------------------+
+      *                         TABLAS SQL
+      *+-------------------------------------------------------------+
+      *+-------------------------------------------------------------+
+      *                   DCLGEN DE LAS TABLAS DEL PROGRAMA
+      *+-------------------------------------------------------------+
+      * DCLGEN DE LA TABLA DE ENTIDADES-MONEDAS
+      * LINEA
+           EXEC SQL
+               INCLUDE MPDT510
+           END-EXEC.
+
+      * DCLGEN DE LA TABLA DE ENTIDADES BANCARIAS
+           EXEC SQL
+               INCLUDE MPDT021
+           END-EXEC.
+
+      * DCLGEN DE LA TABLA DE CODIGO DE PROCESO   
+           EXEC SQL
+               INCLUDE MPDT086
+           END-EXEC.
+
+      * DCLGEN DE LA TABLA DE TIPOS DE FACTURA    
+           EXEC SQL
+               INCLUDE MPDT044
+           END-EXEC.
+
+      *+-------------------------------------------------------------+
+      *              COPYS DE LAS TABLAS CORPORATIVAS
+      *+-------------------------------------------------------------+
+      *+------------------------------------------------------+
+      *    DECLARACION DEL CURSOR PARA LECTURAS
+      *+------------------------------------------------------+
+
+           EXEC SQL
+                DECLARE ATRC510_AB CURSOR
+                FOR SELECT
+                        CODENT,
+                        CODCONREC,
+                        IDENTCLI,
+                        DESCONRED,
+                        FECINICONREC,
+                        FECFINCONREC,
+                        INDRIESGO, 
+                        CONTCUR
+                FROM MPDT510
+                WHERE CODENT          = :WS-CODENT-ORIG
+                  AND (CODCONREC      = :WS-CODCONREC-ORIG
+                   OR :WS-CODCONREC-ORIG = :WS-ZEROS-2
+                   OR :WS-CODCONREC-ORIG = :WS-ESPACIOS-2)
+
+                  AND (CODCONREC      > :WS-CODCONREC-PAG)
+
+                ORDER BY CODENT, CODCONREC ASC
+           END-EXEC.
+
+           EXEC SQL
+                DECLARE ATRC510_AR CURSOR
+                FOR SELECT
+                        CODENT,
+                        CODCONREC,
+                        IDENTCLI,
+                        DESCONRED,
+                        FECINICONREC,
+                        FECFINCONREC,
+                        INDRIESGO, 
+                        CONTCUR
+                FROM MPDT510
+                WHERE CODENT              = :WS-CODENT-ORIG
+                  AND (CODCONREC          = :WS-CODCONREC-ORIG
+                   OR :WS-CODCONREC-ORIG  = :WS-ZEROS-2
+                   OR :WS-CODCONREC-ORIG  = :WS-ESPACIOS-2)
+
+                  AND (CODCONREC      < :WS-CODCONREC-PAG)
+
+                ORDER BY CODENT DESC, CODCONREC DESC
+           END-EXEC.
+      *
+           EXEC SQL END DECLARE SECTION END-EXEC.
+      *
+       01 FILLER                          PIC X(25)
+               VALUE 'FINAL WORKING ATRC510'.
+      *+------------------------------------------------------+
+      *               LINKAGE SECTION
+      *
+      *+------------------------------------------------------+
+       LINKAGE SECTION.
+      *---------------.
+       01  DFHCOMMAREA.
+           COPY ATCMQCOP.
+
+      *+------------------------------------------------------+
+      *               PROCEDURE DIVISION
+      *+------------------------------------------------------+
+       PROCEDURE DIVISION  USING  DFHCOMMAREA.
+
+       COMIENZO-ATRC510.
+      *----------------.
+
+           PERFORM 10000-INICIO
+
+           PERFORM 20000-PROCESO
+
+           PERFORM 30000-FINAL.
+
+       10000-INICIO.
+      *--------------------------------------------------------------+
+      *           INICIALIZACION DE LAS VARIABLES DEL PROGRAMA
+      *+-------------------------------------------------------------+
+
+           INITIALIZE  WS-VARIABLES
+                       DATOS-RETORNO
+                       AREA-ERROR
+                       INDICE
+                       WS-SQLCODE-FETCH
+                       CN-CONTADOR
+                       WS-CODENT-ORIG
+                       WS-CODCONREC-ORIG
+                       WS-CODENT-PAG
+                       WS-CODCONREC-PAG
+                       WS-CODENT-VAL
+                       WS-CODCONREC-VAL
+
+           SET MQCOPY-CORRECTO    TO TRUE
+           SET SI-CORRECTO        TO TRUE
+IN-OPT     MOVE ZEROS             TO  MQCOPY-RETORNO
+           
+           IF NOT MQCOPY-UNITARIA                
+
+             MOVE MQCOPY-MENSAJE              TO MPML510
+
+             MOVE ML510-CODENT                TO WS-CODENT-VAL
+             MOVE ML510-CODCONREC(1)          TO WS-CODCONREC-VAL
+           ELSE
+
+             MOVE MQCOPY-MENSAJE              TO MPM0510
+
+             MOVE MP510-CODENT                TO WS-CODENT-VAL
+             MOVE MP510-CODCONREC             TO WS-CODCONREC-VAL
+           END-IF.
+
+       20000-PROCESO.
+      *-------------.
+
+           PERFORM 20100-VALIDAR-CODENT
+
+           PERFORM 20200-TRATAR-DATOS-ENTRADA.
+
+       20100-VALIDAR-CODENT.
+      *--------------------.
+
+           IF WS-CODENT-VAL EQUAL SPACES OR ZEROS OR LOW-VALUES
+               MOVE CT-AVISO-2    TO MQCOPY-COD-ERROR
+               MOVE CT-AVISO      TO MQCOPY-RETORNO
+               MOVE CT-UNO        TO MP510-CODENT-ATR
+               MOVE CT-UNO        TO ML510-CODENT-ATR
+               PERFORM 99999-ERROR-PROGRAMA
+           ELSE
+               PERFORM 21150-EXISTENCIA-CODENT
+
+           END-IF.
+
+       21150-EXISTENCIA-CODENT.
+      *-----------------------.
+
+           MOVE WS-CODENT-VAL   TO CODENT OF DCLMPDT021
+
+           EXEC SQL
+                SELECT CODENT
+                INTO   :DCLMPDT021.CODENT
+                FROM   MPDT021
+                WHERE  CODENT = :DCLMPDT021.CODENT
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           IF  REG-NO-EXISTENTE-BD
+               MOVE CT-TABLENAME21     TO MQCOPY-NOMBRE-TABLA
+               MOVE CT-ERROR-5         TO MQCOPY-COD-ERROR
+               MOVE CT-ERROR-DB2       TO MQCOPY-RETORNO
+               MOVE SQLCODE            TO MQCOPY-SQLCODE
+               PERFORM 99999-ERROR-PROGRAMA
+
+           ELSE
+               IF NOT ACCESO-CORRECTO-BD
+                   MOVE CT-TABLENAME21     TO MQCOPY-NOMBRE-TABLA
+                   MOVE CT-SELECCION       TO MQCOPY-OPERACION
+                   MOVE CT-PROGRAMA        TO MQCOPY-NOMBRE-RUTINA
+                   MOVE SQLCODE            TO MQCOPY-SQLCODE
+                   MOVE CT-ERROR-4         TO MQCOPY-SQLERM
+                                              MQCOPY-COD-ERROR
+                   MOVE CT-ERROR-DB2       TO MQCOPY-RETORNO
+                   PERFORM 99999-ERROR-PROGRAMA
+               END-IF
+           END-IF.
+
+       20200-TRATAR-DATOS-ENTRADA.
+      *---------------------------*
+      *-----------------------------------------------------------+
+      * SE EVALUA LOS DATOS DE PREVIOS ENTRADA                    *
+      *                                                           +
+      * SE MUEVE A MQCOPY-MENSAJE LA COPY MPM0510(DETALLE) PARA   +
+      * EL CASO DE CONSULTA UNITARIA, PARA LOS DEMAS CASOS SE     +
+      * MUEVE MPML510 (LISTA).                                    +
+      *-----------------------------------------------------------+
+
+           MOVE WS-CODENT-VAL    TO WS-CODENT-ORIG
+           MOVE WS-CODCONREC-VAL TO WS-CODCONREC-ORIG
+
+           EVALUATE TRUE
+
+              WHEN MQCOPY-RESTO
+                   MOVE ZEROS TO MQCOPY-PANTALLA-PAG
+
+                   PERFORM 20230-RESTO-SIGUIENTE
+
+              WHEN MQCOPY-SIGUIENTE
+                   MOVE MQCOPY-CLAVE-FIN(14:4)   TO WS-CODENT-PAG
+                   MOVE MQCOPY-CLAVE-FIN(19:4)   TO WS-CODCONREC-PAG
+
+                   PERFORM 20230-RESTO-SIGUIENTE
+
+              WHEN MQCOPY-ANTERIOR
+                   MOVE MQCOPY-CLAVE-INICIO(14:4)   TO WS-CODENT-PAG
+                   MOVE MQCOPY-CLAVE-INICIO(19:4)   TO WS-CODCONREC-PAG
+
+                   PERFORM 20250-PAGINA-ANTERIOR
+
+              WHEN MQCOPY-UNITARIA
+                   PERFORM 20270-PROCESO-CONSULTA
+
+              WHEN OTHER
+                   MOVE CT-ERROR-8888 TO MQCOPY-COD-ERROR
+                   MOVE CT-ERROR      TO MQCOPY-RETORNO
+                   PERFORM 99999-ERROR-PROGRAMA
+
+           END-EVALUATE.
+
+       20230-RESTO-SIGUIENTE.
+      *--------------------------------------------------------------+
+      * SE VALIDA SI ESTAMOS EN LA ULTIMA PAGINA.                    +
+      * SI ES LA ULTIMA PAGINA NO SE HACE NADA Y SE MUESTRA LA MISMA +
+      * PAGINA INDICANDO QUE NO HAY MAS DATOS.                       +
+      * SI NO FUESE LA ULTIMA PAGINA OBTENEMOS MAS DATOS DE LA TABLA +
+      * A PARTIR DE LA ULTIMA CLAVE DE LA PAGINA ANTERIOR.           +
+      *+-------------------------------------------------------------+
+           PERFORM 20232-ABRIR-ATRC510-AB
+
+           INITIALIZE  INDICE
+           PERFORM 20234-FETCH-ATRC510-AB
+             UNTIL WS-SQLCODE-FETCH EQUAL CT-100
+                OR INDICE = CT-OCCURS
+
+      * CON ESTE IF SE CONTROLA QUE EXISTAN DATOS A MOSTRAR
+
+           IF INDICE EQUAL ZEROS
+              PERFORM 20236-CERRAR-ATRC510-AB
+      *** SE LE TRATA COMO SI FUERA UN ERROR-DB2 AUNQUE NO LO SEA ***
+                MOVE CT-TABLENAME510  TO MQCOPY-NOMBRE-TABLA
+                MOVE CT-CONSULTA-BD   TO MQCOPY-OPERACION
+                MOVE CT-INFOR-1       TO MQCOPY-SQLERM
+                                         MQCOPY-COD-AVISO1
+                SET MQCOPY-INFOR      TO TRUE
+              PERFORM 99999-ERROR-PROGRAMA
+           END-IF
+
+      * ESTE IF ES PARA CONTROLAR QUE SE HA COMPLETADO LA PANTALLA CON
+      * 81 LINEAS Y YA NO EXISTE NINGUN REGISTRO MAS
+
+           IF INDICE = CT-OCCURS
+              PERFORM 20234-FETCH-ATRC510-AB-BIS
+           END-IF
+
+           IF  REG-NO-EXISTENTE-BD
+              MOVE CT-VALOR-FIN         TO  ML510-INDCONTINUAR(INDICE)
+              MOVE 'N'                  TO  MQCOPY-IND-MAS-DATOS
+           ELSE
+              MOVE 'S'                  TO  MQCOPY-IND-MAS-DATOS
+           END-IF
+
+           ADD      1                   TO  MQCOPY-PANTALLA-PAG
+
+           PERFORM 20236-CERRAR-ATRC510-AB.
+
+       20232-ABRIR-ATRC510-AB.
+      *---------------------.
+
+           MOVE ML510-CODENT     TO CODENT OF DCLMPDT510
+
+           EXEC SQL
+               OPEN ATRC510_AB
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+               MOVE CT-ABRIR-ATRC510-AB TO MQCOPY-OPERACION
+               MOVE CT-TABLENAME510     TO MQCOPY-NOMBRE-TABLA
+               MOVE CT-PROGRAMA         TO MQCOPY-NOMBRE-RUTINA
+               MOVE SQLCODE             TO MQCOPY-SQLCODE
+               MOVE CT-ERROR-6          TO MQCOPY-SQLERM
+                                           MQCOPY-COD-ERROR
+               MOVE CT-ERROR-DB2        TO MQCOPY-RETORNO
+
+               PERFORM 99999-ERROR-PROGRAMA
+           END-IF.
+
+       20234-FETCH-ATRC510-AB.
+      *----------------------.
+
+           EXEC SQL
+                FETCH ATRC510_AB
+                INTO
+                     :DCLMPDT510.CODENT,
+                     :DCLMPDT510.CODCONREC,
+                     :DCLMPDT510.IDENTCLI,
+                     :DCLMPDT510.DESCONRED,
+                     :DCLMPDT510.FECINICONREC,
+                     :DCLMPDT510.FECFINCONREC,
+                     :DCLMPDT510.INDRIESGO, 
+                     :DCLMPDT510.CONTCUR
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           MOVE SQLCODE                TO WS-SQLCODE-FETCH
+ 
+           IF  ACCESO-CORRECTO-BD
+               ADD 1                         TO INDICE
+               PERFORM 25000-MOSTRAR-DATOS-LISTA
+           ELSE
+               IF NOT REG-NO-EXISTENTE-BD
+                   MOVE CT-LEER-ATRC510-AB    TO MQCOPY-OPERACION
+                   MOVE CT-TABLENAME510      TO MQCOPY-NOMBRE-TABLA
+                   MOVE CT-PROGRAMA          TO MQCOPY-NOMBRE-RUTINA
+                   MOVE SQLCODE              TO MQCOPY-SQLCODE
+                   MOVE CT-ERROR-7           TO MQCOPY-SQLERM
+                                                MQCOPY-COD-ERROR
+                   MOVE CT-ERROR-DB2         TO MQCOPY-RETORNO
+
+                   PERFORM 99999-ERROR-PROGRAMA
+               END-IF
+           END-IF 
+
+           MOVE WS-SQLCODE-FETCH  TO ATSQLERR.
+
+       20234-FETCH-ATRC510-AB-BIS.
+      *-------------------------.
+
+           EXEC SQL
+                FETCH ATRC510_AB
+                INTO
+                     :DCLMPDT510.CODENT,
+                     :DCLMPDT510.CODCONREC,
+                     :DCLMPDT510.IDENTCLI,
+                     :DCLMPDT510.DESCONRED,
+                     :DCLMPDT510.FECINICONREC,
+                     :DCLMPDT510.FECFINCONREC,
+                     :DCLMPDT510.INDRIESGO, 
+                     :DCLMPDT510.CONTCUR
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD AND
+              NOT REG-NO-EXISTENTE-BD
+                   MOVE CT-TABLENAME510      TO MQCOPY-NOMBRE-TABLA
+                   MOVE CT-LEER-ATRC510-AB   TO MQCOPY-OPERACION
+                   MOVE CT-PROGRAMA          TO MQCOPY-NOMBRE-RUTINA
+                   MOVE SQLCODE              TO MQCOPY-SQLCODE
+                   MOVE CT-ERROR-7           TO MQCOPY-SQLERM
+                                                MQCOPY-COD-ERROR
+                   MOVE CT-ERROR-DB2         TO MQCOPY-RETORNO
+
+                   PERFORM 99999-ERROR-PROGRAMA
+
+           END-IF.
+
+       20236-CERRAR-ATRC510-AB.
+      *-----------------------.
+
+           EXEC SQL
+                CLOSE ATRC510_AB
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+               MOVE CT-CERRAR-ATRC510-AB TO MQCOPY-OPERACION
+               MOVE CT-TABLENAME510      TO MQCOPY-NOMBRE-TABLA
+               MOVE CT-PROGRAMA          TO MQCOPY-NOMBRE-RUTINA
+               MOVE SQLCODE              TO MQCOPY-SQLCODE
+               MOVE CT-ERROR-8           TO MQCOPY-SQLERM
+                                            MQCOPY-COD-ERROR
+               MOVE CT-ERROR-DB2         TO MQCOPY-RETORNO
+
+               PERFORM 99999-ERROR-PROGRAMA
+
+           END-IF.
+
+       20250-PAGINA-ANTERIOR.
+      *--------------------------------------------------------------+
+      * SE VALIDA SI ESTAMOS EN LA PRIMERA PAGINA.                   +
+      * SI ES LA PRIMERA PAGINA NO SE HACE NADA Y SE MUESTRA LA MISMA+
+      * PAGINA INDICANDO QUE NO HAY MAS DATOS.                       +
+      * SI NO FUESE LA PRIMERA PAGINA OBTENEMOS MAS DATOS DE LA TABLA+
+      * A PARTIR DE LA PRIMERA CLAVE DE LA PAGINA ANTERIOR.          +
+      *+-------------------------------------------------------------+
+           
+           PERFORM 20251-CONTROL-ALTAS-BAJAS
+           
+           IF CN-CONTADOR < CT-OCCURS
+              MOVE        1           TO      MQCOPY-PANTALLA-PAG
+              MOVE     SPACES         TO      WS-CODCONREC-PAG
+              PERFORM 20230-RESTO-SIGUIENTE
+           ELSE
+
+             PERFORM 20252-ABRIR-ATRC510-AR
+
+             MOVE CT-OCCURS TO INDICE
+             ADD 1 TO   INDICE
+
+             PERFORM 20254-FETCH-ATRC510-AR
+             UNTIL WS-SQLCODE-FETCH EQUAL CT-100
+                OR INDICE = 1
+
+      * SI ESTAMOS EN PAGINA 2 Y SE HAN DADO DE ALTA REGISTROS CON
+      * CLAVES PERTENECIENTES A LA PAGINA INICIAL NO SE RESTA AL
+      * CAMPO MQCOPY-PANTALLA-PAG
+
+             IF MQCOPY-PANTALLA-PAG NOT = 2
+                SUBTRACT    1          FROM     MQCOPY-PANTALLA-PAG
+             ELSE
+              IF MQCOPY-PANTALLA-PAG = 2 AND CN-CONTADOR NOT > CT-OCCURS
+                 SUBTRACT    1          FROM     MQCOPY-PANTALLA-PAG
+              END-IF
+             END-IF
+             
+             PERFORM 20256-CERRAR-ATRC510-AR
+
+           END-IF.
+
+       20251-CONTROL-ALTAS-BAJAS.
+      *--------------------------.
+      *------------------------------------------------------------*
+      * ESTE PARRAFO ES PARA CONTROLAR SI MIENTRAS QUE HEMOS ESTADO
+      * CONSULTANDO SE HA PRODUCIDO UN ALTA O BAJA DE LOS DATOS
+      * MOSTRADOS.
+      * SEGUN EL VALOR DE CN-CONTADOR SE HARA LO SIGUIENTE:
+      *       SI ES > DE 81 SE CARGAN LAS LINEAS Y NO SE ACTUALIZA
+      *          MQCOPY-PANTALLA-PAG
+      *       SI ES < DE 81 SE REALIZA EL PROCESO DE PRIMERA VEZ
+      *       SI ES = DE 81 SE CARGAN LAS LINEAS Y SE ACTUALIZA
+      *          MQCOPY-PANTALLA-PAG
+      *
+      *------------------------------------------------------------*
+
+           EXEC SQL
+                  SELECT COUNT(*)
+                    INTO  :CN-CONTADOR
+                  FROM MPDT510
+                WHERE CODENT              = :WS-CODENT-ORIG
+                  AND (CODCONREC          = :WS-CODCONREC-ORIG
+                   OR :WS-CODCONREC-ORIG  = :WS-ZEROS-2
+                   OR :WS-CODCONREC-ORIG  = :WS-ESPACIOS-2)
+
+                  AND (CODCONREC      < :WS-CODCONREC-PAG)
+
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+               MOVE CT-COUNT-ATRC510-AR TO MQCOPY-OPERACION
+               MOVE CT-TABLENAME510     TO MQCOPY-NOMBRE-TABLA
+               MOVE CT-ERROR-6          TO MQCOPY-SQLERM
+                                           MQCOPY-COD-ERROR
+               MOVE SQLCODE             TO MQCOPY-SQLCODE
+               MOVE CT-PROGRAMA         TO MQCOPY-NOMBRE-RUTINA
+               MOVE CT-ERROR-DB2        TO MQCOPY-RETORNO
+               PERFORM 99999-ERROR-PROGRAMA
+           END-IF.
+
+       20252-ABRIR-ATRC510-AR.
+      *---------------------.
+
+           MOVE WS-CODENT-VAL     TO CODENT OF DCLMPDT510
+
+           EXEC SQL
+               OPEN ATRC510_AR
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+               MOVE CT-ABRIR-ATRC510-AR TO MQCOPY-OPERACION
+               MOVE CT-TABLENAME510     TO MQCOPY-NOMBRE-TABLA
+               MOVE CT-PROGRAMA         TO MQCOPY-NOMBRE-RUTINA
+               MOVE SQLCODE             TO MQCOPY-SQLCODE
+               MOVE CT-ERROR-6          TO MQCOPY-SQLERM
+                                           MQCOPY-COD-ERROR
+               MOVE CT-ERROR-DB2        TO MQCOPY-RETORNO
+
+               PERFORM 99999-ERROR-PROGRAMA
+           END-IF.
+
+       20254-FETCH-ATRC510-AR.
+      *----------------------.
+
+           EXEC SQL
+                FETCH ATRC510_AR
+                INTO
+                     :DCLMPDT510.CODENT,
+                     :DCLMPDT510.CODCONREC,
+                     :DCLMPDT510.IDENTCLI,
+                     :DCLMPDT510.DESCONRED,
+                     :DCLMPDT510.FECINICONREC,
+                     :DCLMPDT510.FECFINCONREC,
+                     :DCLMPDT510.INDRIESGO, 
+                     :DCLMPDT510.CONTCUR
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           MOVE SQLCODE                TO WS-SQLCODE-FETCH
+
+           IF  ACCESO-CORRECTO-BD
+               SUBTRACT 1                       FROM INDICE
+               PERFORM 25000-MOSTRAR-DATOS-LISTA
+           ELSE
+               IF NOT REG-NO-EXISTENTE-BD
+                   MOVE CT-LEER-ATRC510-AR   TO MQCOPY-OPERACION
+                   MOVE CT-TABLENAME510      TO MQCOPY-NOMBRE-TABLA
+                   MOVE CT-PROGRAMA          TO MQCOPY-NOMBRE-RUTINA
+                   MOVE SQLCODE              TO MQCOPY-SQLCODE
+                   MOVE CT-ERROR-7           TO MQCOPY-SQLERM
+                                                MQCOPY-COD-ERROR
+                   MOVE CT-ERROR-DB2         TO MQCOPY-RETORNO
+
+                   PERFORM 99999-ERROR-PROGRAMA
+               END-IF
+           END-IF 
+
+           MOVE WS-SQLCODE-FETCH                TO ATSQLERR.
+
+       20256-CERRAR-ATRC510-AR.
+      *-----------------------.
+
+           EXEC SQL
+                CLOSE ATRC510_AR
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+               MOVE CT-CERRAR-ATRC510-AR TO MQCOPY-OPERACION
+               MOVE CT-TABLENAME510      TO MQCOPY-NOMBRE-TABLA
+               MOVE CT-PROGRAMA          TO MQCOPY-NOMBRE-RUTINA
+               MOVE SQLCODE              TO MQCOPY-SQLCODE
+               MOVE CT-ERROR-8           TO MQCOPY-SQLERM
+                                            MQCOPY-COD-ERROR
+               MOVE CT-ERROR-DB2         TO MQCOPY-RETORNO
+
+               PERFORM 99999-ERROR-PROGRAMA
+
+           END-IF.
+
+       20270-PROCESO-CONSULTA.
+      *----------------------.
+
+           MOVE WS-CODENT-VAL      TO CODENT    OF DCLMPDT510
+           MOVE WS-CODCONREC-VAL   TO CODCONREC OF DCLMPDT510
+
+           EXEC SQL
+             SELECT  CODENT,
+                     CODCONREC,
+                     IDENTCLI,
+                     DESCONREC,  
+                     DESCONRED,
+                     FECINICONREC,
+                     FECFINCONREC,
+                     INDRIESGO, 
+                     INDREVER, 
+                     NUMMESREV,
+                     CLAMON,   
+                     TIPRECAUD,
+                     INDGESREC,
+                     TIPOFAC,  
+                     INDNORCOR,
+                     PORCOMREC,
+                     IMPCOMREC,
+                     INDINCIVA,
+                     CODGRUPO, 
+                     INDCOBRAN,
+                     NUMDIACOB,
+                     INDAVISO, 
+                     INDFORLIQ,
+                     NUMDIASIMP,
+                     NUMULTMOV,
+                     INDRECSEG   ,
+                     INDNORCORSAL,
+                     TIPFACSALDO ,
+                     PORINTSEG   ,
+                     EDADMAX     ,
+                     DIASMORAMAX ,
+                     VALCUOTAMIN ,
+                     CLAMONCUO   ,
+                     TOTSALDOMIN ,
+                     CLAMONSAL   ,
+                     PORSALDOTOT ,
+                     VALSALDOMIN ,
+                     VALSALDOMAX ,
+                     FECBAJA,  
+                     CONTCUR
+              INTO   :DCLMPDT510.CODENT,
+                     :DCLMPDT510.CODCONREC,
+                     :DCLMPDT510.IDENTCLI,
+                     :DCLMPDT510.DESCONREC,  
+                     :DCLMPDT510.DESCONRED,
+                     :DCLMPDT510.FECINICONREC,
+                     :DCLMPDT510.FECFINCONREC,
+                     :DCLMPDT510.INDRIESGO, 
+                     :DCLMPDT510.INDREVER, 
+                     :DCLMPDT510.NUMMESREV,
+                     :DCLMPDT510.CLAMON,   
+                     :DCLMPDT510.TIPRECAUD,
+                     :DCLMPDT510.INDGESREC,
+                     :DCLMPDT510.TIPOFAC,  
+                     :DCLMPDT510.INDNORCOR,
+                     :DCLMPDT510.PORCOMREC,
+                     :DCLMPDT510.IMPCOMREC,
+                     :DCLMPDT510.INDINCIVA,
+                     :DCLMPDT510.CODGRUPO, 
+                     :DCLMPDT510.INDCOBRAN,
+                     :DCLMPDT510.NUMDIACOB,
+                     :DCLMPDT510.INDAVISO, 
+                     :DCLMPDT510.INDFORLIQ,
+                     :DCLMPDT510.NUMDIASIMP,
+                     :DCLMPDT510.NUMULTMOV,
+                     :DCLMPDT510.INDRECSEG   ,
+                     :DCLMPDT510.INDNORCORSAL,
+                     :DCLMPDT510.TIPFACSALDO ,
+                     :DCLMPDT510.PORINTSEG   ,
+                     :DCLMPDT510.EDADMAX     ,
+                     :DCLMPDT510.DIASMORAMAX ,
+                     :DCLMPDT510.VALCUOTAMIN ,
+                     :DCLMPDT510.CLAMONCUO   ,
+                     :DCLMPDT510.TOTSALDOMIN ,
+                     :DCLMPDT510.CLAMONSAL   ,
+                     :DCLMPDT510.PORSALDOTOT ,
+                     :DCLMPDT510.VALSALDOMIN ,
+                     :DCLMPDT510.VALSALDOMAX ,
+                     :DCLMPDT510.FECBAJA,  
+                     :DCLMPDT510.CONTCUR
+              FROM MPDT510
+              WHERE  CODENT     = :DCLMPDT510.CODENT
+                AND  CODCONREC  = :DCLMPDT510.CODCONREC
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           IF ACCESO-CORRECTO-BD
+               PERFORM 26000-MOSTRAR-DATOS-CONSULTA
+           ELSE
+               IF  REG-NO-EXISTENTE-BD
+                   MOVE CT-TABLENAME510 TO MQCOPY-NOMBRE-TABLA
+                   MOVE CT-ERROR-5      TO MQCOPY-COD-ERROR
+                   MOVE CT-ERROR        TO MQCOPY-RETORNO
+                   PERFORM 99999-ERROR-PROGRAMA
+               ELSE
+                  IF NOT ACCESO-CORRECTO-BD
+                      MOVE CT-CONSULTA-BD       TO MQCOPY-OPERACION
+                      MOVE CT-TABLENAME510      TO MQCOPY-NOMBRE-TABLA
+                      MOVE CT-PROGRAMA          TO MQCOPY-NOMBRE-RUTINA
+                      MOVE SQLCODE              TO MQCOPY-SQLCODE
+                      MOVE CT-ERROR-8           TO MQCOPY-SQLERM
+                                                   MQCOPY-COD-ERROR
+                      MOVE CT-ERROR-DB2         TO MQCOPY-RETORNO
+
+                      PERFORM 99999-ERROR-PROGRAMA
+                  END-IF
+               END-IF
+           END-IF.
+
+       25000-MOSTRAR-DATOS-LISTA.
+      *--------------------------.
+
+           MOVE CODENT       OF DCLMPDT510 TO ML510-CODENT
+           MOVE CODCONREC    OF DCLMPDT510 TO ML510-CODCONREC(INDICE)
+           MOVE IDENTCLI     OF DCLMPDT510 TO ML510-IDENTCLI(INDICE)
+           MOVE DESCONRED    OF DCLMPDT510 TO ML510-DESCONRED(INDICE)
+           MOVE FECINICONREC OF DCLMPDT510 TO ML510-FECINICONREC(INDICE)
+           MOVE FECFINCONREC OF DCLMPDT510 TO ML510-FECFINCONREC(INDICE)
+           MOVE INDRIESGO    OF DCLMPDT510 TO ML510-INDRIESGO(INDICE)
+           
+           MOVE CONTCUR   OF DCLMPDT510 TO ML510-CONTCUR(INDICE)
+
+           IF  INDICE = CT-OCCURS
+              MOVE CT-VALOR-FIN         TO ML510-INDCONTINUAR(INDICE)
+           ELSE
+              MOVE CT-VALOR-MAS         TO ML510-INDCONTINUAR(INDICE)
+           END-IF.
+
+       26000-MOSTRAR-DATOS-CONSULTA.
+      *----------------------------.
+           MOVE CODENT       OF DCLMPDT510  TO MP510-CODENT
+           MOVE CODCONREC    OF DCLMPDT510  TO MP510-CODCONREC
+           MOVE IDENTCLI     OF DCLMPDT510  TO MP510-IDENTCLI
+           MOVE DESCONREC    OF DCLMPDT510  TO MP510-DESCONREC  
+           MOVE DESCONRED    OF DCLMPDT510  TO MP510-DESCONRED
+           MOVE FECINICONREC OF DCLMPDT510  TO MP510-FECINICONREC
+           MOVE FECFINCONREC OF DCLMPDT510  TO MP510-FECFINCONREC
+           MOVE INDRIESGO    OF DCLMPDT510  TO MP510-INDRIESGO 
+           MOVE INDREVER     OF DCLMPDT510  TO MP510-INDREVER 
+           MOVE NUMMESREV    OF DCLMPDT510  TO MP510-NUMMESREV
+           MOVE CLAMON       OF DCLMPDT510  TO MP510-CLAMON   
+           MOVE TIPRECAUD    OF DCLMPDT510  TO MP510-TIPRECAUD
+           MOVE INDGESREC    OF DCLMPDT510  TO MP510-INDGESREC
+           MOVE TIPOFAC      OF DCLMPDT510  TO MP510-TIPOFAC  
+           MOVE INDNORCOR    OF DCLMPDT510  TO MP510-INDNORCOR
+           PERFORM 26100-RECUPERAR-DESTIPFAC
+              
+           MOVE DESTIPFAC    OF DCLMPDT044  TO MP510-DESTIPFAC
+           MOVE PORCOMREC    OF DCLMPDT510  TO MP510-PORCOMREC
+           MOVE IMPCOMREC    OF DCLMPDT510  TO MP510-IMPCOMREC
+           MOVE INDINCIVA    OF DCLMPDT510  TO MP510-INDINCIVA
+           MOVE CODGRUPO     OF DCLMPDT510  TO MP510-CODGRUPO 
+           PERFORM 26150-RECUPERAR-DESCRIPCION
+           MOVE INDCOBRAN    OF DCLMPDT510  TO MP510-INDCOBRAN
+           MOVE NUMDIACOB    OF DCLMPDT510  TO MP510-NUMDIACOB
+           MOVE INDAVISO     OF DCLMPDT510  TO MP510-INDAVISO 
+           MOVE INDFORLIQ    OF DCLMPDT510  TO MP510-INDFORLIQ
+           MOVE NUMDIASIMP   OF DCLMPDT510  TO MP510-NUMDIASIMP
+           MOVE NUMULTMOV    OF DCLMPDT510  TO MP510-NUMULTMOV
+           MOVE INDRECSEG    OF DCLMPDT510  TO MP510-INDRECSEG   
+           MOVE INDNORCORSAL OF DCLMPDT510  TO MP510-INDNORCORSAL
+           MOVE TIPFACSALDO  OF DCLMPDT510  TO MP510-TIPFACSALDO 
+           IF MP510-INDRECSEG  EQUAL CT-VALOR-S
+              PERFORM 26200-RECUPERAR-DESTIPFACSAL
+           END-IF
+           MOVE DESTIPFAC    OF DCLMPDT044  TO MP510-DESTIPFACSAL
+           MOVE PORINTSEG    OF DCLMPDT510  TO MP510-PORINTSEG   
+           MOVE EDADMAX      OF DCLMPDT510  TO MP510-EDADMAX     
+           MOVE DIASMORAMAX  OF DCLMPDT510  TO MP510-DIASMORAMAX 
+           MOVE VALCUOTAMIN  OF DCLMPDT510  TO MP510-VALCUOTAMIN 
+           MOVE CLAMONCUO    OF DCLMPDT510  TO MP510-CLAMONCUO   
+           MOVE TOTSALDOMIN  OF DCLMPDT510  TO MP510-TOTSALDOMIN 
+           MOVE CLAMONSAL    OF DCLMPDT510  TO MP510-CLAMONSAL   
+           MOVE PORSALDOTOT  OF DCLMPDT510  TO MP510-PORSALDOTOT
+           MOVE VALSALDOMIN  OF DCLMPDT510  TO MP510-VALSALDOMIN
+           MOVE VALSALDOMAX  OF DCLMPDT510  TO MP510-VALSALDOMAX
+           MOVE FECBAJA      OF DCLMPDT510  TO MP510-FECBAJA  
+           MOVE CONTCUR      OF DCLMPDT510 TO MP510-CONTCUR.
+
+
+       26100-RECUPERAR-DESTIPFAC.
+      *-------------------------.
+           MOVE MP510-CODENT       TO CODENT      OF  DCLMPDT044
+           MOVE MP510-TIPOFAC      TO TIPOFAC     OF  DCLMPDT044
+           MOVE MP510-INDNORCOR    TO INDNORCOR   OF  DCLMPDT044
+
+
+             EXEC SQL
+                SELECT  DESTIPFAC
+                 INTO :DCLMPDT044.DESTIPFAC
+                 FROM  MPDT044
+                 WHERE  CODENT    = :DCLMPDT044.CODENT  AND
+                        TIPOFAC   = :DCLMPDT044.TIPOFAC AND
+                        INDNORCOR = :DCLMPDT044.INDNORCOR
+             END-EXEC
+
+           MOVE SQLCODE  TO ATSQLERR
+
+           IF ACCESO-CORRECTO-BD
+              CONTINUE                                
+           ELSE
+              IF  REG-NO-EXISTENTE-BD
+                 MOVE CT-TABLENAME044 TO MQCOPY-NOMBRE-TABLA
+                 MOVE CT-ERROR-5      TO MQCOPY-COD-ERROR
+                 MOVE CT-ERROR        TO MQCOPY-RETORNO
+                 PERFORM 99999-ERROR-PROGRAMA
+              ELSE
+                 IF NOT ACCESO-CORRECTO-BD
+                    MOVE CT-CONSULTA-BD       TO MQCOPY-OPERACION
+                    MOVE CT-TABLENAME044      TO MQCOPY-NOMBRE-TABLA
+                    MOVE CT-PROGRAMA          TO MQCOPY-NOMBRE-RUTINA
+                    MOVE SQLCODE              TO MQCOPY-SQLCODE
+                    MOVE CT-ERROR-8           TO MQCOPY-SQLERM
+                                                 MQCOPY-COD-ERROR
+                    MOVE CT-ERROR-DB2         TO MQCOPY-RETORNO
+                    PERFORM 99999-ERROR-PROGRAMA
+                 END-IF
+              END-IF
+           END-IF.
+
+        
+       26150-RECUPERAR-DESCRIPCION.
+      *---------------------------.
+
+           MOVE MP510-CODENT     TO CODENT     OF DCLMPDT086
+           MOVE CT-VALOR-5       TO CODPROCESO OF DCLMPDT086
+           MOVE MP510-CODGRUPO   TO CODGRUPO   OF DCLMPDT086
+
+           EXEC SQL
+                SELECT DESCRIPCION
+                INTO   :DCLMPDT086.DESCRIPCION
+                FROM   MPDT086
+                WHERE  CODENT     = :DCLMPDT086.CODENT
+                  AND  CODPROCESO = :DCLMPDT086.CODPROCESO
+                  AND  CODGRUPO   = :DCLMPDT086.CODGRUPO
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           IF  REG-NO-EXISTENTE-BD
+               MOVE CT-TABLENAME086    TO MQCOPY-NOMBRE-TABLA
+               MOVE CT-ERROR-5         TO MQCOPY-COD-ERROR
+               MOVE CT-ERROR-DB2       TO MQCOPY-RETORNO
+               MOVE SQLCODE            TO MQCOPY-SQLCODE
+               PERFORM 99999-ERROR-PROGRAMA
+
+           ELSE
+               IF NOT ACCESO-CORRECTO-BD
+                   MOVE CT-TABLENAME086    TO MQCOPY-NOMBRE-TABLA
+                   MOVE CT-SELECCION       TO MQCOPY-OPERACION
+                   MOVE CT-PROGRAMA        TO MQCOPY-NOMBRE-RUTINA
+                   MOVE SQLCODE            TO MQCOPY-SQLCODE
+                   MOVE CT-ERROR-4         TO MQCOPY-SQLERM
+                                              MQCOPY-COD-ERROR
+                   MOVE CT-ERROR-DB2       TO MQCOPY-RETORNO
+                   PERFORM 99999-ERROR-PROGRAMA
+               ELSE
+                   MOVE DESCRIPCION OF DCLMPDT086 TO MP510-DESCRIPCION
+               END-IF
+           END-IF.
+       26200-RECUPERAR-DESTIPFACSAL.
+      *----------------------------.
+
+           MOVE MP510-CODENT       TO CODENT      OF  DCLMPDT044
+           MOVE MP510-TIPFACSALDO  TO TIPOFAC     OF  DCLMPDT044
+           MOVE MP510-INDNORCORSAL TO INDNORCOR   OF  DCLMPDT044
+
+
+             EXEC SQL
+                SELECT  DESTIPFAC
+                 INTO :DCLMPDT044.DESTIPFAC
+                 FROM  MPDT044
+                 WHERE  CODENT    = :DCLMPDT044.CODENT  AND
+                        TIPOFAC   = :DCLMPDT044.TIPOFAC AND
+                        INDNORCOR = :DCLMPDT044.INDNORCOR
+             END-EXEC
+
+           MOVE SQLCODE   TO ATSQLERR
+
+           IF ACCESO-CORRECTO-BD
+              CONTINUE                                
+           ELSE
+              IF  REG-NO-EXISTENTE-BD
+                 MOVE CT-TABLENAME044 TO MQCOPY-NOMBRE-TABLA
+                 MOVE CT-ERROR-5      TO MQCOPY-COD-ERROR
+                 MOVE CT-ERROR        TO MQCOPY-RETORNO
+                 PERFORM 99999-ERROR-PROGRAMA
+              ELSE
+                 IF NOT ACCESO-CORRECTO-BD
+                    MOVE CT-CONSULTA-BD       TO MQCOPY-OPERACION
+                    MOVE CT-TABLENAME044      TO MQCOPY-NOMBRE-TABLA
+                    MOVE CT-PROGRAMA          TO MQCOPY-NOMBRE-RUTINA
+                    MOVE SQLCODE              TO MQCOPY-SQLCODE
+                    MOVE CT-ERROR-8           TO MQCOPY-SQLERM
+                                                 MQCOPY-COD-ERROR
+                    MOVE CT-ERROR-DB2         TO MQCOPY-RETORNO
+                    PERFORM 99999-ERROR-PROGRAMA
+                 END-IF
+              END-IF
+           END-IF.
+
+       30000-FINAL.
+      *--------------------------------------------------------------+
+      *                        FINAL DEL PROGRAMA
+      *               DEVUELVE LOS CODIGOS DE RESPUESTA ADECUADOS
+      *+-------------------------------------------------------------+
+      *
+      * EN LOS CAMPOS:     MQCOPY-COD-AVISO1
+      *                    MQCOPY-COD-ERROR
+      *
+      * EL SIGNIFICADO DE SUS POSICIONES ES EL SIGUIENTE
+      *
+      * 1 A 2 = 'MP'          APLICACION
+      *
+      * 3     = 'A' 'E' 'I'   TIPO DE ERROR/AVISO
+      *         'A'           MENSAJE DE AVISO ERROR
+      *         'E'           MENSAJE DE ERROR
+      *         'I'           MENSAJE AVISO INFORMATIVO
+      *
+      * 4 A 7 = 'XXXX'        NUMERO DE ERROR O AVISO
+      *
+      * PARA CADA CASO SE MOVERA EL VALOR CORRESPONDIENTE.
+      *
+      *+-------------------------------------------------------------+
+
+           MOVE CT-APLICACION              TO MP303-APLICAC
+
+           EVALUATE TRUE
+
+             WHEN MQCOPY-INFOR
+
+                MOVE MQCOPY-COD-AVISO1(4:4) TO MP303-NUMSEQ
+                MOVE MQCOPY-COD-AVISO1(3:1) TO MP303-TIPO
+
+             WHEN MQCOPY-AVISO
+             WHEN MQCOPY-ERROR
+             WHEN MQCOPY-ERROR-DB2
+             WHEN MQCOPY-ROLLBACK
+             WHEN MQCOPY-CICS-IMS
+
+                MOVE MQCOPY-COD-ERROR(4:4)  TO MP303-NUMSEQ
+                MOVE MQCOPY-COD-ERROR(3:1)  TO MP303-TIPO
+
+           END-EVALUATE
+
+           IF MQCOPY-RETORNO NOT EQUAL '00'
+
+             CALL CT-RUT-ERRORES USING DFHCOMMAREA
+                                    MPM0303
+
+              MOVE MP303-MSG-ERROR       TO WS-MSG-ERROR
+              MOVE MP303-MSG-ADI1        TO WS-MSG-ADI1
+              MOVE MP303-MSG-ADI2        TO WS-MSG-ADI2
+              MOVE MP303-MSG-ADI3        TO WS-MSG-ADI3
+
+              MOVE MP303-SQLCODE         TO ATSQLERR
+
+              IF  NOT REG-NO-EXISTENTE-BD
+              AND NOT ACCESO-CORRECTO-BD
+
+                  MOVE WS-MSG-ERROR(1:10) TO MQCOPY-TEXT1-AVISO1(1:10)
+                  MOVE WS-MSG-ADI1(1:7)   TO MQCOPY-TEXT1-AVISO1(11:10)
+                  MOVE WS-MSG-ADI2(1:6)   TO MQCOPY-TEXT1-AVISO1(21:10)
+                  MOVE WS-MSG-ADI3(1:9)   TO MQCOPY-TEXT1-AVISO1(31:10)
+
+              ELSE
+                 IF REG-NO-EXISTENTE-BD
+                    MOVE WS-MSG-ERROR     TO MQCOPY-TEXT1-AVISO1
+                    MOVE WS-MSG-ADI1(1:7) TO MQCOPY-TEXT2-AVISO1
+                 ELSE
+                    MOVE WS-TXT1-ERROR    TO MQCOPY-TEXT1-AVISO1
+                    MOVE WS-TXT2-ERROR    TO MQCOPY-TEXT2-AVISO1
+                 END-IF
+              END-IF
+           ELSE
+             MOVE CT-TABLA-LLENA TO MQCOPY-MAPA-BITS
+           END-IF
+
+           IF NOT MQCOPY-UNITARIA                    
+
+              MOVE MPML510             TO MQCOPY-MENSAJE
+           ELSE
+              MOVE MPM0510             TO MQCOPY-MENSAJE
+           END-IF
+           
+           GOBACK.
+
+       99999-ERROR-PROGRAMA.
+      *---------------------.
+
+           SET NO-CORRECTO     TO TRUE
+           PERFORM 30000-FINAL.
+
+

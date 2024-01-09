@@ -1,0 +1,514 @@
+       IDENTIFICATION DIVISION. 
+       PROGRAM-ID. ISER433.
+      *
+      *   Consulta oferta x rut y contrato
+      *
+       AUTHOR. Patricio Cerda.
+      *
+       ENVIRONMENT DIVISION.
+       CONFIGURATION SECTION.
+       SPECIAL-NAMES.
+           DECIMAL-POINT IS COMMA.
+      *
+       DATA DIVISION.
+       
+       WORKING-STORAGE SECTION.	
+       01  WS-FILE-STATUS                   PIC XX.         
+      *+-----------------------------------------------------------+
+      *          INDICES DEL PROGRAMA
+      *+-----------------------------------------------------------+
+       01  I-LINEA                       PIC 9(02)   VALUE ZEROS.
+       01  WS-VARIABLES.
+           05  WS-FECHA.
+               10  WS-ANO                   PIC 99.
+               10  WS-MES                   PIC 99.
+               10  WS-DIA                   PIC 99.
+      *     05  WS-FECHA-SYS.
+      *         10  WS-ANO-SYS     PIC 99.
+      *         10  WS-MES-SYS     PIC 99.
+      *         10  WS-DIA-SYS     PIC 99.
+      *     05  REDF-WS-FECHA-SYS  REDEFINES WS-FECHA-SYS  PIC 9(06).
+
+      *     05  WS-FECHA-SYS.
+      *         10  WS-ANO-SYS               PIC 9999.
+      *         10  WS-GUION1                PIC X.
+      *         10  WS-MES-SYS               PIC 99.
+      *         10  WS-GUION2                PIC X.
+      *         10  WS-DIA-SYS               PIC 99.
+      *         10  WS-GUION3                PIC X.   
+
+
+           05  VAR-RUT-NUM                      PIC 9(08).    
+             
+           05  VAR-RUT                      PIC X(10).    
+RDC        05  VAR-RUT-X.
+RDC            10 VAR-RUT-N                 PIC 9(10).
+RDC        05  POS-INI                      PIC 99 VALUE 00.
+RDC        05  IR                           PIC 99 VALUE 00.
+
+           05 WS-INDICE                     PIC 9(03)  VALUE 0.
+           05  VAR-CODIGO4.
+               10 VAR-CODIGO1 PIC X(01) VALUE '0'.
+               10 VAR-CODIGO  PIC X(03).         
+               
+           05  WS-FCH-FIN-CPS-DMA.
+               10  WS-DIA-CPS-DMA PIC 99.
+               10  WS-SEP1        PIC X.
+               10  WS-MES-CPS-DMA PIC 99.
+               10  WS-SEP2        PIC X.
+               10  WS-ANO-CPS-DMA PIC 99.
+           05  WS-FCH-INI-CPS-DMA.
+               10  WS-DIA-INI-CPS-DMA PIC 99.
+               10  WS-INI-SEP1        PIC X.
+               10  WS-MES-INI-CPS-DMA PIC 99.
+               10  WS-INI-SEP2        PIC X.
+               10  WS-ANO-INI-CPS-DMA PIC 99.
+
+           05  WS-FIN-CPS-AMD.
+               10  FILLER          PIC 99 VALUE 20.
+               10  WS-ANO-CPS-AMD PIC 99.
+               10  WS-INI-SEP1        PIC X VALUE '-'.              
+               10  WS-MES-CPS-AMD PIC 99.
+               10  WS-INI-SEP1        PIC X VALUE '-'.               
+               10  WS-DIA-CPS-AMD PIC 99.
+           05  REDF-WS-FIN-CPS-AMD REDEFINES WS-FIN-CPS-AMD PIC 9(6).
+
+           05  WS-INI-CPS-AMD.
+               10  FILLER          PIC 99 VALUE 20.           
+               10  WS-ANO-INI-CPS-AMD PIC 99.
+               10  WS-INI-SEP1        PIC X VALUE '-'.                 
+               10  WS-MES-INI-CPS-AMD PIC 99.
+               10  WS-INI-SEP1        PIC X VALUE '-'.                 
+               10  WS-DIA-INI-CPS-AMD PIC 99.
+           05  REDF-WS-INI-CPS-AMD REDEFINES WS-INI-CPS-AMD PIC 9(6).
+           
+           
+RDC        05  WS-PROMOCIONES-SAV.
+RDC           06 WS-TAB-PROMO-SAV OCCURS 66 TIMES.
+RDC              10 WS-T-SAV      PIC 999. 
+
+           05  WS-I                PIC 99 VALUE 0.
+           05  FECHA-OPE.
+               10 FEC-OPE-AA      PIC 9(04).
+               10 FEC-OPE-G1      PIC X(01)  VALUE "-".
+               10 FEC-OPE-MM      PIC 9(02).
+               10 FEC-OPE-G2      PIC X(01)  VALUE "-".
+               10 FEC-OPE-DD      PIC 9(02).
+           05  WS-SQLCODE-FETCH   PIC S9(09).             
+           05  WS-HORA-SYS                  PIC 9(08)   VALUE ZEROS.                      
+           05  WS-NUM-SECUENCIA             PIC 9(04)   VALUE ZEROS.   
+           05  WS-FECHA-HOY                 PIC 9(8).
+           05  WS-FECHA-ACT REDEFINES WS-FECHA-HOY.
+               10  WS-ANO-ACT               PIC 9999.
+               10  WS-MES-ACT               PIC 99.
+               10  WS-DIA-ACT               PIC 99.
+RDC        05 WS-PM               PIC 9(03) VALUE 0.    
+
+
+
+           05 WS-FECHA-SYS.
+               10  WS-ANO-SYS     PIC 99.
+               10  WS-MES-SYS     PIC 99.
+               10  WS-DIA-SYS     PIC 99.
+           05  REDF-WS-FECHA-SYS  REDEFINES WS-FECHA-SYS  PIC 9(06). 
+           
+           
+           05 WS-CIERRE            PIC 9     VALUE ZEROS.
+PRCF       05 WS-RUT-PASO          PIC 9     VALUE ZEROS.           
+           05  INDICE             PIC  9(02) VALUE ZEROS.               
+RDC    01  SW-ENCONTRO-PROMOCION         PIC X(1).
+           88  SI-ENCONTRO-PROMO         VALUE "S".
+           88  NO-ENCONTRO-PROMO         VALUE "N".
+           
+      *+-----------------------------------------------------------+
+      *          CONSTANTES DEL PROGRAMA
+      *+-----------------------------------------------------------+
+       01  CT-CONSTANTES.
+       
+           05  CT-1                      PIC 9(01)   VALUE 1.    
+           05  CT-0                      PIC 9(01)   VALUE 0.                  
+RDC        05  CT-UNO                    PIC X(01)   VALUE '1'.
+           05  CT-MP                     PIC X(06)   VALUE "DESAT1".
+           05  CT-APLICACION             PIC X(02)   VALUE "MP".
+           05  CT-RUTINA                 PIC X(07)   VALUE "ISER010".
+           05  CT-MPDT072                PIC X(07)   VALUE "MPDT072".
+           05  CT-OPEN                   PIC X(09)   VALUE "OPEN  ".
+           05  CT-SELECCION              PIC X(06)   VALUE "SELECT".
+           05  CT-ERROR-4                PIC X(07)   VALUE "MPE0004".
+           05  CT-ERROR-5                PIC X(07)   VALUE "MPE0005".
+           05  CT-ERROR                  PIC X(02)   VALUE "20".
+           05  CT-ERROR-DB               PIC X(02)   VALUE "30".  
+           05  CT-CORRECTO               PIC X(02)   VALUE "00".
+           05  CT-INFOR                  PIC X(02)   VALUE "10".
+           05  CT-AVISO                  PIC X(2)    VALUE "20". 
+           05  CT-AVISO-166              PIC X(07)   VALUE "MPA0166".
+           05  CT-AVISO-2                PIC X(07)   VALUE "MPE0002".
+           05  CT-INFOR-NOOK             PIC X(02)   VALUE "20".           
+           05  CT-AVISO-NO-EXISTE        PIC X(70)   VALUE
+               "EL REGISTRO NO EXISTE EN LA BD".
+           05  CT-AVISO-ERR-NO-ENTABLA    PIC X(60) VALUE
+           "CUENTA ENTIDAD NO EN TABLA OFERTAS PROMOCIONALES       ".    
+               
+               
+           05  CT-AVISO-CUENTA           PIC X(70)   VALUE
+               "EL CAMPO CUENTA ES OBLIGATORIO ".
+           05  CT-AVISO-CENTALTA         PIC X(70)   VALUE
+               "EL CAMPO CENTRO DE ALTA ES OBLIGATORIO ".
+           05  CT-AVISO-CODENT           PIC X(70)   VALUE
+               "EL CAMPO ENTIDAD ES OBLIGATORIO ".
+           05  CT-AVISO-FINAL           PIC X(70)   VALUE
+               "SE PRESENTA ERROR 30  ".
+               
+               
+           05  CT-AVISO-RUT                 PIC X(40)   VALUE
+               "RUT DEBE VENIR INFORMADO    ".                 
+           05  CT-AVISO-CODIGO              PIC X(40)   VALUE
+               "CODIGO DEBE VENIR INFORMADO ".                 
+
+      *+-----------------------------------------------------------+
+      *        COPYS DE LAS TABLAS CORPORATIVAS
+      *+-----------------------------------------------------------+
+       01  WS-TBSQLERR.
+           COPY "ATSQLERR".
+
+
+       01  WS-LIB433R.
+           COPY LIB433R. 
+
+                     
+       01  WS-LIB321C.
+           COPY LIB321C.
+
+           EXEC SQL BEGIN DECLARE SECTION END-EXEC.
+
+
+      *+-----------------------------------------------------------+
+      *        COPY tabla de Ofertas Promocionales del mes          
+      *+-----------------------------------------------------------+
+           EXEC SQL
+             INCLUDE MPDT321
+           END-EXEC.
+
+
+           EXEC SQL INCLUDE SQLCA  END-EXEC.
+
+ 
+      *+-------------------------------------------------------------+
+      *         DECLARACION DE CURSORES                              *
+      *+-------------------------------------------------------------+
+
+           EXEC SQL
+              DECLARE OFERTA_433 CURSOR
+                  FOR SELECT RUT,
+                       DVR,
+                       COD_ENT,
+                       CEN_ALS,  
+                       CTA,       
+                       COC_CPS,   
+                       FCH_CRG,  
+                       FCH_FIN_CPS,
+                       MNT_OFE,  
+                       MSJ_LAR_CPS,
+                       MSJ_COO_CPS,
+                       FLG_ORE_CRG 
+                  FROM  FEPCOM_ADM.FEPCOM_CPS_CLI_PLT_CMC
+                 WHERE  RUT  = :DCLMPDT321.RUT
+                  AND   COC_CPS = :DCLMPDT321.COC_CPS
+                 ORDER BY FCH_FIN_CPS DESC
+           END-EXEC.
+
+      *+-----------------------------------------------------------+
+      * Copy de Servicios Compuestos SFISERS
+      *+-----------------------------------------------------------+
+       01 WS-MQCOPY.
+           COPY "STCOPY".
+
+
+      
+           EXEC SQL  END DECLARE SECTION     END-EXEC.
+           
+
+
+       LINKAGE SECTION.
+      *---------------.
+       01  DFHCOMMAREA.
+           COPY "ATCMQCOP".
+
+
+      *+-----------------------------------------------------------+
+      *              PROCEDURE DIVISION
+      *+-----------------------------------------------------------+
+       PROCEDURE DIVISION USING DFHCOMMAREA.
+      *------------------------------------.
+       
+       COMIENZO-ISER010.
+      *----------------.
+           PERFORM 100000-INICIO.
+           PERFORM 200000-PROCESO.
+           PERFORM 300000-FINAL.
+
+       100000-INICIO.
+      *--------------
+      
+           DISPLAY " LLEGO A INICIO"
+           INITIALIZE   LIB433R.
+           MOVE MQCOPY-MENSAJE         TO  LIB433R.
+           INITIALIZE L433R-SALIDA.
+           MOVE CT-0 TO WS-CIERRE
+           MOVE "00" TO MQCOPY-RETORNO.
+           MOVE ZEROS           TO WS-FECHA.
+           ACCEPT WS-FECHA      FROM DATE.
+      *     MOVE "-"             TO WS-GUION1 WS-GUION2 
+           ADD 2000             TO WS-ANO GIVING WS-ANO-SYS 
+           MOVE WS-MES          TO WS-MES-SYS
+           MOVE WS-DIA          TO WS-DIA-SYS
+           MOVE WS-ANO-SYS      TO WS-ANO-ACT.
+           MOVE WS-MES-SYS      TO WS-MES-ACT.
+           MOVE WS-DIA-SYS      TO WS-DIA-ACT.
+           DISPLAY "PASO INICIO".
+  
+       200000-PROCESO.
+      *---------------
+           PERFORM VALIDAR-CAMPOS.
+           DISPLAY "PASO VALIDAR"
+           PERFORM ACCESO-OFERTAS.
+
+       VALIDAR-CAMPOS.
+      *---------------          
+           PERFORM VALIDAR-RUT.
+           PERFORM VALIDAR-CODIGO.
+      *      PERFORM VALIDAR-CONTRATO.
+
+PRCF   VALIDAR-RUT.
+PRCF  *------------
+           INITIALIZE  VAR-RUT 
+RDC        MOVE 0 TO   VAR-RUT-N
+RDC        MOVE 0 TO   VAR-RUT-NUM
+PRCF       MOVE L433R-RUT TO VAR-RUT.
+PRCF       IF L433R-RUT = SPACES OR LOW-VALUES OR ZEROS
+PRCF          MOVE CT-AVISO-RUT         TO MQCOPY-TEXT1-AVISO1
+              MOVE CT-AVISO-2           TO MQCOPY-COD-ERROR
+              MOVE CT-AVISO             TO MQCOPY-RETORNO
+              PERFORM 999999-ERROR-PROGRAMA
+PRCF       END-IF.   
+RDC        PERFORM CONVERTIR-RUT.  
+           
+
+
+RDC    CONVERTIR-RUT.
+      *--------------
+           MOVE 10 TO POS-INI
+           PERFORM VARYING IR FROM 10 BY -1 UNTIL IR < 1
+            IF VAR-RUT(IR:1) NOT = " "
+               MOVE VAR-RUT(IR:1) TO VAR-RUT-X(POS-INI:1)
+               SUBTRACT 1 FROM POS-INI
+            END-IF
+           END-PERFORM.
+           MOVE VAR-RUT-N TO VAR-RUT-NUM.
+
+       VALIDAR-CODIGO.
+      *-----------------
+           IF  L433R-CODIGO = SPACES OR LOW-VALUES OR ZEROS
+               MOVE CT-AVISO-2           TO  MQCOPY-COD-ERROR
+               MOVE CT-AVISO             TO  MQCOPY-RETORNO
+               MOVE CT-AVISO-CODIGO      TO  MQCOPY-TEXT1-AVISO1
+               PERFORM 999999-ERROR-PROGRAMA
+           END-IF.
+
+       VALIDAR-CONTRATO.
+      *-----------------
+           IF  L433R-CODENT = SPACES OR LOW-VALUES OR ZEROS
+               MOVE CT-AVISO-2           TO  MQCOPY-COD-ERROR
+               MOVE CT-AVISO             TO  MQCOPY-RETORNO
+               MOVE CT-AVISO-CODENT      TO  MQCOPY-TEXT1-AVISO1
+               PERFORM 999999-ERROR-PROGRAMA
+           ELSE
+               IF  L433R-CENTALTA = SPACES OR LOW-VALUES OR ZEROS
+                   MOVE CT-AVISO-2           TO MQCOPY-COD-ERROR
+                   MOVE CT-AVISO             TO MQCOPY-RETORNO
+                   MOVE CT-AVISO-CENTALTA    TO MQCOPY-TEXT1-AVISO1
+                   PERFORM 999999-ERROR-PROGRAMA
+               ELSE
+                   IF  L433R-CUENTA = SPACES OR LOW-VALUES OR ZEROS
+                       MOVE CT-AVISO-2           TO MQCOPY-COD-ERROR
+                       MOVE CT-AVISO             TO MQCOPY-RETORNO
+                       MOVE CT-AVISO-CUENTA      TO MQCOPY-TEXT1-AVISO1
+                       PERFORM 999999-ERROR-PROGRAMA
+                   END-IF
+               END-IF
+           END-IF.
+
+       ACCESO-OFERTAS.
+      *----------------
+RDC   *      MOVE L433R-RUT(1:8)         TO VAR-RUT-NUM 
+            MOVE VAR-RUT-NUM            TO RUT      OF DCLMPDT321.
+            MOVE L433R-CODIGO           TO COC_CPS  OF DCLMPDT321.
+      *     MOVE L433R-CODENT           TO COD_ENT  OF DCLMPDT321.
+      *     MOVE L433R-CENTALTA         TO CEN_ALS  OF DCLMPDT321.
+      *     MOVE L433R-CUENTA           TO CTA      OF DCLMPDT321.
+      
+            MOVE 1      TO  WS-I
+
+
+           DISPLAY "VOY  ABRIR CURSOR"
+           PERFORM 200110-ABRIR-CURSOR-1
+
+           INITIALIZE  INDICE
+                       WS-SQLCODE-FETCH
+ 
+           DISPLAY " INDICE 1 : " INDICE
+           
+           DISPLAY "VOY 200120-FETCH-CURSOR-1"
+           PERFORM 200120-FETCH-CURSOR-1
+                   UNTIL REG-NO-EXISTENTE-BD OR
+                         WS-I > 20 
+
+           PERFORM  CERRAR-CURSOR-1                   
+           DISPLAY "PASO CERRAR-CURSOR-1"
+           DISPLAY " INDICE 2 : " INDICE
+ 
+        
+           IF INDICE EQUAL ZEROS
+              MOVE CT-AVISO-2           TO MQCOPY-COD-ERROR
+              MOVE CT-AVISO             TO MQCOPY-RETORNO
+              MOVE CT-AVISO-NO-EXISTE   TO MQCOPY-TEXT1-AVISO1
+              PERFORM 999999-ERROR-PROGRAMA
+           END-IF.
+
+
+
+       200110-ABRIR-CURSOR-1.
+      *--------------------.
+      * 
+      
+           MOVE CT-1 TO  WS-CIERRE
+           EXEC SQL
+                OPEN OFERTA_433
+           END-EXEC
+
+           MOVE SQLCODE         TO ATSQLERR
+        
+           IF NOT ACCESO-CORRECTO-BD
+              MOVE CT-AVISO-2              TO MQCOPY-COD-ERROR
+              MOVE CT-AVISO                TO MQCOPY-RETORNO
+              MOVE CT-AVISO-ERR-NO-ENTABLA TO MQCOPY-TEXT1-AVISO1
+              PERFORM 999999-ERROR-PROGRAMA
+           END-IF.
+
+
+       CERRAR-CURSOR-1.
+      *----------------
+
+           MOVE CT-0 TO WS-CIERRE
+           EXEC SQL
+               CLOSE OFERTA_433
+           END-EXEC.    
+
+           MOVE SQLCODE        TO ATSQLERR.
+
+           IF NOT  ACCESO-CORRECTO-BD
+              MOVE CT-AVISO-2              TO MQCOPY-COD-ERROR
+              MOVE CT-AVISO                TO MQCOPY-RETORNO
+              MOVE CT-AVISO-ERR-NO-ENTABLA TO MQCOPY-TEXT1-AVISO1
+              PERFORM 999999-ERROR-PROGRAMA
+           END-IF.
+
+       200120-FETCH-CURSOR-1.
+      *--------------------.
+           EXEC SQL
+                FETCH OFERTA_433
+                INTO :DCLMPDT321.RUT,         
+                       :DCLMPDT321.DVR,      
+                       :DCLMPDT321.COD_ENT,
+                       :DCLMPDT321.CEN_ALS,
+                       :DCLMPDT321.CTA,         
+                       :DCLMPDT321.COC_CPS,   
+                       :DCLMPDT321.FCH_CRG,   
+                       :DCLMPDT321.FCH_FIN_CPS,
+                       :DCLMPDT321.MNT_OFE, 
+                       :DCLMPDT321.MSJ_LAR_CPS,
+                       :DCLMPDT321.MSJ_COO_CPS,
+                       :DCLMPDT321.FLG_ORE_CRG
+           END-EXEC
+
+           MOVE  SQLCODE         TO  WS-SQLCODE-FETCH
+      *
+           MOVE SQLCODE                TO ATSQLERR
+      *
+      
+             
+           IF ACCESO-CORRECTO-BD
+        DISPLAY "FCH_FIN_CPS OF DCLMPDT321 : " FCH_FIN_CPS OF DCLMPDT321
+               MOVE FCH_FIN_CPS OF DCLMPDT321 TO WS-FCH-FIN-CPS-DMA
+        DISPLAY "WS-FCH-FIN-CPS-DMA : " WS-FCH-FIN-CPS-DMA       
+               MOVE WS-DIA-CPS-DMA            TO WS-DIA-CPS-AMD
+               MOVE WS-MES-CPS-DMA            TO WS-MES-CPS-AMD
+               MOVE WS-ANO-CPS-DMA            TO WS-ANO-CPS-AMD
+        DISPLAY "WS-FIN-CPS-AMD : " WS-FIN-CPS-AMD    
+
+       DISPLAY "FCH_CRG OF  DCLMPDT321 : " WS-FCH-INI-CPS-DMA 
+               MOVE FCH_CRG OF     DCLMPDT321 TO WS-FCH-INI-CPS-DMA
+       DISPLAY "WS-FCH-INI-CPS-DMA : " WS-FCH-INI-CPS-DMA               
+               MOVE WS-DIA-INI-CPS-DMA        TO WS-DIA-INI-CPS-AMD
+               MOVE WS-MES-INI-CPS-DMA        TO WS-MES-INI-CPS-AMD
+               MOVE WS-ANO-INI-CPS-DMA        TO WS-ANO-INI-CPS-AMD
+       DISPLAY "WS-INI-CPS-AMD  : " WS-INI-CPS-AMD
+RDC            SET SI-ENCONTRO-PROMO TO TRUE
+RDC            MOVE 1 TO INDICE
+               PERFORM 200110-MOVER-SALIDA
+           END-IF.
+
+      *
+           MOVE WS-SQLCODE-FETCH          TO ATSQLERR.
+           
+      *
+       200110-MOVER-SALIDA.
+      *--------------------  
+      
+           DISPLAY "TOY EN MOVER"   
+           DISPLAY "WS-I      : "  WS-I             
+           MOVE COD_ENT       OF DCLMPDT321 TO L433R-CODENT  
+           DISPLAY "PASO 1 "  
+           MOVE CEN_ALS       OF DCLMPDT321 TO L433R-CENTALTA   
+           DISPLAY "PASO 2 "              
+           MOVE CTA           OF DCLMPDT321 TO L433R-CUENTA  
+           DISPLAY "PASO 3 "             
+           MOVE MSJ_LAR_CPS   OF DCLMPDT321 TO L433R-MSJOFELARGO(WS-I)
+             
+           DISPLAY "PASO 4 " 
+           DISPLAY "MNT_OFE OF DCLMPDT321 : " MNT_OFE  OF DCLMPDT321      
+           MOVE MNT_OFE       OF DCLMPDT321 TO L433R-MONTOFER(WS-I)    
+           DISPLAY "PASO 5 "             
+           MOVE MSJ_COO_CPS   OF DCLMPDT321 TO L433R-MSJOFECORTO(WS-I) 
+           DISPLAY "PASO 6 "             
+           MOVE WS-FIN-CPS-AMD              TO L433R-FECOFEFIN(WS-I)
+           DISPLAY "PASO 7 "             
+           MOVE WS-INI-CPS-AMD              TO L433R-FECOFEINI(WS-I)
+           DISPLAY "PASO 8 "             
+RDC   *    MOVE FLG_ORE_CRG   OF DCLMPDT321 TO L433R-VIGENCIA(WS-I) 
+           DISPLAY "PASO 9 "  
+RDC        MOVE CT-UNO                      TO L433R-VIGENCIA(WS-I) 
+           ADD 1 TO WS-I.
+           
+
+       999999-ERROR-PROGRAMA.
+      *----------------------
+      
+            IF WS-CIERRE  = CT-1            
+               EXEC SQL
+                  CLOSE OFERTA_433
+               END-EXEC  
+            END-IF
+               
+            PERFORM 300000-FINAL.
+
+       300000-FINAL.
+      *-------------
+      
+           DISPLAY "FINAL " LIB433R
+           MOVE LIB433R   TO MQCOPY-MENSAJE.
+           GOBACK.
+
+      *****************************************************************
+      **         H A S T A   A Q U I   E L   P R O G R A M A         **
+      *****************************************************************

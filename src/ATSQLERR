@@ -1,0 +1,26 @@
+      ******************************************************************
+      *  ESTA COPY CORRESPONDE AL CONTROL DE ERRORES ACCESO A BASE     *
+      *  DATOS.                                                        *
+      ******************************************************************
+SAT390*05 ATSQLERR.
+SAT390*   10 ACCESO-CORRECTO-BD            PIC S9(9) COMP VALUE 0.
+SAT390*   10 REG-NO-EXISTENTE-BD           PIC S9(9) COMP VALUE +100.
+SAT390*   10 REG-DUPLICADO-BD              PIC S9(9) COMP VALUE -803.
+SAT390*   10 MAS-DE-UN-REG-SELE            PIC S9(9) COMP VALUE -811.
+SAT390*   10 REG-BLOQUEADO-BD              PIC S9(9) COMP VALUE -910.
+SAT390*   10 VALOR-CAMPO-NULO              PIC S9(9) COMP VALUE -305.           
+      *
+SAT390 05 ATSQLERR                         PIC S9(9) COMP.  
+SAT390    88 ACCESO-CORRECTO-BD            VALUE 0.          
+SAT390    88 REG-NO-EXISTENTE-BD           VALUE +100 
+SAT390                                           -100 
+SAT390                                           1002 
+SAT390                                          -1002 
+SAT390                                           1403.
+SAT390    88 REG-DUPLICADO-BD              VALUE -1.
+SAT390    88 MAS-DE-UN-REG-SELE            VALUE -2112.
+SAT390    88 REG-BLOQUEADO-BD              VALUE -910.  
+SAT390    88 VALOR-CAMPO-NULO              VALUE -1405.
+dr0218    88 SIN-SENTEN-ANALIZ-BD          VALUE -1003,
+dr0218                                           -2289.
+SAT390*

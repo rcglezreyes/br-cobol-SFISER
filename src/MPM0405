@@ -1,0 +1,333 @@
+      *----------------------------------------------------------------*
+      *  ESTA COPY CORRESPONDE AL FORMATO QUE USA EL SERVICIO DE       *
+      *  CONSULTA DE DATOS BASICOS DE TARJETA.                         *
+      *----------------------------------------------------------------*
+      *  MP405-CODENT          CODIGO DE ENTIDAD                       *
+      *  MP405-CENTALTA        CENTRO DE ALTA CUENTA DE TARJETA        *
+      *  MP405-CUENTA          CUENTA DE LA TARJETA                    *
+      *  MP405-NUMPLASTICO     NUMERO DE PLASTICO                      *
+      *  MP405-TIPBON          TIPO DE BONIFICACION                    *
+      *  MP405-CODMAR          MARCA DE LA TARJETA                     *
+      *  MP405-INDTIPT         TIPO DE LA TARJETA                      *
+      *  MP405-PAN             PAN DE LA TARJETA                       *
+      *  MP405-PANANT          PAN ANTERIOR                            *
+      *  MP405-CALPART         CALIDAD DE PARTICION                    *
+      *  MP405-NUMPER        IDENTIFICADOR DEL CLIENTE               *
+      *  MP405-FECALTA         FECHA DE ALTA                           *
+      *  MP405-FECULTUSO       FECHA DE ULTIMA UTILIZACION DE TARJETA  *
+      *  MP405-INDSITTAR       INDICADOR DE SITUACION                  *
+      *  MP405-INDULTTAR       INDICADOR DE ULTIMA TARJETA             *
+      *  MP405-DESSITTAR       DESCRIPCION SITUACION DE TARJETA        *
+      *  MP405-INDNOREN        INDICADOR DE NO RENOVACION              *
+      *  MP405-CODBLQ          CODIGO DE BLOQUEO                       *
+      *  MP405-FECULTBLQ       FECHA DE ULTIMO BLOQUEO                 *
+      *  MP405-TEXBLQ          COMENTAIO DE BLOQUEO                    *
+      *  MP405-FECBAJA         FECHA DE BAJA                           *
+      *  MP405-MOTBAJA         MOTIVO BAJA                             *
+      *  MP405-FECCADTAR       FECHA DE CADUCIDAD DE LA TARJETA        *
+      *  MP405-FECCADTARANT    FECHA DE CADUCIDAD ANTERIOR DE TARJETA  *
+      *  MP405-FECCOBCUO       FECHA DEL POXIMO COBRO CUOTA DE TARJETA *
+      *  MP405-CODCLAVE        CODIGO DE GRUPO CRIPTOGRAFICO           *
+      *  MP405-DESGRUCRI       DESCRIPCION DEL GRUPO CONTABLE          *
+      *  MP405-IDEMPLEADO      IDENTIFICADOR DE EMPLEADO               *
+      *  MP405-INDCAMLIM       IND. SI AFECTA EL CAMBIO MASIVO DE LIMIT*
+      *  MP405-INDRESTACT                                              *
+      *  MP405-INDRESCOM       INDICADOR DE RESTRICCION POR COMERCIO   *
+      *  MP405-INDLIMFACT      IND. DE RESTRICCION POR IMPORTE OPERACIO*
+      *  MP405-VISAPHONE       CODIGO VISAPHONE                        *
+      *  MP405-NUMKPIN         NUMERO DE INTENTOS DE PIN               *
+      *  MP405-NOMBENRED       NOMBRE DE ESTAMPACION                   *
+      *  MP405-INDFOTO         INDICADOR DE FOTO EN PLASTICO           *
+      *  MP405-REFFOTO         REFERENCIA DE LA FOTO                   *
+      *  MP405-PRODUCTO        CODIGO DE PRODUCTO                      *
+      *  MP405-SUBPRODU        CODIGO DE SUBPRODUCTO                   *
+      *  MP405-FECENVEST       FECHA DE ENVIO A ESTAMPACION            *
+      *  MP405-FECRESECT                                               *
+      *  MP405-FECACUSER       FECHA ACUSE DE RECIBO                   *
+      *  MP405-FECULTREN       FECHA ULTIMA RENOVACION                 *
+      *  MP405-FECRECTAR       FECHA RECUPERACION PLASTICO             *
+      *  MP405-FCORETTAR       FECHA COMUNICACION RETENCION DE PLASTICO*
+      *  MP405-HCORETTAR       HORA COMUNICACION RETENCION DE PLASTICO *
+      *  MP405-CONDEST         CODIGO DE LA CONDICION DE LA ESTAMPACION*
+      *  MP405-ESTPLAS1        DATOS DE ESTAMPACION A VOLUNTAD         *
+      *  MP405-ESTPLAS2        DATOS DE ESTAMPACION A VOLUNTAD         *
+      *  MP405-CODPROMO        CODIGO DE PROMOCION                     *
+      *  MP405-INDEXECUO       INDICADOR DE EXENCION DE COMPRA CUOTAS  *
+      *  MP405-INDAPLIREST     IND.APLICACION RESTRICCION EN TARJ.AUTO.*
+      *  MP405-CONTCURT                                                *
+      *  MP405-CONTCURP                                                *
+      *  MP405-NUMBENCTA       NUMERO DE BENEFICIARIO DENTRO DE LA     *
+      *                        CUENTA DE LA TARJETA                    *
+      *----------------------------------------------------------------*
+      *  COPY MPM0405                                                  *
+      *----------------------------------------------------------------*
+      
+      ** 10 MP405-CODENT
+      *_ COD. DE ENTIDAD                 
+      ** 10 MP405-CENTALTA
+      *_ CENTRO DE ALTA CUENTA DE TARJETA            
+      ** 10 MP405-CUENTA
+      *_ CUENTA DE LA TARJETA
+      ** 10 MP405-NUMPLASTICO
+      *_ NUMERO DE PLASTICO
+      ** 10 MP405-TIPBON
+      *_ TIPO BONIFICACION
+      ** 10 MP405-CODMAR
+      *_ COD. MARCA TARJETA
+      ** 10 MP405-INDTIPT
+      *_ TIPO DE LA TARJETA
+      ** 10 MP405-PAN
+      *_ PAN DE LA TARJETA
+      ** 10 MP405-PANANT
+      *_ PAN ANTERIOR            
+      ** 10 MP405-CALPART
+      *_ CALIDAD DE PARTICIPACION
+      ** 10 MP405-NUMPER
+      *_ IDENTIFICADOR DE CLIENTE
+      ** 10 MP405-FECALTA
+      *_ FECHA DE ALTA
+      ** 10 MP405-FECULTUSO
+      *_ FECHA ÚLTIMA ACTUALIZACION TARJETA
+      ** 10 MP405-INDSITTAR 
+      *_ IND. SITUACION TARJETA
+      ** 10 MP405-INDULTTAR
+      *_ IND. ULTIMA TARJETA
+      ** 10 MP405-DESSITTAR
+      *_ DESCRIPCION SITUACION TARJETA        
+      ** 10 MP405-INDNOREN
+      *_ IND. DE NO RENOVACION
+      ** 10 MP405-CODBLQ 
+      *_ COD. BLOQUEO
+      ** 10 MP405-FECULTBLQ
+      *_ FECHA ULTIMO BLOQUEO
+      ** 10 MP405-TEXBLQ
+      *_ COMENTARIO BLOQUEO
+      ** 10 MP405-FECBAJA
+      *_ FECHA DE BAJA
+      ** 10 MP405-MOTBAJA
+      *_ MOTIVO DE BAJA
+      ** 10 MP405-FECCADTAR
+      *_ FECHA CADUCIDAD TARJETA
+      ** 10 MP405-FECCADTARANT
+      *_ FECHA CADUCIDAD ANTERIOR TARJETA
+      ** 10 MP405-FECCOBCUO
+      *_ FECHA DEL PROXIMO COBRO CUOTA TARJETA
+      ** 10 MP405-CODCLAVE
+      *_ CODIGO DE GRUPO CRIPTOGRAFICO
+      ** 10 MP405-DESGRUCRI
+      *_ DESCRIPCION DEL GRUPO CONTABLE
+      ** 10 MP405-IDEMPLEADO
+      *_ ID. EMPLEADO
+      ** 10 MP405-INDCAMLIM
+      *_ IND. CAMBIO MASIVO DE LIMITES 
+      ** 10 MP405-INDACTLIM
+      *_ ACTULIZACION DE LIMITES CON ABONOS
+      ** 10 MP405-INDRESACT
+      *_ RESTRICCION POR SECTOR DE ACTIVIDAD
+      ** 10 MP405-INDRESCOM             
+      *_ IND. DE RESTRICCION POR COMERCIO 
+      ** 10 MP405-INDLIMFAC
+      *_ IND. RESTRICCION POR IMPORTE OPERACION
+      ** 10 MP405-VISAPHONE
+      *_ COD. VISAPHONE
+      ** 10 MP405-NUMKPIN
+      *_ NUM. INTENTOS PIN
+      ** 10 MP405-NOMBENRED
+      *_ NOMBRE DE ESTAMPACION
+      ** 10 MP405-INDFOTO
+      *_ IND. FOTO EN PLASTICO
+      ** 10 MP405-REFFOTO
+      *_ REFERENCIA DE LA FOTO
+      ** 10 MP405-PRODUCTO
+      *_ COD. PRODUCTO
+      ** 10 MP405-SUBPRODU
+      *_ COD. SUBPRODUCTO
+      ** 10 MP405-FECENVEST
+      *_ FECHA DE ENVIO A ESTAMPACION
+      ** 10 MP405-FECRESECT
+      *_  FECHA FECRESECT   
+      ** 10 MP405-FECACUSER
+      *_ FECHA ACUSE DE RECIBO
+      ** 10 MP405-FECULTREN
+      *_ FECHA ULTIMA RENOVACION
+      ** 10 MP405-FECRECTAR
+      *_ FECHA RECUPERACION PLASTICO
+      ** 10 MP405-FCORETTAR
+      *_ FECHA COMUNICACION RETENCION PLASTICO
+      ** 10 MP405-HCORETTAR
+      *_ HORA COMUNICACION RETENCION PLASTICO
+      ** 10 MP405-CONDEST 
+      *_ COD. CONDICION ESTAMPACION
+      ** 10 MP405-ESTPLAS1 
+      *_ DATOS DE ESTAMPACION A VOLUNTAD   
+      ** 10 MP405-ESTPLAS2                
+      *_ DATOS DE ESTAMPACION A VOLUNTAD
+      ** 10 MP405-CODPROMO
+      *_  CODIGO DE PROMOCION
+      ** 10 MP405-INDEXECUO
+      *_ IND. EXENCION DE COMPRA CUOTAS
+      ** 10 MP405-INDAPLIREST
+      *_ IND.APLICACION RESTRICCION EN TARJ.AUTO.
+      ** 10 MP405-CONTCURT
+      *_ CONTROL DE CONCURRENCIA
+      ** 10 MP405-CONTCURP
+      *_ CONTROL DE CONCURRENCIA
+      ** 10 MP405-NUMBENCTA            
+      *_  NUM. BENEFICIARIO
+      ** 10 MP405-DESCONDEST
+      *_ DESCRIPCION CONDICION
+      ** 10 MP405-DESTIPBON
+      *_ DESCRIPCION TIPO BONIFICACION    
+      ** 10 MP405-DESMARRED
+      *_ DESCRIPCION MARCA DE TARJETA   
+      ** 10 MP405-DESTIPTRED
+      *_ DESCRIPCION TIPO DE TARJETA  
+
+           05  MPM0405.                                                         
+               10 FILLER                         PIC X(12).                   
+               10 MP405-CODENT-ATR               PIC X(1).                      
+               10 MP405-CODENT                   PIC X(4).                      
+               10 MP405-CENTALTA-ATR             PIC X(1).                      
+               10 MP405-CENTALTA                 PIC X(4).                    
+               10 MP405-CUENTA-ATR               PIC X(01).                    
+               10 MP405-CUENTA                   PIC X(12).                    
+               10 MP405-NUMPLASTICO-ATR          PIC X(01).                     
+               10 MP405-NUMPLASTICO              PIC 9(12).                   
+               10 MP405-NUMPLASTICO-ALF                                         
+                  REDEFINES  MP405-NUMPLASTICO   PIC X(12).
+               10 MP405-TIPBON-ATR               PIC X(1).                     
+               10 MP405-TIPBON                   PIC X(6).                     
+               10 MP405-CODMAR-ATR               PIC X(1).                     
+               10 MP405-CODMAR                   PIC 9(2).                     
+               10 MP405-CODMAR-ALF                                             
+                  REDEFINES  MP405-CODMAR        PIC X(2).
+               10 MP405-INDTIPT-ATR              PIC X(1).                    
+               10 MP405-INDTIPT                  PIC 9(2).                    
+               10 MP405-INDTIPT-ALF                                           
+                  REDEFINES  MP405-INDTIPT       PIC X(2).
+               10 MP405-PAN-ATR                  PIC X(01).                    
+               10 MP405-PAN                      PIC X(22).                     
+               10 MP405-PANANT-ATR               PIC X(1).                     
+               10 MP405-PANANT                   PIC X(22).                    
+               10 MP405-CALPART-ATR              PIC X(1).                     
+               10 MP405-CALPART                  PIC X(2).                     
+               10 MP405-NUMPER-ATR             PIC X(01).
+               10 MP405-NUMPER                 PIC X(08).
+               10 MP405-FECALTA-ATR              PIC X(1).                      
+               10 MP405-FECALTA                  PIC X(10).                     
+               10 MP405-FECULTUSO-ATR            PIC X(1).                     
+               10 MP405-FECULTUSO                PIC X(10).                    
+               10 MP405-INDSITTAR-ATR            PIC X(01).                     
+               10 MP405-INDSITTAR                PIC 9(2).                      
+               10 MP405-INDSITTAR-ALF                                           
+                  REDEFINES MP405-INDSITTAR      PIC X(2).
+               10 MP405-INDULTTAR-ATR            PIC X(1).                      
+               10 MP405-INDULTTAR                PIC X(2).                      
+               10 MP405-DESSITTAR-ATR            PIC X(1).                      
+               10 MP405-DESSITTAR                PIC X(30).                     
+               10 MP405-INDNOREN-ATR             PIC X(1).                      
+               10 MP405-INDNOREN                 PIC 9(1).                      
+               10 MP405-INDNOREN-ALF                                            
+                  REDEFINES  MP405-INDNOREN      PIC X(1).
+               10 MP405-CODBLQ-ATR               PIC X(1).                     
+               10 MP405-CODBLQ                   PIC 9(2).                     
+               10 MP405-CODBLQ-ALF                                             
+                  REDEFINES  MP405-CODBLQ        PIC X(2).
+               10 MP405-FECULTBLQ-ATR            PIC X(1).                      
+               10 MP405-FECULTBLQ                PIC X(10).                     
+               10 MP405-TEXBLQ-ATR               PIC X(1).                      
+               10 MP405-TEXBLQ                   PIC X(30).                     
+               10 MP405-FECBAJA-ATR              PIC X(1).                      
+               10 MP405-FECBAJA                  PIC X(10).                     
+               10 MP405-MOTBAJA-ATR              PIC X(1).                     
+               10 MP405-MOTBAJA                  PIC X(2).                     
+               10 MP405-FECCADTAR-ATR            PIC X(1).                      
+               10 MP405-FECCADTAR                PIC 9(06).                     
+               10 MP405-FECCADTAR-ALF                                           
+                  REDEFINES  MP405-FECCADTAR     PIC X(6).
+               10 MP405-FECCADTARANT-ATR         PIC X(1).                      
+               10 MP405-FECCADTARANT             PIC 9(06).                     
+               10 MP405-FECCADTARANT-ALF                                        
+                  REDEFINES  MP405-FECCADTARANT  PIC X(6).
+               10 MP405-FECCOBCUO-ATR            PIC X(1).                      
+               10 MP405-FECCOBCUO                PIC 9(06).                     
+               10 MP405-FECCOBCUO-ALF                                           
+                  REDEFINES  MP405-FECCOBCUO     PIC X(1).
+               10 MP405-CODCLAVE-ATR             PIC X(1).                      
+               10 MP405-CODCLAVE                 PIC X(3).                      
+               10 MP405-DESGRUCRI-ATR            PIC X(1).                      
+               10 MP405-DESGRUCRI                PIC X(40).                     
+               10 MP405-IDEMPLEADO-ATR           PIC X(1).                      
+               10 MP405-IDEMPLEADO               PIC X(20).                     
+               10 MP405-INDCAMLIM-ATR            PIC X(1).                    
+               10 MP405-INDCAMLIM                PIC X(1).                    
+               10 MP405-INDACTLIM-ATR            PIC X(1).                     
+               10 MP405-INDACTLIM                PIC X(1).                     
+               10 MP405-INDRESACT-ATR            PIC X(1).                      
+               10 MP405-INDRESACT                PIC X(1).                      
+               10 MP405-INDRESCOM-ATR            PIC X(1).                     
+               10 MP405-INDRESCOM                PIC X(1).                     
+               10 MP405-INDLIMFAC-ATR            PIC X(1).                     
+               10 MP405-INDLIMFAC                PIC X(1).                     
+               10 MP405-VISAPHONE-ATR            PIC X(1).                     
+               10 MP405-VISAPHONE                PIC 9(4).                     
+               10 MP405-VISAPHONE-ALF                                          
+                  REDEFINES  MP405-VISAPHONE     PIC X(4).
+               10 MP405-NUMKPIN-ATR              PIC X(1).                     
+               10 MP405-NUMKPIN                  PIC 9(2).                     
+               10 MP405-NUMKPIN-ALF                                            
+                  REDEFINES  MP405-NUMKPIN       PIC X(2).
+               10 MP405-NOMBENRED-ATR            PIC X(1).                    
+               10 MP405-NOMBENRED                PIC X(26).                   
+               10 MP405-INDFOTO-ATR              PIC X(1).                     
+               10 MP405-INDFOTO                  PIC X(1).                     
+               10 MP405-REFFOTO-ATR              PIC X(1).                      
+               10 MP405-REFFOTO                  PIC X(30).                     
+               10 MP405-PRODUCTO-ATR             PIC X(1).                      
+               10 MP405-PRODUCTO                 PIC X(2).                      
+               10 MP405-SUBPRODU-ATR             PIC X(1).                      
+               10 MP405-SUBPRODU                 PIC X(4).                      
+               10 MP405-FECENVEST-ATR            PIC X(1).                      
+               10 MP405-FECENVEST                PIC X(10).                     
+               10 MP405-FECRESECT-ATR            PIC X(1).                      
+               10 MP405-FECRESECT                PIC X(10).                     
+               10 MP405-FECACUSER-ATR            PIC X(1).                      
+               10 MP405-FECACUSER                PIC X(10).                     
+               10 MP405-FECULTREN-ATR            PIC X(1).                     
+               10 MP405-FECULTREN                PIC X(10).                    
+               10 MP405-FECRECTAR-ATR            PIC X(1).                      
+               10 MP405-FECRECTAR                PIC X(10).                     
+               10 MP405-FCORETTAR-ATR            PIC X(1).                      
+               10 MP405-FCORETTAR                PIC X(10).                     
+               10 MP405-HCORETTAR-ATR            PIC X(1).                     
+               10 MP405-HCORETTAR                PIC X(8).                     
+               10 MP405-CONDEST-ATR              PIC X(1).                     
+               10 MP405-CONDEST                  PIC X(3).                     
+               10 MP405-ESTPLAS1-ATR             PIC X(1).                     
+               10 MP405-ESTPLAS1                 PIC X(40).                    
+               10 MP405-ESTPLAS2-ATR             PIC X(1).                     
+               10 MP405-ESTPLAS2                 PIC X(40).                    
+               10 MP405-CODPROMO-ATR             PIC X(01).                     
+               10 MP405-CODPROMO                 PIC X(03).                     
+               10 MP405-INDEXECUO-ATR            PIC X(01).                    
+               10 MP405-INDEXECUO                PIC X(01).                    
+               10 MP405-INDAPLIREST-ATR          PIC X(01).                    
+               10 MP405-INDAPLIREST              PIC X(01).                    
+               10 MP405-CONTCURT-ATR             PIC X(1).                    
+               10 MP405-CONTCURT                 PIC X(26).                   
+               10 MP405-CONTCURP-ATR             PIC X(1).                     
+               10 MP405-CONTCURP                 PIC X(26).  
+               10 MP405-NUMBENCTA-ATR            PIC X(1).          
+               10 MP405-NUMBENCTA                PIC 9(5).      
+               10 MP405-NUMBENCTA-ALF
+                  REDEFINES MP405-NUMBENCTA      PIC X(5).
+               10 MP405-DESCONDEST-ATR     PIC X(01).
+               10 MP405-DESCONDEST         PIC X(30).
+               10 MP405-DESTIPBON-ATR      PIC X(01).
+               10 MP405-DESTIPBON          PIC X(30).   
+               10 MP405-DESMARRED-ATR      PIC X(01).
+               10 MP405-DESMARRED          PIC X(10).   
+               10 MP405-DESTIPTRED-ATR      PIC X(01).
+               10 MP405-DESTIPTRED          PIC X(10).   
+               10 FILLER                         PIC X(01).                        
+

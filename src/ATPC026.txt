@@ -1,0 +1,955 @@
+      *+-------------------------------------------------------+
+      *              GETRONICS
+      *                     ATPC026
+      *
+      *                  PROCESO
+      *
+      *  DESCRIPCION: PROCESO PARA OBTENER, EN TIEMPO REAL,
+      *    LA INFORMACION BASICA DE UN TIPO DE TARJETA.
+      *
+      *+-------------------------------------------------------+
+       IDENTIFICATION DIVISION.
+      *-----------------------.
+
+       PROGRAM-ID.      ATPC026.
+       AUTHOR.          GETRONICS.
+       DATE-WRITTEN.    19 DE ABRIL DE 2001.
+
+      *+-------------------------------------------------------+
+      *               ENVIROMENT DIVISION
+      *              =====================
+      *+-------------------------------------------------------+
+
+       ENVIRONMENT DIVISION.
+      *--------------------.
+
+       CONFIGURATION SECTION.
+
+       SPECIAL-NAMES.
+           DECIMAL-POINT IS COMMA.
+
+      *+-------------------------------------------------------+
+      *                 DATA DIVISION
+      *                ===============
+      *+-------------------------------------------------------+
+       DATA DIVISION.
+      *-------------.
+       FILE SECTION.
+
+      *+-------------------------------------------------------+
+      *            WORKING  STORAGE  SECTION
+      *           ===========================
+      *+-------------------------------------------------------+
+       WORKING-STORAGE SECTION.
+
+       01 FILLER                           PIC X(25)
+                VALUE 'COMIENZO WORKING ATPC026'.
+
+      *+------------------------------------------------------+
+      *           SWITCHES DEL PROGRAMA
+      *+------------------------------------------------------+
+
+       01  SW-FIN-CORRECTO                 PIC X(1) VALUE 'S'.
+           88  SI-CORRECTO                          VALUE 'S'.
+           88  NO-CORRECTO                          VALUE 'N'.
+
+      *+-------------------------------------------------------------+
+      *           WORKA CORRESPONDIENTE A LOS ERRORES DB2
+      *+-------------------------------------------------------------+
+
+       01  WS-VARIABLES.
+           05  WS-TEXTO4-ERROR.
+               10 WS-MSG-ERROR            PIC X(71).
+               10 WS-MSG-ADI1             PIC X(71).
+               10 WS-MSG-ADI2             PIC X(71).
+               10 WS-MSG-ADI3             PIC X(71).
+           05  WS-TEXTO2-ERROR REDEFINES WS-TEXTO4-ERROR.
+               10 WS-TXT1-ERROR           PIC X(100).
+               10 WS-TXT2-ERROR           PIC X(100).
+               10 WS-TXT3-ERROR           PIC X(084).
+
+           05  INDICE                     PIC 9(2).
+           05  WS-SQLCODE-FETCH            PIC S9(09)   COMP.
+
+      *+-------------------------------------------------------+
+      *                 CONSTANTES
+      *+-------------------------------------------------------+
+
+       01  CT-CONSTANTES.
+           05  CT-INFOR-1                  PIC X(7)  VALUE 'MPI0001'.
+           05  CT-TABLA-LLENA              PIC X(32)
+                            VALUE 'E0000000000000000000000000000000'.
+           05  CT-VALOR-MAS                PIC X(1) VALUE '/'.
+           05  CT-VALOR-FIN                PIC X(1) VALUE '@'.
+           05  CT-AVISO                    PIC X(2) VALUE '20'.
+           05  CT-ERROR                    PIC X(2) VALUE '20'.
+           05  CT-ERROR-DB2                PIC X(2) VALUE '30'.
+           05  CT-ROLLBACK                 PIC X(2) VALUE '40'.
+           05  CT-APLICACION               PIC X(2) VALUE 'MP'.
+           05  CT-RUT-ERRORES              PIC X(8) VALUE 'ATR303'.
+
+           05  CT-OCCURS                   PIC 9(02) VALUE 56.
+
+           05  CT-PROGRAMA                 PIC X(8) VALUE 'ATPC026'.
+           05  CT-AVISO-1                  PIC X(7) VALUE 'MPA0001'.
+           05  CT-AVISO-2                  PIC X(7) VALUE 'MPA0002'.
+           05  CT-AVISO-70                 PIC X(7) VALUE 'MPA0070'.
+           05  CT-ERROR-4                  PIC X(7) VALUE 'MPE0004'.
+           05  CT-ERROR-5                  PIC X(7) VALUE 'MPE0005'.
+           05  CT-ERROR-6                  PIC X(7) VALUE 'MPE0006'.
+           05  CT-ERROR-7                  PIC X(7) VALUE 'MPE0007'.
+           05  CT-ERROR-8                  PIC X(7) VALUE 'MPE0008'.
+           05  CT-ERROR-1012               PIC X(7) VALUE 'MPE1012'.
+           05  CT-ERROR-1037               PIC X(7) VALUE 'MPE1037'.
+           05  CT-ERROR-8888               PIC X(7) VALUE 'MPE8888'.
+           05  CT-ERROR-9999               PIC X(7) VALUE 'MPE9999'.
+           05  CT-CONSULTA-BD              PIC X(15)  VALUE
+                                 'CONSULTA-BD'.
+
+           05  CT-TABLENAME26              PIC X(7)  VALUE 'MPDT026'.
+           05  CT-TABLENAME21              PIC X(7)  VALUE 'MPDT021'.
+           05  CT-TABLENAME024             PIC X(7)  VALUE 'MPDT024'.
+
+           05  CT-SELECCION               PIC X(6)  VALUE 'SELECT'.
+           05  CT-ABRIR-CURSOR-SIG        PIC X(6) VALUE
+                                 'ABRSIG'.
+           05  CT-LEER-CURSOR-SIG         PIC X(6) VALUE
+                                 'LEESIG'.
+           05  CT-CERRAR-CURSOR-SIG       PIC X(6) VALUE
+                                 'CERSIG'.
+           05  CT-ABRIR-CURSOR-ANT        PIC X(6) VALUE
+                                 'ABRANT'.
+           05  CT-LEER-CURSOR-ANT         PIC X(6) VALUE
+                                 'LEEANT'.
+           05  CT-CERRAR-CURSOR-ANT       PIC X(6) VALUE
+                                 'CERANT'.
+           05  CT-COUNT-AL-BA             PIC X(17) VALUE
+                                 'CONTROL-ALTA-BAJA'.
+           05  CT-COUNT-CURSOR             PIC X(6)  VALUE
+                                 'COUCUR'.
+
+           05  CT-UNO                      PIC 9       VALUE 1.
+           05  CT-CORRECTO-AVISO           PIC X(2)    VALUE '10'.
+           05  CT-ERROR-DB2-024            PIC X(2)    VALUE '40'.
+
+      *+------------------------------------------------------+
+      *        COPYS DE ERROR
+      *+------------------------------------------------------+
+
+       01  OTSQLERR.
+           COPY ATSQLERR.
+
+       01  AREA-ERRORES.
+           COPY MPM0303.
+
+       01  AREA-SERVICIO.
+           COPY MPM0026.
+
+      *01  CN-CONTADOR                 PIC S9(006) COMP-3 VALUE ZEROES.
+
+       01  WS-CODENT-VAL               PIC  X(004)        VALUE SPACES.
+       01  WS-CODMAR-VAL               PIC S9(002) COMP-3 VALUE ZEROES.
+       01  WS-INDTIPT-VAL              PIC S9(002) COMP-3 VALUE ZEROES.
+
+      *01  WS-CODENT-ORIG              PIC  X(004)        VALUE SPACES.
+      *01  WS-CODMAR-ORIG              PIC S9(002) COMP-3 VALUE ZEROES.
+      *01  WS-INDTIPT-ORIG             PIC S9(002) COMP-3 VALUE ZEROES.
+
+      *01  WS-CODENT-PAG               PIC  X(004) VALUE SPACES.
+      *01  WS-CODMAR-PAG               PIC S9(002) COMP-3 VALUE ZEROES.
+      *01  WS-INDTIPT-PAG              PIC S9(002) COMP-3 VALUE ZEROES.
+
+      *+------------------------------------------------------+
+      *    DEFINICIONES DB2 (INCLUDES DE TABLAS,DEFINICION DE
+      *    CURSORES)
+      *+------------------------------------------------------+
+390SAT* 
+390SAT     EXEC SQL BEGIN DECLARE SECTION END-EXEC. 
+390SAT* 
+       01  WS-CODENT-ORIG              PIC  X(004)        VALUE SPACES.
+       01  WS-CODMAR-ORIG              PIC S9(002) COMP-3 VALUE ZEROES.
+       01  WS-INDTIPT-ORIG             PIC S9(002) COMP-3 VALUE ZEROES.
+       01  WS-CODENT-PAG               PIC  X(004) VALUE SPACES.
+       01  WS-CODMAR-PAG               PIC S9(002) COMP-3 VALUE ZEROES.
+       01  WS-INDTIPT-PAG              PIC S9(002) COMP-3 VALUE ZEROES.
+       01  CN-CONTADOR                 PIC S9(006) COMP-3 VALUE ZEROES.
+      *+------------------------------------------------------+
+      *  VARIABLES PARA LA RUTINA DE CONTROL DE ERRORES DB2
+      *+------------------------------------------------------+
+
+           EXEC SQL
+                INCLUDE SQLCA
+           END-EXEC.
+
+      * TABLA DE DESCRIPCION MARCA
+
+           EXEC SQL
+             INCLUDE MPDT024
+           END-EXEC.
+
+      * TABLA DE TIPO  DE TARJETA
+
+           EXEC SQL
+             INCLUDE MPDT026
+           END-EXEC.
+
+      * TABLA DE ENTIDADES
+
+           EXEC SQL
+             INCLUDE MPDT021
+           END-EXEC.
+      *+------------------------------------------------------+
+      *    DECLARACION DEL CURSOR PARA LECTURAS
+      *+------------------------------------------------------+
+           EXEC SQL
+              DECLARE CURSOR_SIG CURSOR FOR
+               SELECT CODENT,
+                      CODMAR,
+                      INDTIPT,
+                      CLASE,
+                      DESTIPT,
+                      DESTIPTRED,
+                      CONTCUR
+                 FROM MPDT026
+                WHERE CODENT             = :WS-CODENT-ORIG
+                  AND (CODMAR            = :WS-CODMAR-ORIG
+                   OR :WS-CODMAR-ORIG    =  0)
+                  AND (INDTIPT           = :WS-INDTIPT-ORIG
+                   OR :WS-INDTIPT-ORIG   =  0)
+
+                  AND (CODMAR            > :WS-CODMAR-PAG
+
+                   OR (CODMAR            = :WS-CODMAR-PAG
+                  AND INDTIPT            > :WS-INDTIPT-PAG))
+                ORDER BY CODENT,CODMAR,INDTIPT ASC
+           END-EXEC.
+
+           EXEC SQL
+              DECLARE CURSOR_ANT CURSOR FOR
+               SELECT CODENT,
+                      CODMAR,
+                      INDTIPT,
+                      CLASE,
+                      DESTIPT,
+                      DESTIPTRED,
+                      CONTCUR
+                 FROM MPDT026
+                WHERE CODENT             = :WS-CODENT-ORIG
+                  AND (CODMAR            = :WS-CODMAR-ORIG
+                   OR :WS-CODMAR-ORIG    =  0)
+                  AND (INDTIPT           = :WS-INDTIPT-ORIG
+                   OR :WS-INDTIPT-ORIG   =  0)
+
+                  AND (CODMAR            < :WS-CODMAR-PAG
+
+                   OR (CODMAR            = :WS-CODMAR-PAG
+                  AND INDTIPT            < :WS-INDTIPT-PAG))
+                ORDER BY CODENT,CODMAR,INDTIPT DESC
+           END-EXEC.
+
+390SAT* 
+390SAT     EXEC SQL END DECLARE SECTION END-EXEC. 
+390SAT* 
+      *+------------------------------------------------------+
+      *    VARIABLES PARA LA DEFINICION DE TABLAS WORKING
+      *+------------------------------------------------------+
+
+       01 FILLER                           PIC X(25)
+                        VALUE 'FINAL WORKING ATPC026'.
+
+      *+------------------------------------------------------+
+      *               LINKAGE SECTION
+      *               ===============
+      *+------------------------------------------------------+
+       LINKAGE SECTION.
+      *---------------.
+
+       01  DFHCOMMAREA.
+           COPY ATCMQCOP.
+
+      *+------------------------------------------------------+
+      *               PROCEDURE DIVISION
+      *               ==================
+      *+------------------------------------------------------+
+       PROCEDURE DIVISION USING DFHCOMMAREA.
+      *------------------.
+
+390SAT* 
+390SAT      
+390SAT* 
+       COMIENZO-ATPC026.
+      *---------------.
+
+           PERFORM 10000-INICIO
+           PERFORM 20000-PROCESO
+           PERFORM 30000-FINAL.
+
+       10000-INICIO.
+      *------------.
+
+      *-------------------------------------------------------+
+      *             INICIALIZAR VARIABLES
+      *+------------------------------------------------------+
+
+           INITIALIZE WS-VARIABLES
+                      DATOS-RETORNO
+                      AREA-ERRORES
+                      CN-CONTADOR
+                      WS-CODENT-ORIG
+                      WS-CODMAR-ORIG
+                      WS-INDTIPT-ORIG
+                      WS-CODENT-PAG
+                      WS-CODMAR-PAG
+                      WS-INDTIPT-PAG
+
+           SET MQCOPY-CORRECTO        TO TRUE
+           SET SI-CORRECTO            TO TRUE
+           MOVE CT-UNO                TO INDICE
+           MOVE MQCOPY-MENSAJE        TO MPM0026
+
+           MOVE MP026-CODENT          TO WS-CODENT-VAL
+           MOVE MP026-CODMAR(1)       TO WS-CODMAR-VAL
+           MOVE MP026-INDTIPT(1)      TO WS-INDTIPT-VAL.
+
+      *-------------------------------------------------------+
+      *  SE VALIDA QUE EL INDTIPT  VENGA INFORMADO. SI TIENE  *
+      *  CONTENIDO SE HACE UNA CONSULTA POR LA CLAVE,         *
+      *  SI NO SE INFORMA SE OBTENDRAN TODOS LOS REGISTROS    *
+      *  DE LA BASE DE DATOS, PERMITIENDO ELEGIR UNO          *
+      *  ESPECIFICO.                                          *
+      *+------------------------------------------------------+
+       20000-PROCESO.
+      *-------------.
+
+           PERFORM 21000-VALIDAR-DATOS.
+
+           MOVE WS-CODENT-VAL    TO WS-CODENT-ORIG
+           MOVE WS-CODMAR-VAL    TO WS-CODMAR-ORIG
+           MOVE WS-INDTIPT-VAL   TO WS-INDTIPT-ORIG
+
+           EVALUATE TRUE
+
+               WHEN MQCOPY-RESTO
+                    MOVE ZEROS                  TO MQCOPY-PANTALLA-PAG
+                    PERFORM 20100-RESTO-SIGUIENTE
+
+               WHEN MQCOPY-SIGUIENTE
+                    MOVE MQCOPY-CLAVE-FIN(14:4)  TO WS-CODENT-PAG
+                    MOVE MQCOPY-CLAVE-FIN(19:2)  TO WS-CODMAR-PAG
+                    MOVE MQCOPY-CLAVE-FIN(53:2)  TO WS-INDTIPT-PAG
+                    PERFORM 20100-RESTO-SIGUIENTE
+
+               WHEN MQCOPY-ANTERIOR
+                    MOVE MQCOPY-CLAVE-INICIO(14:4) TO WS-CODENT-PAG
+                    MOVE MQCOPY-CLAVE-INICIO(19:2) TO WS-CODMAR-PAG
+                    MOVE MQCOPY-CLAVE-INICIO(53:2) TO WS-INDTIPT-PAG
+                    PERFORM 20200-PAGINA-ANTERIOR
+
+               WHEN MQCOPY-UNITARIA
+                    PERFORM 20300-PROCESO-CONSULTA
+
+               WHEN OTHER
+                    MOVE CT-ERROR-8888 TO MQCOPY-COD-ERROR
+                    MOVE CT-ERROR      TO MQCOPY-RETORNO
+                    PERFORM 99999-ERROR-PROGRAMA
+
+           END-EVALUATE.
+
+       21000-VALIDAR-DATOS.
+      *-------------------.
+
+           PERFORM 21100-VALIDAR-CODENT
+
+           PERFORM 21200-VALIDAR-CODMAR.
+
+      *-------------------------------------------------------+
+      *  SE VALIDA QUE EL CODENT NO VENGA VACIO               *
+      *+------------------------------------------------------+
+       21100-VALIDAR-CODENT.
+      *--------------------.
+
+           IF MP026-CODENT EQUAL ZEROS OR LOW-VALUES OR SPACES
+               MOVE CT-AVISO-2         TO MQCOPY-COD-ERROR
+               SET MQCOPY-AVISO        TO TRUE
+               MOVE CT-UNO             TO MP026-CODENT-ATR
+               PERFORM 99999-ERROR-PROGRAMA
+           ELSE
+               PERFORM 28100-ACCESO-CODENT
+           END-IF.
+
+      *-------------------------------------------------------+
+      *  SE VALIDA QUE EL CODMAR NO VENGA VACIO Y QUE SEA     *
+      *  NUMERICO                                             *
+      *+------------------------------------------------------+
+       21200-VALIDAR-CODMAR.
+      *--------------------.
+
+            IF MP026-CODMAR-ALF(1) NOT EQUAL ZEROS AND
+                MP026-CODMAR-ALF(1) NOT EQUAL SPACES AND
+                MP026-CODMAR-ALF(1) NOT EQUAL LOW-VALUES
+              IF MP026-CODMAR(1) IS NOT NUMERIC
+                 MOVE CT-AVISO-1         TO MQCOPY-COD-ERROR
+                 SET MQCOPY-AVISO        TO TRUE
+                 MOVE CT-UNO             TO MP026-CODMAR-ATR(INDICE)
+                 PERFORM 99999-ERROR-PROGRAMA
+              ELSE
+                 PERFORM 21300-VALIDAR-INDTITP
+              END-IF
+           END-IF.
+
+      *-------------------------------------------------------+
+      *  SE VALIDA QUE  INDTITP  VENGA INFORMADO.             *
+      *  SI VIENE VACIO SE HACE UN PROCESO PAGINABLE (CURSOR) *
+      *  Y SI VIENE INFORMADO SE HACE UNA CONSULTA (SELECT).  *
+      *+------------------------------------------------------+
+       21300-VALIDAR-INDTITP.
+      *---------------------.
+
+           IF  MP026-INDTIPT-ALF(1) NOT EQUAL ZEROS AND
+               MP026-INDTIPT-ALF(1) NOT EQUAL SPACES AND
+               MP026-INDTIPT-ALF(1) NOT EQUAL LOW-VALUES
+              IF MP026-INDTIPT(1) IS NOT NUMERIC
+                 MOVE CT-AVISO-1         TO MQCOPY-COD-ERROR
+                 SET MQCOPY-AVISO        TO TRUE
+                 MOVE CT-UNO             TO MP026-INDTIPT-ATR(INDICE)
+                 PERFORM 99999-ERROR-PROGRAMA
+              END-IF
+           END-IF.
+
+       20100-RESTO-SIGUIENTE.
+      *---------------------.
+           PERFORM 22100-ABRIR-CURSOR-SIG
+
+           INITIALIZE INDICE
+      *    MOVE CT-UNO TO INDICE
+
+           PERFORM 22200-FETCH-CURSOR-SIG
+             UNTIL REG-NO-EXISTENTE-BD
+                OR INDICE = CT-OCCURS
+
+      * ESTE IF CONTROLA SI HAY DATOS QUE MOSTRAR
+
+           IF INDICE EQUAL ZEROS
+
+              PERFORM 22300-CERRAR-CURSOR-SIG
+              MOVE CT-TABLENAME26       TO MQCOPY-NOMBRE-TABLA
+              MOVE CT-CONSULTA-BD       TO MQCOPY-OPERACION
+              MOVE CT-INFOR-1           TO MQCOPY-SQLERM
+                                           MQCOPY-COD-AVISO1
+              SET MQCOPY-INFOR          TO TRUE
+              PERFORM 99999-ERROR-PROGRAMA
+           END-IF
+
+      * ESTE IF CONTROLA QUE SE HA COMPLETADO LA PAGINA CON EL NUMERO
+      * MAXIMO DE LINEAS Y NO HAY MAS.
+
+           IF INDICE = CT-OCCURS
+
+              PERFORM 22200-FETCH-CURSOR-SIG-BIS
+           END-IF
+
+           IF REG-NO-EXISTENTE-BD
+              MOVE CT-VALOR-FIN          TO MP026-INDCONTINUAR(INDICE)
+              MOVE 'N'                   TO MQCOPY-IND-MAS-DATOS
+           ELSE
+              MOVE 'S'                   TO MQCOPY-IND-MAS-DATOS
+           END-IF
+
+           ADD      1                    TO  MQCOPY-PANTALLA-PAG
+
+           PERFORM 22300-CERRAR-CURSOR-SIG.
+
+       20200-PAGINA-ANTERIOR.
+      *---------------------.
+           PERFORM 22110-CONTROL-ALTAS-BAJAS
+
+           IF CN-CONTADOR < CT-OCCURS
+              MOVE        1              TO      MQCOPY-PANTALLA-PAG
+              MOVE ZEROS                 TO      WS-CODMAR-PAG
+                                                 WS-INDTIPT-PAG
+              PERFORM 20100-RESTO-SIGUIENTE
+           ELSE
+
+             PERFORM 22100-ABRIR-CURSOR-ANT
+
+             MOVE   CT-OCCURS  TO   INDICE
+             ADD    1          TO   INDICE
+
+             PERFORM 22200-FETCH-CURSOR-ANT
+               UNTIL REG-NO-EXISTENTE-BD
+                 OR INDICE = 1
+
+             IF MQCOPY-PANTALLA-PAG NOT = 2
+                SUBTRACT    1            FROM     MQCOPY-PANTALLA-PAG
+             ELSE
+              IF MQCOPY-PANTALLA-PAG = 2 AND CN-CONTADOR NOT > CT-OCCURS
+                 SUBTRACT    1          FROM   MQCOPY-PANTALLA-PAG
+              END-IF
+             END-IF
+
+             PERFORM 22300-CERRAR-CURSOR-ANT
+
+           END-IF.
+
+       22110-CONTROL-ALTAS-BAJAS.
+      *-------------------------.
+
+           EXEC SQL
+              SELECT COUNT(*)
+                INTO :CN-CONTADOR
+                FROM MPDT026
+                WHERE CODENT             = :WS-CODENT-ORIG
+                  AND (CODMAR            = :WS-CODMAR-ORIG
+                   OR :WS-CODMAR-ORIG    =  0)
+                  AND (INDTIPT           = :WS-INDTIPT-ORIG
+                   OR :WS-INDTIPT-ORIG   =  0)
+
+                  AND (CODMAR            < :WS-CODMAR-PAG
+
+                   OR (CODMAR            = :WS-CODMAR-PAG
+                  AND INDTIPT            < :WS-INDTIPT-PAG))
+           END-EXEC
+390SAT*
+390SAT     MOVE SQLCODE                TO ATSQLERR 
+390SAT*
+           IF NOT  ACCESO-CORRECTO-BD
+              MOVE CT-COUNT-AL-BA     TO MQCOPY-OPERACION
+              MOVE CT-TABLENAME26     TO MQCOPY-NOMBRE-TABLA
+              MOVE CT-ERROR-4         TO MQCOPY-SQLERM
+                                         MQCOPY-COD-ERROR
+              MOVE SQLCODE            TO MQCOPY-SQLCODE
+              MOVE CT-PROGRAMA        TO MQCOPY-NOMBRE-RUTINA
+              SET MQCOPY-ERROR-DB2    TO TRUE
+              PERFORM 99999-ERROR-PROGRAMA
+           END-IF.
+
+       22100-ABRIR-CURSOR-SIG.
+      *-----------------------.
+           EXEC SQL
+               OPEN CURSOR_SIG
+           END-EXEC
+
+390SAT*
+390SAT     MOVE SQLCODE                TO ATSQLERR 
+390SAT*
+           IF NOT  ACCESO-CORRECTO-BD
+               MOVE  CT-ABRIR-CURSOR-SIG TO MQCOPY-OPERACION
+               MOVE  CT-TABLENAME26      TO MQCOPY-NOMBRE-TABLA
+               MOVE  CT-PROGRAMA         TO MQCOPY-NOMBRE-RUTINA
+               MOVE  SQLCODE             TO MQCOPY-SQLCODE
+               MOVE  CT-ERROR-6          TO MQCOPY-SQLERM
+                                            MQCOPY-COD-ERROR
+               SET MQCOPY-ERROR-DB2      TO TRUE
+               PERFORM 99999-ERROR-PROGRAMA
+           END-IF.
+
+       22100-ABRIR-CURSOR-ANT.
+      *-----------------------.
+           EXEC SQL
+               OPEN CURSOR_ANT
+           END-EXEC
+
+390SAT*
+390SAT     MOVE SQLCODE                TO ATSQLERR 
+390SAT*
+           IF NOT  ACCESO-CORRECTO-BD
+               MOVE  CT-ABRIR-CURSOR-ANT TO MQCOPY-OPERACION
+               MOVE  CT-TABLENAME26      TO MQCOPY-NOMBRE-TABLA
+               MOVE  CT-PROGRAMA         TO MQCOPY-NOMBRE-RUTINA
+               MOVE  SQLCODE             TO MQCOPY-SQLCODE
+               MOVE  CT-ERROR-6          TO MQCOPY-SQLERM
+                                            MQCOPY-COD-ERROR
+               SET MQCOPY-ERROR-DB2      TO TRUE
+               PERFORM 99999-ERROR-PROGRAMA
+           END-IF.
+
+       22200-FETCH-CURSOR-SIG.
+      *------------------------
+           EXEC SQL
+              FETCH CURSOR_SIG
+               INTO :DCLMPDT026.CODENT,
+                    :DCLMPDT026.CODMAR,
+                    :INDTIPT,
+                    :CLASE,
+                    :DESTIPT,
+                    :DESTIPTRED,
+                    :DCLMPDT026.CONTCUR
+           END-EXEC
+
+           MOVE SQLCODE TO WS-SQLCODE-FETCH
+390SAT*
+390SAT     MOVE SQLCODE                TO ATSQLERR 
+390SAT*
+
+           IF  ACCESO-CORRECTO-BD
+              ADD 1 TO INDICE
+              PERFORM 50000-EXISTENCIA-DESMAR
+              PERFORM 24000-MOSTRAR-DATOS-PAGINABLE
+           ELSE
+              IF NOT REG-NO-EXISTENTE-BD
+                 MOVE  CT-LEER-CURSOR-SIG TO MQCOPY-OPERACION
+                 MOVE  CT-TABLENAME26     TO MQCOPY-NOMBRE-TABLA
+                 MOVE  CT-PROGRAMA        TO MQCOPY-NOMBRE-RUTINA
+                 MOVE  SQLCODE            TO MQCOPY-SQLCODE
+                 MOVE  CT-ERROR-7         TO MQCOPY-SQLERM
+                                             MQCOPY-COD-ERROR
+                 SET MQCOPY-ERROR-DB2     TO TRUE
+                 PERFORM 99999-ERROR-PROGRAMA
+              END-IF
+           END-IF.
+
+       22200-FETCH-CURSOR-SIG-BIS.
+      *---------------------------
+           EXEC SQL
+              FETCH CURSOR_SIG
+               INTO :DCLMPDT026.CODENT,
+                    :DCLMPDT026.CODMAR,
+                    :INDTIPT,
+                    :CLASE,
+                    :DESTIPT,
+                    :DESTIPTRED,
+                    :DCLMPDT026.CONTCUR
+           END-EXEC
+
+390SAT*
+390SAT     MOVE SQLCODE                TO ATSQLERR 
+390SAT*
+           IF NOT ACCESO-CORRECTO-BD
+            AND NOT REG-NO-EXISTENTE-BD
+              MOVE  CT-LEER-CURSOR-SIG   TO MQCOPY-OPERACION
+              MOVE  CT-TABLENAME26       TO MQCOPY-NOMBRE-TABLA
+              MOVE  CT-PROGRAMA          TO MQCOPY-NOMBRE-RUTINA
+              MOVE  SQLCODE              TO MQCOPY-SQLCODE
+              MOVE  CT-ERROR-7           TO MQCOPY-SQLERM
+                                            MQCOPY-COD-ERROR
+              SET MQCOPY-ERROR-DB2       TO TRUE
+              PERFORM 99999-ERROR-PROGRAMA
+           END-IF.
+
+       22200-FETCH-CURSOR-ANT.
+      *-----------------------.
+           EXEC SQL
+              FETCH CURSOR_ANT
+               INTO :DCLMPDT026.CODENT,
+                    :DCLMPDT026.CODMAR,
+                    :INDTIPT,
+                    :CLASE,
+                    :DESTIPT,
+                    :DESTIPTRED,
+                    :DCLMPDT026.CONTCUR
+           END-EXEC
+
+           MOVE SQLCODE TO WS-SQLCODE-FETCH
+390SAT*
+390SAT     MOVE SQLCODE                TO ATSQLERR 
+390SAT*
+           IF  ACCESO-CORRECTO-BD
+              SUBTRACT 1      FROM INDICE
+              PERFORM 50000-EXISTENCIA-DESMAR
+              PERFORM 24000-MOSTRAR-DATOS-PAGINABLE
+           ELSE
+              IF NOT REG-NO-EXISTENTE-BD
+                 MOVE  CT-LEER-CURSOR-ANT TO MQCOPY-OPERACION
+                 MOVE  CT-TABLENAME26     TO MQCOPY-NOMBRE-TABLA
+                 MOVE  CT-PROGRAMA        TO MQCOPY-NOMBRE-RUTINA
+                 MOVE  SQLCODE            TO MQCOPY-SQLCODE
+                 MOVE  CT-ERROR-7         TO MQCOPY-SQLERM
+                                             MQCOPY-COD-ERROR
+                 SET MQCOPY-ERROR-DB2     TO TRUE
+                 PERFORM 99999-ERROR-PROGRAMA
+              END-IF
+           END-IF.
+
+390SAT*
+390SAT     MOVE WS-SQLCODE-FETCH          TO ATSQLERR.
+390SAT*
+       22300-CERRAR-CURSOR-SIG.
+      *-------------------------
+           EXEC SQL
+                CLOSE CURSOR_SIG
+           END-EXEC
+
+390SAT*
+390SAT     MOVE SQLCODE                TO ATSQLERR 
+390SAT*
+           IF NOT  ACCESO-CORRECTO-BD
+              MOVE  CT-CERRAR-CURSOR-SIG TO MQCOPY-OPERACION
+              MOVE  CT-TABLENAME26       TO MQCOPY-NOMBRE-TABLA
+              MOVE  CT-PROGRAMA          TO MQCOPY-NOMBRE-RUTINA
+              MOVE  SQLCODE              TO MQCOPY-SQLCODE
+              MOVE  CT-ERROR-8           TO MQCOPY-SQLERM
+                                            MQCOPY-COD-ERROR
+              SET MQCOPY-ERROR-DB2       TO TRUE
+              PERFORM 99999-ERROR-PROGRAMA
+           END-IF.
+
+       22300-CERRAR-CURSOR-ANT.
+      *------------------------.
+           EXEC SQL
+                CLOSE CURSOR_ANT
+           END-EXEC
+
+390SAT*
+390SAT     MOVE SQLCODE                TO ATSQLERR 
+390SAT*
+           IF NOT  ACCESO-CORRECTO-BD
+               MOVE  CT-CERRAR-CURSOR-ANT TO MQCOPY-OPERACION
+               MOVE  CT-TABLENAME26       TO MQCOPY-NOMBRE-TABLA
+               MOVE  CT-PROGRAMA          TO MQCOPY-NOMBRE-RUTINA
+               MOVE  SQLCODE              TO MQCOPY-SQLCODE
+               MOVE  CT-ERROR-8           TO MQCOPY-SQLERM
+                                             MQCOPY-COD-ERROR
+               SET MQCOPY-ERROR-DB2       TO TRUE
+               PERFORM 99999-ERROR-PROGRAMA
+           END-IF.
+
+       24000-MOSTRAR-DATOS-PAGINABLE.
+      *-----------------------------.
+
+           PERFORM 26000-MOSTRAR-DATOS-CONSULTA.
+
+       20300-PROCESO-CONSULTA.
+      *----------------------.
+
+           PERFORM 25100-MOVER-A-DCLGEN
+
+           EXEC SQL
+              SELECT CODENT,
+                     CODMAR,
+                     INDTIPT,
+                     CLASE,
+                     DESTIPT,
+                     DESTIPTRED,
+                     CONTCUR
+              INTO   :DCLMPDT026.CODENT,
+                     :DCLMPDT026.CODMAR,
+                     :DCLMPDT026.INDTIPT,
+                     :DCLMPDT026.CLASE,
+                     :DCLMPDT026.DESTIPT,
+                     :DCLMPDT026.DESTIPTRED,
+                     :DCLMPDT026.CONTCUR
+              FROM MPDT026
+              WHERE  CODENT  = :DCLMPDT026.CODENT
+              AND    CODMAR  = :DCLMPDT026.CODMAR
+              AND    INDTIPT = :DCLMPDT026.INDTIPT
+           END-EXEC
+
+390SAT*
+390SAT     MOVE SQLCODE                TO ATSQLERR 
+390SAT*
+           IF  ACCESO-CORRECTO-BD
+               PERFORM 50000-EXISTENCIA-DESMAR
+               PERFORM 26000-MOSTRAR-DATOS-CONSULTA
+
+           ELSE
+
+               IF REG-NO-EXISTENTE-BD
+                  MOVE CT-AVISO-70       TO MQCOPY-COD-ERROR
+                  MOVE CT-AVISO          TO MQCOPY-RETORNO
+                  MOVE CT-TABLENAME26    TO MQCOPY-NOMBRE-TABLA
+                  PERFORM 99999-ERROR-PROGRAMA
+               ELSE
+
+                   MOVE  CT-CONSULTA-BD     TO MQCOPY-OPERACION
+                   MOVE  CT-TABLENAME26     TO MQCOPY-NOMBRE-TABLA
+                   MOVE  CT-PROGRAMA        TO MQCOPY-NOMBRE-RUTINA
+                   MOVE  SQLCODE            TO MQCOPY-SQLCODE
+                   MOVE  CT-ERROR-4         TO MQCOPY-SQLERM
+                                               MQCOPY-COD-ERROR
+                   SET MQCOPY-ERROR-DB2     TO TRUE
+                   PERFORM 99999-ERROR-PROGRAMA
+               END-IF
+           END-IF.
+
+       25100-MOVER-A-DCLGEN.
+      *--------------------.
+
+           MOVE MP026-CODENT           TO CODENT  OF DCLMPDT026
+           MOVE MP026-CODMAR(INDICE)   TO CODMAR  OF DCLMPDT026
+           MOVE MP026-INDTIPT(INDICE)  TO INDTIPT OF DCLMPDT026.
+
+       26000-MOSTRAR-DATOS-CONSULTA.
+      *----------------------------.
+
+           MOVE CODENT OF DCLMPDT026  TO MP026-CODENT
+           MOVE CODMAR OF DCLMPDT026  TO MP026-CODMAR(INDICE)
+           MOVE INDTIPT               TO MP026-INDTIPT(INDICE)
+           MOVE CLASE                 TO MP026-CLASE(INDICE)
+           MOVE DESTIPT               TO MP026-DESTIPT(INDICE)
+           MOVE DESTIPTRED            TO MP026-DESTIPTRED(INDICE)
+           MOVE CONTCUR OF DCLMPDT026 TO MP026-CONTCUR(INDICE)
+           IF  INDICE = CT-OCCURS
+             OR MQCOPY-UNITARIA
+              MOVE CT-VALOR-FIN       TO MP026-INDCONTINUAR(INDICE)
+           ELSE
+              MOVE CT-VALOR-MAS       TO MP026-INDCONTINUAR(INDICE)
+           END-IF.
+
+       28100-ACCESO-CODENT.
+      *--------------------.
+
+           MOVE MP026-CODENT TO CODENT OF DCLMPDT021
+           EXEC SQL
+
+              SELECT CODENT
+              INTO   :DCLMPDT021.CODENT
+              FROM MPDT021
+              WHERE CODENT = :DCLMPDT021.CODENT
+
+           END-EXEC
+
+390SAT*
+390SAT     MOVE SQLCODE                TO ATSQLERR 
+390SAT*
+           IF REG-NO-EXISTENTE-BD
+              MOVE CT-TABLENAME21   TO MQCOPY-NOMBRE-TABLA
+              MOVE CT-ERROR-1012    TO MQCOPY-COD-ERROR
+              SET MQCOPY-ERROR      TO TRUE
+              PERFORM 99999-ERROR-PROGRAMA
+           ELSE
+              IF NOT ACCESO-CORRECTO-BD
+
+                 MOVE CT-ERROR-4       TO MQCOPY-SQLERM
+                                          MQCOPY-COD-ERROR
+                 MOVE CT-TABLENAME21   TO MQCOPY-NOMBRE-TABLA
+                 MOVE CT-CONSULTA-BD   TO MQCOPY-OPERACION
+                 MOVE CT-PROGRAMA      TO MQCOPY-NOMBRE-RUTINA
+                 MOVE SQLCODE          TO MQCOPY-SQLCODE
+                 SET MQCOPY-ERROR-DB2  TO TRUE
+                 PERFORM 99999-ERROR-PROGRAMA
+              END-IF
+           END-IF.
+
+       50000-EXISTENCIA-DESMAR.
+      *-----------------------.
+
+           MOVE MP026-CODENT             TO CODENT OF DCLMPDT024
+           MOVE CODMAR OF DCLMPDT026        TO CODMAR OF DCLMPDT024
+
+           EXEC SQL
+              SELECT DESMAR
+              INTO  :DCLMPDT024.DESMAR
+              FROM MPDT024
+              WHERE CODENT =:DCLMPDT024.CODENT AND
+                    CODMAR =:DCLMPDT024.CODMAR
+           END-EXEC
+
+390SAT*
+390SAT     MOVE SQLCODE                TO ATSQLERR 
+390SAT*
+           IF REG-NO-EXISTENTE-BD
+              MOVE CT-TABLENAME024     TO MQCOPY-NOMBRE-TABLA
+              MOVE CT-ERROR-1037       TO MQCOPY-COD-ERROR
+              SET MQCOPY-ERROR         TO TRUE
+              MOVE CT-UNO              TO MP026-DESMAR-ATR(INDICE)
+              PERFORM 99999-ERROR-PROGRAMA
+           ELSE
+              IF NOT ACCESO-CORRECTO-BD
+                 MOVE CT-TABLENAME024  TO MQCOPY-NOMBRE-TABLA
+                 MOVE CT-SELECCION     TO MQCOPY-OPERACION
+                 MOVE CT-PROGRAMA      TO MQCOPY-NOMBRE-RUTINA
+                 MOVE SQLCODE          TO MQCOPY-SQLCODE
+                 MOVE CT-ERROR-4       TO MQCOPY-SQLERM
+                                          MQCOPY-COD-ERROR
+                 SET MQCOPY-ERROR-DB2  TO TRUE
+                 PERFORM 99999-ERROR-PROGRAMA
+              ELSE
+                  MOVE DESMAR OF DCLMPDT024  TO MP026-DESMAR(INDICE)
+              END-IF
+           END-IF.
+
+
+       30000-FINAL.
+      *-----------.
+
+           INITIALIZE MPM0303
+
+           MOVE CT-APLICACION         TO MP303-APLICAC
+
+      *+-------------------------------------------------------------+
+      *
+      * EN LOS CAMPOS:     MQCOPY-COD-AVISO1
+      *                    MQCOPY-COD-ERROR
+      *
+      * EL SIGNIFICADO DE SUS POSICIONES ES EL SIGUIENTE
+      *
+      * 1 A 2 = 'MP'          APLICACION
+      *
+      * 3     = 'A' 'E' 'I'   TIPO DE ERROR/AVISO
+      *         'A'           MENSAJE DE AVISO ERROR
+      *         'E'           MENSAJE DE ERROR
+      *         'I'           MENSAJE AVISO INFORMATIVO
+      *
+      * 4 A 7 = 'XXXX'        NUMERO DE ERROR O AVISO
+      *
+      * PARA CADA CASO SE MOVERA EL VALOR CORRESPONDIENTE.
+      *
+      *+-------------------------------------------------------------+
+
+           EVALUATE TRUE
+
+             WHEN MQCOPY-INFOR
+
+                MOVE MQCOPY-COD-AVISO1(4:4) TO MP303-NUMSEQ
+                MOVE MQCOPY-COD-AVISO1(3:1) TO MP303-TIPO
+
+             WHEN MQCOPY-AVISO
+             WHEN MQCOPY-ERROR
+             WHEN MQCOPY-ERROR-DB2
+             WHEN MQCOPY-ROLLBACK
+             WHEN MQCOPY-CICS-IMS
+
+                MOVE MQCOPY-COD-ERROR(4:4)  TO MP303-NUMSEQ
+                MOVE MQCOPY-COD-ERROR(3:1)  TO MP303-TIPO
+
+           END-EVALUATE
+
+           IF MQCOPY-RETORNO NOT EQUAL '00'
+
+MGM   *       CALL  CT-RUT-ERRORES USING  MPM0303
+
+MGM          CALL CT-RUT-ERRORES USING DFHCOMMAREA
+                                       MPM0303
+
+             MOVE MP303-MSG-ERROR     TO WS-MSG-ERROR
+             MOVE MP303-MSG-ADI1      TO WS-MSG-ADI1
+             MOVE MP303-MSG-ADI2      TO WS-MSG-ADI2
+             MOVE MP303-MSG-ADI3      TO WS-MSG-ADI3
+
+390SAT       MOVE MP303-SQLCODE         TO ATSQLERR
+
+             IF  NOT REG-NO-EXISTENTE-BD
+             AND NOT ACCESO-CORRECTO-BD
+                 MOVE WS-MSG-ERROR(1:10) TO MQCOPY-TEXT1-AVISO1(1:10)
+                 MOVE WS-MSG-ADI1(1:7)   TO MQCOPY-TEXT1-AVISO1(11:10)
+                 MOVE WS-MSG-ADI2(1:6)   TO MQCOPY-TEXT1-AVISO1(21:10)
+                 MOVE WS-MSG-ADI3(1:9)   TO MQCOPY-TEXT1-AVISO1(31:10)
+             ELSE
+                IF REG-NO-EXISTENTE-BD
+                   MOVE WS-MSG-ERROR      TO MQCOPY-TEXT1-AVISO1
+                   MOVE WS-MSG-ADI1(1:7)  TO MQCOPY-TEXT2-AVISO1
+                ELSE
+                   MOVE WS-TXT1-ERROR     TO MQCOPY-TEXT1-AVISO1
+                   MOVE WS-TXT2-ERROR     TO MQCOPY-TEXT2-AVISO1
+                END-IF
+             END-IF
+           ELSE
+             MOVE CT-TABLA-LLENA TO MQCOPY-MAPA-BITS
+
+           END-IF
+
+           MOVE MPM0026             TO MQCOPY-MENSAJE
+
+           GOBACK.
+
+       99999-ERROR-PROGRAMA.
+      *--------------------.
+           SET NO-CORRECTO  TO  TRUE
+           PERFORM 30000-FINAL.
+
+
+
+
+
+
+

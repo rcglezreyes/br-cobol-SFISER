@@ -1,0 +1,19 @@
+      *-----------------------------------------------------------------
+      *  ESTA COPY CORRESPONDE A INFORMACION POPUP CASTIGADOS          *
+      *  LIB433R                                                       *
+      *-----------------------------------------------------------------
+           05 LIB433R.
+              10 L433R-RUT                  PIC X(10).
+              10 L433R-CODENT               PIC X(04).
+              10 L433R-CENTALTA             PIC X(04).
+              10 L433R-CUENTA               PIC X(12).
+              10 L433R-CODIGO               PIC X(04).
+              10 L433R-SALIDA.
+                 15 L433R-TABLA-OFER        OCCURS 20 TIMES.
+                    20 L433R-FECOFEINI      PIC X(10).
+                    20 L433R-FECOFEFIN      PIC X(10).
+                    20 L433R-MONTOFER       PIC S9(15)V99.
+                    20 L433R-MSJOFELARGO    PIC X(100).
+                    20 L433R-MSJOFECORTO    PIC X(100).
+                    20 L433R-VIGENCIA       PIC X(01).
+      *-----------------------------------------------------------------

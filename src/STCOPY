@@ -1,0 +1,36 @@
+      *--------------------------------------------------------------*
+      *                                                              *
+      *     AREA DE COMUNICACION ESTANDAR                            *
+      *                                                              *
+      *  < LONGITUD :7056>                                           *   
+      *--------------------------------------------------------------*
+
+               10  STCOPY.                        
+                   15 STCOPY-CONECTOR.
+                      20 STCOPY-COD-RESPUESTA         PIC 9(10).
+                      20 STCOPY-NOMBRE-SERVICIO       PIC X(50).
+                      20 STCOPY-LARGO-MENSAJE         PIC 9(09).
+                   15 STCOPY-CABECERA.
+                      20 STCOPY-COD-ENTIDAD           PIC X(04).
+                      20 STCOPY-TIPO-TERMINAL         PIC X(06).
+                      20 STCOPY-COD-USUARIO           PIC X(08).
+                      20 STCOPY-COD-OFICINA           PIC X(04).
+                      20 STCOPY-TERM-FISICO           PIC X(04).
+                      20 STCOPY-FECHA-CONTA           PIC X(10).
+                      20 STCOPY-COD-APLICACION        PIC X(02).
+                      20 STCOPY-COD-PAIS              PIC X(02).
+                      20 STCOPY-IND-COMMIT            PIC X(01).
+                   15 STCOPY-PAGINACION.
+                      20 STCOPY-IND-PAGINACION        PIC X(01).
+                         88 STCOPY-SIGUIENTE          VALUE "S". 
+                         88 STCOPY-ANTERIOR           VALUE "A".
+                         88 STCOPY-UNITARIA           VALUE "U". 
+                         88 STCOPY-RESTO              VALUE " ". 
+                      20 STCOPY-CLAVE-INICIO          PIC X(200).
+                      20 STCOPY-CLAVE-FIN             PIC X(200).
+                      20 STCOPY-PANTALLA-PAG          PIC 9(03).
+                      20 STCOPY-IND-MAS-DATOS         PIC X(01).
+                      20 STCOPY-OTROS-DATOS           PIC X(90).
+                   15 STCOPY-ENTRADA-SALIDA.
+                      20 STCOPY-MENSAJE               PIC X(6300).
+                   15 FILLER                          PIC X(151).

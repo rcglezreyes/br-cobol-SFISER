@@ -1,0 +1,1478 @@
+      *-------------------------------------------------------------*   
+      *                   CP SISTEMAS DE PAGO                       *   
+      *                          ATD646                             *   
+      *                                                             *   
+      *                         PROGRAMA                            *   
+      *                                                             *
+      *                SIMULACION DE PAGO AL DIA                    *   
+      ***************************************************************
+      *+------------------------------------------------------------+
+      * GAP        : ITE                                            *
+      * AUTOR      : CAMILO GOMEZ                                   *
+      * FECHA      : 17-09-2009                                     *
+      * DESCRIPCION: SE RECOMPILA POR QUITAR COPY DE RUTINA DE      *
+      *              IMPUESTOS Y LA CONSTANTE DE LLAMADA A LA RUTINA*
+      *              POR QUE NO SE UTILIZAN Y EVITAR QUE            *
+      *              SALGA EN LAS BUSQUEDAS                         *
+      *+------------------------------------------------------------+
+      *+--------------------------------------------------------------*
+      * INCIDENCIA:   INC-NOMANTIS                                    *
+      * AUTOR:        TECNOCOM (JMV)                                  *
+      * FECHA:        26-11-2009                                      *
+      * DESCRIPCION:  SE ELIMINAN LAS VALIDACIONES INECESARIAS        *
+      *+------------------------------------------------------------*
+      *-------------------------------------------------------------+
+      * INCIDENCIA : INC-4058                                       *
+      * AUTOR      : CAROLINA MORILLAS TENORIO                      *
+      * FECHA      : 29-01-2010                                     *
+      * MARCADO    : QA4058                                         *
+      * DESCRIPCION: SE ACTUALIZA LA TABLA MPDT194                  *
+      *-------------------------------------------------------------+
+      * INCIDENCIA : INC-ROLL                                       *
+      * AUTOR      : CAROLINA MORILLAS TENORIO                      *
+      * FECHA      : 29-03-2010                                     *
+      * MARCADO    : INROLL                                         *
+      * DESCRIPCION: SE ACTUALIZAN LAS TABLAS SOLO EN CONFIRMAR     *
+      *-------------------------------------------------------------+
+      *QA4874 23/04/2010 SE ESTABA VALIDANDO LA EXISTENCIA DE UN    *
+      *       IMPAGADO CON UN SELECT MAX, Y EN EL CASO DE NO TENER  *
+      *       REGISTRO QUE CUMPLAN EL WHERE TE DEVUELVE SQLCODE = 0 *
+      *-------------------------------------------------------------+
+      * INCIDENCIA : INC-NM1                                        *
+      * AUTOR      : CAROLINA MORILLAS TENORIO                      *
+      * FECHA      : 23-02-2011                                     *
+      * MARCADO    : INM01                                          *
+      * DESCRIPCION: CALCULAMOS EL ITF PARA PERU                    *
+      *-------------------------------------------------------------+
+      * MOTIVO     : GAP ABONO PARAMETRICO                          *
+      * AUTOR      : TECNOCOM                                       *
+      * FECHA      : 14-03-2011                                     *
+      * MARCA      : GAP-PAGO-PARAMETRICO                           *
+      *-------------------------------------------------------------+
+      * MOTIVO     : AJUSTE TIPO DE FACTURAS DADAS DE BAJA           *
+      * AUTOR      : TECNOCOM                                        *
+      * FECHA      : 03-12-2012                                      *
+      * MARCA      : AC0007                                          *
+      * DESCRIPCION: SE AJUSTA PARA QUE EL PROCESO NO REALICE NINGUN *
+      *              PROCESO SI LA FECHA DEL TIPO DE FACTURA ESTA DE *
+      *              BAJA.                                           *
+      *-------------------------------------------------------------+
+      * MOTIVO     : TRATAMIENTO DE CONTRATOS CASTIGADOS             *
+      * AUTOR      : TECNOCOM                                        *
+      * FECHA      : 22-07-2013                                      *
+      * MARCA      : CASCH1                                          *
+      * DESCRIPCION: SI EL CONTRATO SE ENCUENTRA EN ESTADO CASTIGADO *
+      *              INFORMAMOS LOS INTERESES Y LOS GASTOS DE MORA   *
+      *              CON EL VALOR CERO.                              *
+      *-------------------------------------------------------------+
+      * MOTIVO     : TRATAMIENTO DE CONTRATOS CASTIGADOS             *
+      * AUTOR      : TECNOCOM                                        *
+      * FECHA      : 14-01-2014                                      *
+      * MARCA      : CASCH2                                          *
+      * DESCRIPCION: SI EL CONTRATO SE ENCUENTRA EN ESTADO CASTIGADO *
+      *              RECUPERAMOS LOS IMPAGADOS CON SITUACION 3 Y     *
+      *              NUMSECREC = 0                                   *
+      *              NO SE LLAMA A LA RUTINA DE CALCULO DE INTEREES  *
+      *+-------------------------------------------------------------+
+      * HARVEST 24-01-2013
+      *--------------------------------------------------------------+
+      * RECOMPILA POR CAMBIO DE VERSION 19-02-2013                   *
+      *--------------------------------------------------------------*  
+
+
+       IDENTIFICATION DIVISION.                                         
+      *-----------------------.                                         
+                                                                        
+       PROGRAM-ID.      ATD646.                                         
+       AUTHOR.          CP SISTEMAS DE PAGO.                            
+       DATE-WRITTEN.    10 DE NOVIEMBRE DE 2008.                          
+                                                                        
+      *-------------------------------------------------------------+   
+      *                    ENVIRONMENT DIVISION                     *   
+      *                   =====================                     *   
+      *-------------------------------------------------------------+   
+                                                                        
+       ENVIRONMENT DIVISION.                                            
+      *--------------------.                                            
+                                                                        
+       CONFIGURATION SECTION.                                           
+                                                                        
+       SPECIAL-NAMES.                                                   
+           DECIMAL-POINT IS COMMA.                                      
+                                                                        
+      *+------------------------------------------------------------+   
+      *                      DATA DIVISION                          *   
+      *                     ===============                         *   
+      *+------------------------------------------------------------+   
+       DATA DIVISION.                                                   
+      *-------------.                                                   
+                                                                        
+      *+------------------------------------------------------------+   
+      *                 WORKING  STORAGE  SECTION                   *   
+      *                ===========================                  *   
+      *+------------------------------------------------------------+   
+       WORKING-STORAGE SECTION.                                         
+                                                                        
+       01  FILLER                          PIC X(25)                    
+                VALUE 'COMIENZO WORKING ATD646'.                        
+
+
+      *+-----------------------------------------------------------+
+      *      WORKA CORRESPONDIENTE A LOS ERRORES DB2               *
+      *+-----------------------------------------------------------+
+           EXEC SQL
+             INCLUDE SQLCA
+           END-EXEC.
+      * TABLA DE IMPAGADOS                                              
+           EXEC SQL                                                     
+               INCLUDE MPDT113                                          
+           END-EXEC.                                                    
+                                                                        
+      * TABLA DE IMPAGADOS-TIPOS DE SALDO                               
+           EXEC SQL                                                     
+               INCLUDE MPDT114                                          
+           END-EXEC.                                                    
+
+           EXEC SQL
+               INCLUDE MPDT085
+           END-EXEC. 
+
+      *+-------------------------------------------------------------+  
+      *     VARIABLES DEL PROGRAMA                                   *  
+      *+-------------------------------------------------------------+  
+                                                                        
+       01  WS-VARIABLES.         
+           05  WS-FECVENMOV                PIC X(10) VALUE SPACES.
+           05  WS-CODCOM                   PIC X(15) VALUE SPACES.             
+           05  WS-NOMBRE-BD                PIC X(24).                   
+           05  WS-IMPNETO-INT              PIC 9(15)V99 VALUE 0.
+           05  WS-DIMENSION                PIC 9(4).
+           05  WS-IMPNETO-COM              PIC 9(15)V99 VALUE 0.
+           05  WS-NOMBRE-RUTINA            PIC X(08).                   
+
+           05  WS-CLAVE-TABLA              PIC X(80).                   
+           05  WS-TABLENAME                PIC X(11).                   
+           05  WS-SQLCODE                  PIC S9(10) COMP.             
+           05  WS-SQLERRM                  PIC X(70).                   
+           05  WS-REFERENCIA               PIC X(06).                   
+           05  WS-DEUDA-MOROSA             PIC S9(15)V99.
+           05  WS-IMPTE-FAC                PIC S9(15)V99.
+           05  WS-IMPORTE-APLICAR          PIC S9(15)V99 VALUE 0.
+           05  WS-DIFERENCIA               PIC S9(15)V99 VALUE 0.
+           05  WS-IMPORTE-APLI             PIC S9(15)V99 VALUE 0. 
+           05  WS-IMP-IMPA                 PIC S9(15)V99 VALUE 0.
+           05  WS-IMP-RESTANTE             PIC S9(15)V99 VALUE 0. 
+           05  WS-FECHA-INICIO             PIC X(10).
+           05  WS-FECHA-FIN                PIC X(10).
+           05  WS-NUMSECIMP-MAX            PIC 9(15) VALUE ZEROES.
+INM01      05  WS-IMPUESTO                 PIC S9(15)V99 VALUE 0. 
+                                                                        
+           05  WS-HORA-AUX.                                             
+               10 WS-HH                    PIC X(2).                    
+               10 FILLER                   PIC X VALUE ':'.             
+               10 WS-MM                    PIC X(2).                    
+               10 FILLER                   PIC X VALUE ':'.             
+               10 WS-SS                    PIC X(2).                    
+                                                                        
+           05  WS-TEXTO4-ERROR.
+               10 WS-MSG-ERROR             PIC X(71).
+               10 WS-MSG-ADI1              PIC X(71).
+               10 WS-MSG-ADI2              PIC X(71).
+               10 WS-MSG-ADI3              PIC X(71).
+           05  WS-TEXTO2-ERROR REDEFINES WS-TEXTO4-ERROR.
+               10 WS-TXT1-ERROR            PIC X(100).
+               10 WS-TXT2-ERROR            PIC X(100).
+               10 WS-TXT3-ERROR            PIC X(084).
+
+           05  WS-IMPORTE-DIV              PIC S9(13)V9(5).
+
+           05  WS-CLAVE-TBCTAMON.
+               10  FILLER                  PIC X(08)  VALUE
+                          'CODENT: '.
+               10  WS-CODENT-TBCTAMON      PIC X(04).
+               10  FILLER                  PIC X(10)  VALUE
+                          'CENTALTA: '.
+               10  WS-CENTALTA-TBCTAMON    PIC X(04).
+               10  FILLER                  PIC X(08)  VALUE
+                          'CUENTA: '.
+               10  WS-CUENTA-TBCTAMON      PIC X(12).
+               10  FILLER                  PIC X(08)  VALUE
+                          'CLAMON: '.
+               10  WS-CLAMON-TBCTAMON      PIC 9(03).
+
+      *+-------------------------------------------------------------+
+      *        INDICES                                               *
+      *+-------------------------------------------------------------+
+       01  IN-INDICES.
+           05  IN-I                        PIC 9(01).
+           05  IN-J                        PIC 9(01).
+
+       01 WS-FECHAS.
+           05  WS-FECHA-AUX.
+               10  WS-FEC-AX-AAAA      PIC 9(04).
+               10  FILLER              PIC X(01) VALUE '-'.
+               10  WS-FEC-AX-MM        PIC 9(02).
+               10  FILLER              PIC X(01) VALUE '-'.
+               10  WS-FEC-AX-DD        PIC 9(02).
+           05  WS-FECHA-AUX1.
+               10  WS-FEC-AUX-AAAA1    PIC 9(04).
+               10  FILLER              PIC X(01) VALUE '-'.
+               10  WS-FEC-AUX-MM1      PIC 9(02).
+               10  FILLER              PIC X(01) VALUE '-'.
+               10  WS-FEC-AUX-DD1      PIC 9(02).
+           05  WS-FECHA-AUX2.
+               10  WS-FEC-AUX-AAAA2    PIC 9(04).
+               10  FILLER              PIC X(01) VALUE '-'.
+               10  WS-FEC-AUX-MM2      PIC 9(02).
+               10  FILLER              PIC X(01) VALUE '-'.
+               10  WS-FEC-AUX-DD2      PIC 9(02).
+           05  WS-FECHA-AUX-DMA.
+               10  WS-FEC-AUX-DD3      PIC 9(02).
+               10  WS-FEC-AUX-MM3      PIC 9(02).
+               10  WS-FEC-AUX-AAAA3    PIC 9(04).
+      *
+
+
+      *+-------------------------------------------------------------+  
+      *     CONSTANTES DEL PROGRAMA                                  *  
+      *+-------------------------------------------------------------+  
+       01  CT-CONSTANTES.                                               
+           05 CT-SELECT-MIN              PIC X(10) VALUE 'SELECT MIN'.
+           05 CT-PAGADO-NO-LIQUIDADO      PIC S9(02) COMP-3 VALUE  1.
+           05 CT-INCORPORACION           PIC X(1) VALUE 'I'.
+           05 CT-MOROSIDAD               PIC X(1) VALUE 'M'.
+           05 CT-LIQUIDACION              PIC 9(1) VALUE 0.
+CASCH1     05 CT-CASTIGADO                PIC 9    VALUE 6.
+CASCH1     05 CT-CHILE                    PIC 9(3) VALUE 152.
+           05 CT-PAGO                     PIC 9(2) VALUE 67.
+           05 CT-PROCESADO                PIC X(1) VALUE 'S'.
+           05 CT-ACTIVO                   PIC S9(02) COMP-3 VALUE  0.
+PE450      05  CT-TIPIMP-MAX               PIC 9(2) VALUE 10.
+           05 CT-000000-ALF               PIC X(06)  VALUE '000000'.
+           05  CT-T                        PIC X(1) VALUE 'T'.
+           05  CT-G                        PIC X(1) VALUE 'G'.
+           05  CT-I                        PIC X(1) VALUE 'I'.
+           05  CT-6                        PIC 9(1) VALUE  6 .
+           05  CT-1                        PIC X(1) VALUE '1'.
+           05  CT-0000                     PIC X(4) VALUE '0000'.       
+           05  CT-NO                       PIC X(1) VALUE 'N'.          
+           05  CT-CHEQUES                  PIC 9(2) VALUE 01.           
+           05  CT-TIPOFAC-68               PIC 9(4) VALUE 68.           
+           05 CT-ATRG001                 PIC X(07) VALUE 'ATRG001'. 
+           05  CT-PROGRAMA                 PIC X(6) VALUE 'ATD646'.     
+           05  CT-ATR646                   PIC X(6) VALUE 'ATR646'.    
+           05  CT-ATR645                   PIC X(6) VALUE 'ATR645'.
+COMTOP     05  CT-ATR022                   PIC X(6) VALUE 'ATR022'.
+           05  CT-RUT-ERRORES              PIC X(6) VALUE 'ATR303'.
+           05 CT-DIFERENCIA-DIAS         PIC X(1) VALUE '3'.
+           05  CT-ATRG005                  PIC X(7) VALUE 'ATRG005'.
+COMTOP     05  CT-SI                       PIC X(1) VALUE 'S'.   
+           05  CT-2                        PIC 9(1) VALUE 2.       
+           05  CT-3                        PIC 9(1) VALUE 3.
+COMTOP     05  CT-VALOR-0                  PIC 9(02)  VALUE  00.
+           05  CT-MPA0001                  PIC X(7) VALUE 'MPA0001'.    
+           05  CT-MPA0002                  PIC X(7) VALUE 'MPA0002'.    
+           05  CT-MPA0166                  PIC X(7) VALUE 'MPA0166'.    
+           05  CT-MPA0412                  PIC X(7) VALUE 'MPA0412'.    
+AC0007     05  CT-MPE0464                  PIC X(7) VALUE 'MPE0464'.           
+DAV13      05  CT-MPA1070                  PIC X(8) VALUE 'MPA1070'.            
+INM01      05  CT-MPA0108                  PIC X(07) VALUE 'MPA0108'.
+           05  CT-MPE9999                  PIC X(7) VALUE 'MPE9999'.   
+           05  CT-MPE6647                  PIC X(7) VALUE 'MPE6647'. 
+           05  CT-MPE6646                  PIC X(7) VALUE 'MPE6646'.
+           05  CT-TABLENAME1               PIC X(7) VALUE 'MPDT001'. 
+           05  CT-TABLENAME44              PIC X(7) VALUE 'MPDT044'. 
+           05  CT-TABLENAME43              PIC X(7) VALUE 'MPDT043'. 
+           05  CT-TABLENAME21              PIC X(7) VALUE 'MPDT021'.
+           05  CT-TABLENAME07              PIC X(7) VALUE 'MPDT007'. 
+           05  CT-TABLENAME163             PIC X(7) VALUE 'MPDT163'. 
+           05  CT-TABLENAME52              PIC X(7) VALUE 'MPDT052'.
+           05  CT-TABLENAME113             PIC X(7) VALUE 'MPDT113'.
+           05  CT-TABLENAME85             PIC X(7) VALUE 'MPDT085'.
+           05  CT-TABLENAME114             PIC X(7) VALUE 'MPDT114'.
+DAV13      05  CT-TBLINMON                 PIC X(8)  VALUE 'MPDT450'.
+           05  CT-ERROR-5                  PIC X(8) VALUE 'MPE0005'.
+           05  CT-SELECCION                PIC X(15) VALUE
+                                            'ERROR EN SELECT'.                                                             
+           05 CT-CREDITO                 PIC 9(1) VALUE 1.
+           05 CT-INTERESES               PIC X(1) VALUE 'I'.
+
+           05 CT-ATR610                  PIC X(6) VALUE 'ATR610'.
+           05 CT-ATR035                  PIC X(6) VALUE 'ATR035'.
+INM01      05 CT-ATR036                   PIC X(6)  VALUE 'ATR036'.
+           05 CT-ATR034                  PIC X(6) VALUE 'ATR034'.
+           05 CT-COMISION                PIC X(1) VALUE 'C'.
+           05  CT-CALL                     PIC X(04) VALUE 'CALL'.
+           05  CT-OPEN                     PIC X(04) VALUE 'OPEN'.
+           05  CT-CLOSE                    PIC X(05) VALUE 'CLOSE'.
+           05  CT-SELECT                   PIC X(06) VALUE 'SELECT'.
+           05  CT-FETCH                    PIC X(05) VALUE 'FETCH'.
+           05  CT-UNO                      PIC X(01) VALUE '1'. 
+           05  CT-APLICACION               PIC X(02) VALUE 'MP'.
+           05  CT-AVISO                    PIC X(02) VALUE '20'.
+           05  CT-ERROR-DB2                PIC X(02) VALUE '30'.
+           05  CT-INFOR                    PIC X(02) VALUE '10'.
+           05  CT-ERROR                    PIC X(02) VALUE '20'.
+           05  CT-ERROR-4                  PIC X(8)  VALUE 'MPE0004'.
+           05  CT-ERROR-151                PIC X(03) VALUE '151'.
+           05  CT-ERROR-130                PIC X(8)  VALUE 'MPE0130'.
+           05  CT-TIPOFAC-IMPAGADO         PIC S9(05) COMP-3 VALUE 72.
+           05  PAGO-TOTAL                  PIC X VALUE 'T'.
+           05  PAGO-PARCIAL                PIC X VALUE 'P'.
+           05  CT-VALOR-F                  PIC X(01)  VALUE  'F'.
+           05  CT-VALOR-D                  PIC X(01)  VALUE  'D'.
+           05  CT-OK                       PIC X(02)  VALUE  '00'.
+           05  CT-VALOR-1                  PIC 9(02) VALUE 1.
+           05  CX-VALOR-1                  PIC X(02)  VALUE  '01'.
+           05  CT-VALOR-2                  PIC X(02)  VALUE  '02'.
+           05  CT-VALOR-3                  PIC X(02)  VALUE  '03'.
+           05  CT-ABRIR-CURSOR             PIC X(04) VALUE 'OPEN'.
+           05  CT-CERRAR-CURSOR            PIC X(05) VALUE 'CLOSE'.
+           05  CT-LEER-CURSOR              PIC X(05) VALUE 'FETCH'.
+
+           05  CT-TABLA1                   PIC X(07) VALUE 'MPDT042'.
+           05  CT-TABLA2                   PIC X(07) VALUE 'MPDT176'.
+INM01      05  CT-EMISOR                   PIC X(1)  VALUE 'E'.
+INM01      05  CT-PERU                     PIC 9(03) VALUE 604.
+
+      *    
+      *+-------------------------------------------------------------+
+      *                   ACUMULADORES                               *
+      *+-------------------------------------------------------------+
+       01 AC-ACUMULADORES.
+           05  AC-IMPORTE-FACTURA          PIC 9(15)V99 VALUE 0.
+           05  AC-IMPORTE-COMISIONES       PIC 9(15)V99 VALUE 0.
+           05  AC-IMPORTE-INTERESES        PIC 9(15)V99 VALUE 0.
+           05  AC-IMPORTE-IMPAGADO         PIC 9(15)V99 VALUE 0.
+           05  AC-DUDA-TOTAL               PIC 9(15)V99 VALUE 0.
+      *
+      *+-------------------------------------------------------------+  
+      *         SWITCHES DEL PROGRAMA                                *  
+      *+-------------------------------------------------------------+  
+      *                                                                 
+       01  SW-FIN-CORRECTO                  PIC X.                      
+           88 NO-CORRECTO                   VALUE 'N'.                  
+           88 SI-CORRECTO                   VALUE 'S'.                  
+
+       01  SW-CURSOR-TBFACCON            PIC X.
+           88  SI-FIN-CURSOR-TBFACCON    VALUE 'S'.
+           88  NO-FIN-CURSOR-TBFACCON    VALUE 'N'.
+
+       01 SW-TBIMPSAL                      PIC 9.
+          88 SI-EXISTE-TBIMPSAL            VALUE 0.
+          88 NO-EXISTE-TBIMPSAL            VALUE 1.
+
+       01  SW-IMPAGADO                   PIC X.
+           88  SI-EXISTE-IMPAGADO        VALUE 'S'.
+           88  NO-EXISTE-IMPAGADO        VALUE 'N'.
+
+       01  SW-OPCION                        PIC 9(1).
+           88  CANCELAR                     VALUE 0.
+           88  SIMULAR                      VALUE 1.
+
+       01  SW-OPCION-PAGO                   PIC X.   
+           88  SW-PAGO-TOTAL                VALUE 'T'.
+           88  SW-PAGO-PARCIAL              VALUE 'P'.
+
+       01 SW-CURSOR-TBTIPIMP               PIC 9.
+          88 NO-FIN-CURSOR-TBTIPIMP       VALUE 0.
+          88 FIN-CURSOR-TBTIPIMP          VALUE 1.
+
+       01  SW-CONTRATO-CREDITO              PIC X.
+           88 NO-CREDITO                    VALUE 'N'.
+           88 SI-CREDITO                    VALUE 'S'.
+
+       01  SW-DIVISA                        PIC X.
+           88 SI-DIVISA-DISTINTA            VALUE 'S'.
+           88 NO-DIVISA-DISTINTA            VALUE 'N'.
+
+       01  SW-COMISIONES                 PIC 9(1).
+           88 SW-NO-COMISIONES           VALUE 0.
+           88 SW-SI-COMISIONES           VALUE 1.
+
+      * GAP-ABONO-PARAMETRICO ini
+       01  SW-FACTURA-INFORMADA         PIC 9(01).
+           88 FACTURA-NO-INFORMADA      VALUE 0.
+           88 FACTURA-INFORMADA         VALUE 1.
+      * GAP-ABONO-PARAMETRICO fin
+      *                                                                 
+      *+-------------------------------------------------------------+  
+      *                        COPYS DEL PROGRAMA                    *  
+      *+-------------------------------------------------------------+  
+                                                                        
+       01  WS-ATREOCID.                                                 
+           COPY ATREOCID.   
+
+       01  WS-ATPAGDIA. 
+           COPY ATPAGDIA.
+
+       01  WS-ATRUTCAM.
+           COPY ATRUTCAM.
+
+      * COPY QUE UTILIZA LA RUTINA QUE SUMA DIAS A UNA FECHA
+      *01  WS-WC175O.
+           COPY TCWC1750.
+      * COPY DE RUTINA DE CALCULO DE COMISIONES
+       01  WS-RUTCOM.
+           COPY ATRUTCOM.
+
+      * COPY DE RUTINA DE CALCULO DE INTERES
+       01  WS-RUTINT.
+           COPY ATRUTINT.
+           
+      *01  WS-ATRUT461.
+      *     COPY ATRUT461.                                            
+            
+      *01  WS-ATRUT462.
+      *     COPY ATRUT462.            
+                                                                        
+      *01  WS-INCPOL.                                                   
+      *    COPY ATINCPOL.                                               
+                                                                        
+      *01  WS-DESBLQ.                                                   
+      *    COPY ATDESBLQ.                                               
+
+COMTOP 01  WS-ATVALTOP.
+           COPY ATVALTOP.
+                                                                        
+INM01  01  WS-RUTIMP.
+INM01      COPY ATRUTIMP.
+
+       01  AREA-SERVICIO.                                               
+           COPY MPM0646.                                                
+
+      *+-------------------------------------------------------------+  
+      *         COPYS DE ERROR                                          
+      *+-------------------------------------------------------------+  
+                                                                        
+       01  AREA-ERRORES.                                                
+           COPY MPM0303.                                                
+                                                                        
+       01  WS-TBSQLERR.                                                 
+           COPY ATSQLERR.                                               
+                                                                        
+       01  FILLER                          PIC X(25)                    
+               VALUE 'FINAL WORKING ATD646     '.             
+               
+           EXEC SQL BEGIN DECLARE SECTION END-EXEC.          
+           
+      *+-------------------------------------------------------------+
+      *                         TABLAS SQL                           *
+      *+-------------------------------------------------------------+
+
+DAV13  01  WS-LINMON.
+           EXEC  SQL
+               INCLUDE  ATLINMON
+           END-EXEC.
+
+      *+-------------------------------------------------------------+
+      * TABLA DE COMERCIOS
+      *+-------------------------------------------------------------+
+           EXEC SQL
+             INCLUDE MPDT001
+           END-EXEC.
+
+      *+-------------------------------------------------------------+
+      * TABLA DE CONTRATO DE TARJETAS
+      *+-------------------------------------------------------------+
+           EXEC SQL
+             INCLUDE MPDT007
+           END-EXEC.
+
+      *+-------------------------------------------------------------+
+      * TABLA DE PRODUCTOS
+      *+-------------------------------------------------------------+
+           EXEC SQL
+             INCLUDE MPDT043
+           END-EXEC.
+
+      *+-------------------------------------------------------------+
+      * TABLA DE ENTIDADES BANCARIAS 
+      *+-------------------------------------------------------------+
+           EXEC SQL
+             INCLUDE MPDT021
+           END-EXEC.
+
+      *+-------------------------------------------------------------+
+      * TABLA DE CUENTA - MONEDA      
+      *+-------------------------------------------------------------+
+           EXEC SQL
+             INCLUDE MPDT163
+           END-EXEC.
+
+      *+-------------------------------------------------------------+
+      * TABLA DE FACTURAS 
+      *+-------------------------------------------------------------+
+           EXEC SQL
+             INCLUDE ATTIPFAC
+           END-EXEC.
+
+      *+-------------------------------------------------------------+
+      * COPY PARA LA TABLA DE TARJETAS
+      *+-------------------------------------------------------------+
+
+       01  WS-CTATAR.
+           EXEC SQL
+             INCLUDE ATCTATAR
+           END-EXEC.
+
+      *+-------------------------------------------------------------+
+      * COPY PARA LA TABLA DE PRODUCTOS
+      *+-------------------------------------------------------------+
+
+       01  WS-PRODUC.
+           EXEC  SQL
+             INCLUDE  ATPRODUC
+           END-EXEC.
+
+
+      *+-------------------------------------------------------------+
+      * COPY PARA LA TABLA DE TARJETAS
+      *+-------------------------------------------------------------+
+ 
+       01  WS-CTAMON.
+           EXEC SQL
+             INCLUDE ATCTAMON
+           END-EXEC.
+
+      *+-------------------------------------------------------------+
+      * COPY PARA LA TABLA DE ENTIDADES
+      *+-------------------------------------------------------------+
+
+       01  WS-ENTBAN.
+           EXEC SQL
+             INCLUDE ATENTBAN
+           END-EXEC.
+
+       01 WS-IMPAGA.
+           EXEC SQL
+             INCLUDE ATIMPAGA
+           END-EXEC.
+
+       01 WS-CONECO.
+           EXEC SQL
+              INCLUDE ATCONECO
+           END-EXEC.
+
+       01 WS-IMPSAL.
+           EXEC SQL
+             INCLUDE ATIMPSAL
+           END-EXEC.
+
+       01 WS-FACCON.
+           EXEC SQL
+              INCLUDE ATFACCON
+           END-EXEC.
+
+       01 WS-CALGRU.
+           EXEC SQL
+             INCLUDE ATCALGRU
+           END-EXEC.
+      *+-------------------------------------------------------------+
+      * COPY PARA CAMBIO DE DIVISAS     
+      *+-------------------------------------------------------------+
+
+       01  WS-TCWC0900.
+           COPY  TCWC0900.
+      *+-------------------------------------------------------------+
+      * VALIABLES SQL                
+      *+-------------------------------------------------------------+
+
+       01  WS-VARIABLES-SQL.
+           05  WS-MUMIMPAGADOS             PIC 9(4) VALUE ZEROES.
+
+      *+---------------------------------------------------------------+
+      *                DECLARE DEL CURSOR TBFACCON                      
+      *+---------------------------------------------------------------+
+           EXEC SQL                                                     
+              DECLARE ATD646_1 CURSOR                                   
+                  FOR SELECT                                            
+                             CODENT,                                    
+                             INDNORCOR,                                 
+                             TIPOFAC,                                   
+                             CODCONECO,                                 
+                             INDAPLCON,                                 
+                             INDAPLDEBCRE,                              
+                             FECALTA                                    
+                       FROM  MPDT059                                    
+                     WHERE  CODENT       = :W59CODENT                   
+                       AND  TIPOFAC      = :W59TIPOFAC                  
+                       AND  INDNORCOR    = :W59INDNORCOR                
+                       AND  CODCONECO    > 0                            
+           END-EXEC.                        
+
+390SAT     EXEC SQL END DECLARE SECTION END-EXEC. 
+      *            
+      *+-------------------------------------------------------------+  
+      *                     LINKAGE SECTION                          *  
+      *+-------------------------------------------------------------+  
+       LINKAGE SECTION.                                                 
+      *---------------.                                                 
+       01  DFHCOMMAREA.                                                 
+           COPY ATCMQCOP.                                              
+      *                                                                 
+      *+-------------------------------------------------------------+  
+      *                      PROCEDURE DIVISION                      *  
+      *                      ==================                      *  
+      *+-------------------------------------------------------------+  
+                                                                        
+       PROCEDURE DIVISION USING DFHCOMMAREA.                            
+                                                                        
+      *-------------------------------------------------------------*   
+      *                                                             *   
+      *                   COMIENZO ATD646                           *   
+      *                                                             *   
+      *-------------------------------------------------------------*   
+       COMIENZO-ATD646.                                                 
+      *---------------.                                                 
+      *                                                                 
+           PERFORM 10000-INICIO                                         
+                                                                        
+           PERFORM 20000-PROCESO                                        
+                                                                        
+           PERFORM 30000-FINAL.                                         
+      *                                                                 
+      *--------------------------------------------------------------*  
+      *                                                              *  
+      *                   10000-INICIO.                              *  
+      *                                                              *  
+      * - INICIALIZACION DE LAS COPYS DEL PROGRAMA                   *  
+      *                                                              *  
+      *--------------------------------------------------------------+  
+       10000-INICIO.                                                    
+      *------------.                                                    
+                                                                        
+           INITIALIZE WS-VARIABLES                                      
+           INITIALIZE AREA-ERRORES                                      
+           INITIALIZE DATOS-RETORNO                                     
+           INITIALIZE AC-ACUMULADORES
+           INITIALIZE TCWC0900-REGISTRO 
+COMTOP     INITIALIZE WS-ATVALTOP
+DAV13      INITIALIZE WS-LINMON
+           DISPLAY 'ATD646   FECHA DE VERSION 27-05-2014'                                                           
+           SET SI-CORRECTO TO TRUE  
+           SET NO-DIVISA-DISTINTA TO TRUE
+           MOVE MQCOPY-MENSAJE TO MPM0646
+           .
+
+      *-------------------------------------------------------------*
+      *                                                             *
+      *                   20000-PROCESO                             *
+      *                                                             *
+      *-------------------------------------------------------------*
+       20000-PROCESO.
+      *-------------.
+      *
+           PERFORM 20050-VALIDA-ENTRADA
+           PERFORM 20060-DATOS-ENTIDAD
+           PERFORM 20070-DATOS-PRDSUBP
+           PERFORM 20080-DATOS-PRODUCTO
+CASCH2     IF W07CODESTCTA  EQUAL CT-CASTIGADO AND
+CASCH2        W21CODPAIS   EQUAL CT-CHILE
+CASCH2        PERFORM 20100-IMPAGO-CASTIGO
+CASCH2     ELSE  
+CASCH2        PERFORM 20100-EVALIDAR-IMPAGADO
+           PERFORM 20100-LLAMAR-RUTINA
+CASCH2     END-IF
+           PERFORM 20500-MUEVE-SALIDA
+           .
+
+      *-------------------------------------------------------------*   
+      *                                                             *   
+      *                   20050-VALIDAR-ENTRADA                     *   
+      *                                                             *   
+      * - SE VALIDA QUE LOS DATOS DE ENTRADA: CODENT, CENTALTA,     *   
+      *   CUENTA, CLAMON , IMPFAC , TIPOFAC Y INDNORCOR VENGAN      *   
+      *   INFORMADOS                                                *   
+      *                                                             *   
+      *-------------------------------------------------------------*   
+       20050-VALIDA-ENTRADA.                                            
+      *--------------------.                                            
+      *                                                                 
+           IF MP646-CODENT EQUAL SPACES OR ZEROS OR LOW-VALUES          
+              MOVE CT-MPA0002        TO MQCOPY-COD-ERROR                
+              MOVE CT-UNO            TO MP646-CODENT-ATR
+              MOVE CT-AVISO          TO MQCOPY-RETORNO
+              PERFORM 99999-ERROR-PROGRAMA                              
+           ELSE
+              IF  MP646-CODENT     IS NOT NUMERIC
+                   MOVE CT-MPA0001          TO MQCOPY-COD-ERROR
+                   MOVE CT-UNO              TO MP646-CODENT-ATR
+                   MOVE CT-AVISO            TO MQCOPY-RETORNO
+                   PERFORM  99999-ERROR-PROGRAMA
+              END-IF
+           END-IF                                                       
+                                                                        
+           IF MP646-CENTALTA EQUAL SPACES OR ZEROS OR LOW-VALUES        
+              MOVE CT-UNO            TO MP646-CENTALTA-ATR
+              MOVE CT-AVISO          TO MQCOPY-RETORNO
+              MOVE CT-MPA0002        TO MQCOPY-COD-ERROR                
+              PERFORM 99999-ERROR-PROGRAMA                              
+           END-IF                                                       
+                                                                        
+           IF MP646-CUENTA EQUAL SPACES OR ZEROS OR LOW-VALUES          
+              MOVE CT-MPA0002        TO MQCOPY-COD-ERROR                
+              MOVE CT-UNO            TO MP646-CUENTA-ATR
+              MOVE CT-AVISO          TO MQCOPY-RETORNO
+              PERFORM 99999-ERROR-PROGRAMA                              
+           END-IF                                                       
+
+      *                                                                 
+           IF MP646-CLAMON EQUAL SPACES OR ZEROS OR LOW-VALUES
+              MOVE CT-MPA0002        TO MQCOPY-COD-ERROR
+              MOVE CT-UNO            TO MP646-CLAMON-ATR
+              MOVE CT-AVISO          TO MQCOPY-RETORNO
+              PERFORM 99999-ERROR-PROGRAMA
+           END-IF 
+
+           IF MP646-OPCION EQUAL PAGO-TOTAL
+              SET SW-PAGO-TOTAL TO TRUE
+           ELSE
+              SET SW-PAGO-PARCIAL TO TRUE
+              MOVE PAGO-PARCIAL TO MP646-OPCION   
+           END-IF
+
+                                                                        
+           IF MP646-IMPFAC-ALF IS NOT NUMERIC                        
+              MOVE CT-MPA0001      TO MQCOPY-COD-ERROR               
+              MOVE CT-UNO          TO MP646-IMPFAC-ATR
+              MOVE CT-AVISO        TO MQCOPY-RETORNO
+              PERFORM 99999-ERROR-PROGRAMA                           
+           END-IF                                                    
+
+
+DAV13      IF MP646-LINEA EQUAL LOW-VALUES      
+              MOVE CT-MPA0002        TO MQCOPY-COD-ERROR                
+              MOVE CT-UNO            TO MP646-LINEA-ATR
+              MOVE CT-AVISO          TO MQCOPY-RETORNO
+              PERFORM 99999-ERROR-PROGRAMA                              
+           ELSE 
+DAV13           IF MP646-LINEA NOT EQUAL ZEROS AND SPACES
+DAV13               PERFORM 20076-VALIDAR-LINEA-CONTRATO
+                END-IF
+                IF MP646-LINEA EQUAL SPACES
+                MOVE CT-0000         TO MP646-LINEA
+                END-IF
+           END-IF     
+
+      * GAP-ABONO-PARAMETRICO ini
+           SET FACTURA-NO-INFORMADA TO TRUE
+           IF MP646-TIPOFAC NOT EQUAL ZEROS 
+            AND NOT EQUAL LOW-VALUES
+            AND NOT EQUAL HIGH-VALUES
+              SET FACTURA-INFORMADA TO TRUE
+           END-IF
+      * GAP-ABONO-PARAMETRICO fin 
+CASCH2*-------------- ini ------->
+QA4874*    PERFORM 20100-EVALIDAR-IMPAGADO
+CASCH2*<------------- fin --------
+
+             .
+CASCH2*------------- ini ----------->
+       20100-IMPAGO-CASTIGO.
+      *---------------------.
+           MOVE MP646-CODENT        TO W113CODENT
+           MOVE MP646-CENTALTA      TO W113CENTALTA
+           MOVE MP646-CUENTA        TO W113CUENTA
+           MOVE MP646-CLAMON        TO W113CLAMON
+           EXEC SQL
+              SELECT IMPREC
+                INTO  :W113IMPREC
+                FROM  MPDT113
+               WHERE  CODENT   = :W113CODENT
+                 AND  CENTALTA = :W113CENTALTA
+                 AND  CUENTA   = :W113CUENTA
+                 AND  CLAMON   = :W113CLAMON
+                 AND  SITUACION = 3
+                 AND  NUMSECREC = 0
+           END-EXEC
+      *
+           MOVE SQLCODE                TO ATSQLERR.
+      *
+           IF NOT ACCESO-CORRECTO-BD
+              IF REG-NO-EXISTENTE-BD
+                 SET NO-EXISTE-IMPAGADO TO TRUE
+                 MOVE CT-MPE6647        TO MQCOPY-COD-ERROR
+                 MOVE CT-ERROR          TO MQCOPY-RETORNO
+                 PERFORM 99999-ERROR-PROGRAMA
+              ELSE
+                 IF NOT MAS-DE-UN-REG-SELE
+                    MOVE CT-TABLENAME113   TO MQCOPY-NOMBRE-TABLA
+                    MOVE CT-ERROR-5        TO MQCOPY-COD-ERROR
+                    MOVE CT-ERROR-DB2      TO MQCOPY-RETORNO
+                    MOVE SQLCODE           TO MQCOPY-SQLCODE
+                    PERFORM 99999-ERROR-PROGRAMA
+                 END-IF
+              END-IF
+           END-IF.
+CASCH2* <--------- fin ----------
+
+QA4874* INI-->>
+       20100-EVALIDAR-IMPAGADO.
+      *-----------------------.
+
+           MOVE MP646-CODENT        TO W113CODENT
+           MOVE MP646-CENTALTA      TO W113CENTALTA
+           MOVE MP646-CUENTA        TO W113CUENTA
+           MOVE MP646-CLAMON        TO W113CLAMON
+
+           EXEC SQL
+              SELECT NUMSECIMP
+                INTO  :W113NUMSECIMP
+                FROM  MPDT113
+               WHERE  CODENT   = :W113CODENT
+                 AND  CENTALTA = :W113CENTALTA
+                 AND  CUENTA   = :W113CUENTA
+                 AND  CLAMON   = :W113CLAMON
+                 AND  SITUACION = 0
+           END-EXEC
+      *
+           MOVE SQLCODE                TO ATSQLERR.
+      *
+           IF NOT ACCESO-CORRECTO-BD
+              IF REG-NO-EXISTENTE-BD    
+                 SET NO-EXISTE-IMPAGADO TO TRUE
+                 MOVE CT-MPE6647        TO MQCOPY-COD-ERROR
+                 MOVE CT-ERROR          TO MQCOPY-RETORNO
+                 PERFORM 99999-ERROR-PROGRAMA
+              ELSE
+QA4874           IF NOT MAS-DE-UN-REG-SELE
+                    MOVE CT-TABLENAME113   TO MQCOPY-NOMBRE-TABLA
+                    MOVE CT-ERROR-5        TO MQCOPY-COD-ERROR
+                    MOVE CT-ERROR-DB2      TO MQCOPY-RETORNO
+                    MOVE SQLCODE           TO MQCOPY-SQLCODE
+                    PERFORM 99999-ERROR-PROGRAMA
+QA4874           END-IF
+              END-IF
+           END-IF.
+QA4874* <<--FIN
+
+       20075-ACCESO-COMERC.
+      *-------------------.
+
+           MOVE MP646-CODENT           TO  CODENT OF DCLMPDT001
+           MOVE MP646-CODCOM           TO  CODCOM OF DCLMPDT001
+
+           EXEC SQL
+                SELECT CODENT,
+                       CODCOM,
+                       NOMCOMRED,
+                       CODACT
+                INTO  :DCLMPDT001.CODENT,
+                      :DCLMPDT001.CODCOM,
+                      :DCLMPDT001.NOMCOMRED,
+                      :DCLMPDT001.CODACT
+                  FROM MPDT001
+                 WHERE CODENT = :DCLMPDT001.CODENT
+                   AND CODCOM = :DCLMPDT001.CODCOM
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           IF REG-NO-EXISTENTE-BD
+              MOVE CT-TABLENAME1      TO MQCOPY-NOMBRE-TABLA
+              MOVE CT-ERROR-5          TO MQCOPY-COD-ERROR
+              MOVE CT-ERROR-DB2       TO MQCOPY-RETORNO
+              MOVE SQLCODE            TO MQCOPY-SQLCODE
+              PERFORM 99999-ERROR-PROGRAMA
+           ELSE
+              IF NOT ACCESO-CORRECTO-BD
+                 MOVE CT-TABLENAME1   TO MQCOPY-NOMBRE-TABLA
+                 MOVE CT-SELECCION    TO MQCOPY-OPERACION
+                 MOVE CT-PROGRAMA     TO MQCOPY-NOMBRE-RUTINA
+                 MOVE SQLCODE         TO MQCOPY-SQLCODE
+                 MOVE CT-ERROR-4      TO MQCOPY-SQLERM
+                                         MQCOPY-COD-ERROR
+                 MOVE CT-ERROR-DB2    TO MQCOPY-RETORNO
+                 PERFORM 99999-ERROR-PROGRAMA
+              END-IF
+           END-IF.
+
+      * <<--- INICIO DAV13
+      *--------------------------------------------------------------*
+      *                                                              *
+      *                   22076-VALIDAR-LINEA-CONTRATO               *
+      *                                                              *
+      *  SE VALIDA QUE EL CONTRATO TENGA ASOCIADA LA LINEA           *
+      *                                                              *
+      *--------------------------------------------------------------*
+       20076-VALIDAR-LINEA-CONTRATO.
+      *---------------------.
+
+           MOVE  MP646-CODENT       TO     W450CODENT
+           MOVE  MP646-CENTALTA     TO     W450CENTALTA
+           MOVE  MP646-CUENTA       TO     W450CUENTA
+           MOVE  MP646-LINEA        TO     W450LINEA
+           MOVE  MP646-CLAMON       TO     W450CLAMON
+
+           EXEC  SQL
+               SELECT  CODENT,      
+                       CENTALTA,     
+                       CUENTA,    
+                       LINEA,
+                       CLAMON     
+                 INTO  :W450CODENT,       
+                       :W450CENTALTA,    
+                       :W450CUENTA,   
+                       :W450LINEA,
+                       :W450CLAMON     
+                 FROM  MPDT450
+                WHERE  CODENT     =  :W450CODENT
+                  AND  CENTALTA   =  :W450CENTALTA
+                  AND  CUENTA     =  :W450CUENTA
+                  AND  LINEA      =  :W450LINEA
+                  AND  CLAMON     =  :W450CLAMON
+           END-EXEC
+
+390SAT     MOVE SQLCODE                TO ATSQLERR
+       
+           IF REG-NO-EXISTENTE-BD
+              MOVE CT-TBLINMON           TO MQCOPY-NOMBRE-TABLA
+              MOVE CT-MPA1070            TO MQCOPY-COD-AVISO1
+              MOVE CT-TBLINMON           TO MQCOPY-TEXT1-AVISO1
+              MOVE SQLCODE               TO MQCOPY-SQLCODE
+              MOVE CT-MPA1070            TO  MQCOPY-COD-ERROR
+              MOVE CT-ERROR              TO  MQCOPY-RETORNO
+              PERFORM 99999-ERROR-PROGRAMA
+      * FIN
+           ELSE
+              IF NOT ACCESO-CORRECTO-BD
+                MOVE  CT-TBLINMON  TO MQCOPY-NOMBRE-TABLA
+                 MOVE CT-SELECCION    TO MQCOPY-OPERACION
+                 MOVE CT-PROGRAMA     TO MQCOPY-NOMBRE-RUTINA
+                 MOVE SQLCODE         TO MQCOPY-SQLCODE
+                 MOVE CT-ERROR-4      TO MQCOPY-SQLERM
+                                         MQCOPY-COD-ERROR
+                 MOVE CT-ERROR-DB2    TO MQCOPY-RETORNO
+                 PERFORM 99999-ERROR-PROGRAMA
+              END-IF
+            .
+      *<<--FIN DAV13 
+
+        20080-VALIDAR-TIPOFAC.
+      *----------------------.
+
+           MOVE MP646-CODENT           TO  W44CODENT  
+           MOVE MP646-TIPOFAC          TO  W44TIPOFAC 
+           MOVE ZEROS                  TO  W44INDNORCOR
+
+           EXEC SQL
+                SELECT CODENT,
+                       TIPOFAC,
+                       TIPOFACSIST,
+INM01                  CODIMPTO,
+AC0007                 FECBAJA
+                INTO  :W44CODENT,
+                      :W44TIPOFAC,
+                      :W44TIPOFACSIST,
+INM01                 :W44CODIMPTO,
+AC0007                :W44FECBAJA
+                  FROM MPDT044
+                 WHERE CODENT    = :W44CODENT
+                   AND TIPOFAC   = :W44TIPOFAC
+                   AND INDNORCOR = :W44INDNORCOR
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+         
+           IF REG-NO-EXISTENTE-BD
+              MOVE CT-TABLENAME44    TO MQCOPY-NOMBRE-TABLA
+              MOVE CT-ERROR-5        TO MQCOPY-COD-ERROR
+              MOVE CT-ERROR-DB2       TO MQCOPY-RETORNO
+              MOVE SQLCODE            TO MQCOPY-SQLCODE
+              PERFORM 99999-ERROR-PROGRAMA
+           ELSE
+              IF NOT ACCESO-CORRECTO-BD
+                 MOVE CT-TABLENAME44  TO MQCOPY-NOMBRE-TABLA
+                 MOVE CT-SELECCION    TO MQCOPY-OPERACION
+                 MOVE CT-PROGRAMA     TO MQCOPY-NOMBRE-RUTINA
+                 MOVE SQLCODE         TO MQCOPY-SQLCODE
+                 MOVE CT-ERROR-4      TO MQCOPY-SQLERM
+                                         MQCOPY-COD-ERROR
+                 MOVE CT-ERROR-DB2    TO MQCOPY-RETORNO
+                 PERFORM 99999-ERROR-PROGRAMA
+AC0007         ELSE
+AC0007           IF W44FECBAJA NOT EQUAL '0001-01-01'
+AC0007              MOVE CT-TABLENAME44    TO MQCOPY-NOMBRE-TABLA
+AC0007              MOVE CT-MPE0464        TO MQCOPY-COD-ERROR
+AC0007              MOVE CT-ERROR-DB2       TO MQCOPY-RETORNO
+AC0007              MOVE SQLCODE            TO MQCOPY-SQLCODE
+AC0007              PERFORM 99999-ERROR-PROGRAMA                             
+AC0007           END-IF
+              END-IF
+           END-IF.
+      *                                                                
+      *---------------------------------------------------------------*
+      *                                                               *
+      *                       20060-DATOS-ENTIDAD                     *
+      * SE VALIDA QUE EL CODIGO DE ENTIDAD EXISTA EN  LA TABLA  DE    *
+      * ENTIDADES BANCARIAS (MPDT021).                                *
+      *                                                               *
+      *---------------------------------------------------------------*
+      *
+       20060-DATOS-ENTIDAD.
+      *
+           MOVE MP646-CODENT     TO     W21CODENT
+
+           EXEC SQL
+                SELECT CODENT,
+                       INDUF,
+                       CLAMONUF,
+                       FORCALINT,
+                       CODPAIS,
+                       ORDPREPAG,
+                       OFIMPAGO
+                  INTO :W21CODENT,
+                       :W21INDUF,
+                       :W21CLAMONUF,
+                       :W21FORCALINT,
+                       :W21CODPAIS,
+                       :W21ORDPREPAG,
+                       :W21OFIMPAGO
+                  FROM MPDT021
+                WHERE  CODENT = :W21CODENT
+           END-EXEC
+         
+           MOVE SQLCODE                TO ATSQLERR
+       
+           IF REG-NO-EXISTENTE-BD
+              MOVE CT-TABLENAME21    TO MQCOPY-NOMBRE-TABLA
+              MOVE CT-ERROR-5        TO MQCOPY-COD-ERROR
+              MOVE CT-ERROR-DB2       TO MQCOPY-RETORNO
+              MOVE SQLCODE            TO MQCOPY-SQLCODE
+              PERFORM 99999-ERROR-PROGRAMA
+           ELSE
+              IF NOT ACCESO-CORRECTO-BD
+                 MOVE CT-TABLENAME21  TO MQCOPY-NOMBRE-TABLA
+                 MOVE CT-SELECCION    TO MQCOPY-OPERACION
+                 MOVE CT-PROGRAMA     TO MQCOPY-NOMBRE-RUTINA
+                 MOVE SQLCODE         TO MQCOPY-SQLCODE
+                 MOVE CT-ERROR-4      TO MQCOPY-SQLERM
+                                         MQCOPY-COD-ERROR
+                 MOVE CT-ERROR-DB2    TO MQCOPY-RETORNO
+                 PERFORM 99999-ERROR-PROGRAMA
+              END-IF
+           END-IF.
+      *                                                                
+      *---------------------------------------------------------------*
+      *                                                               *
+      *                       20070-DATOS-PRDSBUP                     *
+      * SE RECUPERAN DATOS DEL PRODUCTO Y SUBPRODUCTO ASOCIADOS A LA  *
+      * CUENTA Y ENTIDAD INFORMADSA (MPDT007).                        *
+      *                                                               *
+      *---------------------------------------------------------------*
+       20070-DATOS-PRDSUBP.
+      *-------------------.                                           
+           MOVE MP646-CODENT         TO     W07CODENT
+           MOVE MP646-CENTALTA       TO     W07CENTALTA
+           MOVE MP646-CUENTA         TO     W07CUENTA
+
+           EXEC SQL
+                SELECT CODENT,
+                       CENTALTA,
+                       CUENTA,
+                       FECALTA,
+                       PRODUCTO,
+                       SUBPRODU,
+                       CONPROD,
+                       CODCAM,
+                       CODCONVEN,
+                       FORPAGO,
+                       FECULTCAR,
+                       FECBAJA,
+                       MOTBAJA,
+                       FORPAGOTEM,
+                       FIFORPAGT,
+                       FFFORPAGT,
+                       CODESTCTA,
+                       FECULTESTCTA,
+                       INDBLQOPE,
+                       INDBLQCON,
+                       INDCTAEMP,
+                       INDNOMEMP,
+                       NOMBREEMP,
+                       INDSITCTA,
+                       FECRESOL,
+                       INDCTATRAS,
+                       CODPROLIQ,
+                       GRUPOLIQ,
+                       CODPROCUO,
+                       GRUPOCUO,
+                       RESEMIEXT,
+                       TIPBON,
+                       CALPART,
+                       NUMULTPLAS,
+                       CODPROMO,
+                       INDPERCUO,
+                       NUMMESTOT,
+                       CODREGIMEN,
+                       NUMFACSC,
+                       NUMULTMOVD,
+                       IDENTCLI,
+                       NUMBEN,
+                       OFIGESTORA,
+                       CODFORMATO,
+                       INDDOMCARCRE,
+                       FECULTCGLIQ,
+                       CODENTUMO,
+                       CODOFIUMO,
+                       USUARIOUMO,
+                       CODTERMUMO,
+                       CONTCUR
+                  INTO :W07CODENT,
+                       :W07CENTALTA,
+                       :W07CUENTA,
+                       :W07FECALTA,
+                       :W07PRODUCTO,
+                       :W07SUBPRODU,
+                       :W07CONPROD,
+                       :W07CODCAM,
+                       :W07CODCONVEN,
+                       :W07FORPAGO,
+                       :W07FECULTCAR,
+                       :W07FECBAJA,
+                       :W07MOTBAJA,
+                       :W07FORPAGOTEM,
+                       :W07FIFORPAGT,
+                       :W07FFFORPAGT,
+                       :W07CODESTCTA,
+                       :W07FECULTESTCTA,
+                       :W07INDBLQOPE,
+                       :W07INDBLQCON,
+                       :W07INDCTAEMP,
+                       :W07INDNOMEMP,
+                       :W07NOMBREEMP,
+                       :W07INDSITCTA,
+                       :W07FECRESOL,
+                       :W07INDCTATRAS,
+                       :W07CODPROLIQ,
+                       :W07GRUPOLIQ,
+                       :W07CODPROCUO,
+                       :W07GRUPOCUO,
+                       :W07RESEMIEXT,
+                       :W07TIPBON,
+                       :W07CALPART,
+                       :W07NUMULTPLAS,
+                       :W07CODPROMO,
+                       :W07INDPERCUO,
+                       :W07NUMMESTOT,
+                       :W07CODREGIMEN,
+                       :W07NUMFACSC,
+                       :W07NUMULTMOVD,
+                       :W07IDENTCLI,
+                       :W07NUMBEN,
+                       :W07OFIGESTORA,
+                       :W07CODFORMATO,
+                       :W07INDDOMCARCRE,
+                       :W07FECULTCGLIQ,
+                       :W07CODENTUMO,
+                       :W07CODOFIUMO,
+                       :W07USUARIOUMO,
+                       :W07CODTERMUMO,
+                       :W07CONTCUR
+                  FROM MPDT007
+                WHERE  CODENT =   :W07CODENT
+                  AND  CENTALTA = :W07CENTALTA
+                  AND  CUENTA   = :W07CUENTA
+           END-EXEC
+390SAT*
+390SAT     MOVE SQLCODE                TO ATSQLERR
+390SAT*
+           IF REG-NO-EXISTENTE-BD
+              MOVE CT-TABLENAME07    TO MQCOPY-NOMBRE-TABLA
+              MOVE CT-ERROR-5        TO MQCOPY-COD-ERROR
+              MOVE CT-ERROR-DB2       TO MQCOPY-RETORNO
+              MOVE SQLCODE            TO MQCOPY-SQLCODE
+              PERFORM 99999-ERROR-PROGRAMA
+           ELSE
+              IF NOT ACCESO-CORRECTO-BD
+                 MOVE CT-TABLENAME07  TO MQCOPY-NOMBRE-TABLA
+                 MOVE CT-SELECCION    TO MQCOPY-OPERACION
+                 MOVE CT-PROGRAMA     TO MQCOPY-NOMBRE-RUTINA
+                 MOVE SQLCODE         TO MQCOPY-SQLCODE
+                 MOVE CT-ERROR-4      TO MQCOPY-SQLERM
+                                         MQCOPY-COD-ERROR
+                 MOVE CT-ERROR-DB2    TO MQCOPY-RETORNO
+                 PERFORM 99999-ERROR-PROGRAMA
+              END-IF
+           END-IF.     
+      *
+      *-------------------------------------------------------------*
+      *
+      *                      20080-DATOS-PRODUCTO
+      *
+      *-------------------------------------------------------------*
+       20080-DATOS-PRODUCTO.
+      *--------------------.
+
+           MOVE  W07CODENT            TO      W43CODENT
+           MOVE  W07PRODUCTO          TO      W43PRODUCTO
+           MOVE  W07SUBPRODU          TO      W43SUBPRODU
+
+           EXEC  SQL
+               SELECT  CLAMON,
+                       LINEAPR
+                 INTO  :W43CLAMON,
+                       :W43LINEAPR
+                 FROM  MPDT043
+                WHERE  CODENT     =   :W43CODENT
+                  AND  PRODUCTO   =   :W43PRODUCTO
+                  AND  SUBPRODU   =   :W43SUBPRODU
+           END-EXEC
+390SAT*
+390SAT     MOVE SQLCODE                TO ATSQLERR
+390SAT*
+           IF REG-NO-EXISTENTE-BD
+              MOVE CT-TABLENAME43    TO MQCOPY-NOMBRE-TABLA
+              MOVE CT-ERROR-5        TO MQCOPY-COD-ERROR
+              MOVE CT-ERROR-DB2       TO MQCOPY-RETORNO
+              MOVE SQLCODE            TO MQCOPY-SQLCODE
+              PERFORM 99999-ERROR-PROGRAMA
+           ELSE
+              IF NOT ACCESO-CORRECTO-BD
+                 MOVE CT-TABLENAME43  TO MQCOPY-NOMBRE-TABLA
+                 MOVE CT-SELECCION    TO MQCOPY-OPERACION
+                 MOVE CT-PROGRAMA     TO MQCOPY-NOMBRE-RUTINA
+                 MOVE SQLCODE         TO MQCOPY-SQLCODE
+                 MOVE CT-ERROR-4      TO MQCOPY-SQLERM
+                                         MQCOPY-COD-ERROR
+                 MOVE CT-ERROR-DB2    TO MQCOPY-RETORNO
+                 PERFORM 99999-ERROR-PROGRAMA
+              END-IF
+           END-IF.
+
+       20100-LLAMAR-RUTINA.
+      *-------------------.
+
+           INITIALIZE  WS-ATPAGDIA.
+
+           MOVE  MP646-CODENT     TO ATPAGDIA-CODENT
+           MOVE  MP646-CENTALTA   TO ATPAGDIA-CENTALTA
+           MOVE  MP646-CUENTA     TO ATPAGDIA-CUENTA
+           MOVE  MP646-CLAMON     TO ATPAGDIA-CLAMON
+           MOVE  MP646-LINEA      TO ATPAGDIA-LINEA
+           MOVE  MP646-OPCION     TO ATPAGDIA-OPCION
+           MOVE  MQCOPY-FECHA-OPE TO ATPAGDIA-FECHASYS
+      * GAP-ABONO-PARAMETRICO ini
+           MOVE ZEROES   TO WS-IMPUESTO
+           IF FACTURA-INFORMADA 
+INM01      PERFORM 20080-VALIDAR-TIPOFAC
+INM01      IF W44CODIMPTO NOT EQUAL ZEROS
+INM01         PERFORM 10725-CALCULO-IMPUESTOS-TIPFAC
+INM01      END-IF
+           END-IF
+      * GAP-ABONO-PARAMETRICO fin
+
+INM01      IF MP646-OPCION = PAGO-PARCIAL AND
+INM01         W21CODPAIS = CT-PERU
+INM01         COMPUTE ATPAGDIA-IMPFAC = MP646-IMPFAC -
+INM01                                   WS-IMPUESTO
+INM01      ELSE
+              MOVE  MP646-IMPFAC     TO ATPAGDIA-IMPFAC
+INM01      END-IF
+INROLL     MOVE  ZEROS            TO ATPAGDIA-INDACCION
+
+           CALL CT-ATR645 USING WS-ATPAGDIA
+
+           IF ATPAGDIA-CODRET NOT EQUAL ZEROS
+               SET  MQCOPY-ERROR          TO TRUE
+               MOVE CT-ERROR-4            TO MQCOPY-COD-ERROR
+               MOVE CT-ATR645             TO MQCOPY-NOMBRE-RUTINA
+               MOVE CT-ATR645             TO MQCOPY-TEXT1-AVISO1
+               MOVE ATPAGDIA-CODRET       TO MQCOPY-TEXT2-AVISO1
+               MOVE ATPAGDIA-SQLCODE      TO MQCOPY-SQLCODE
+               MOVE ATPAGDIA-NOMBRE-TABLA TO MQCOPY-NOMBRE-BD
+
+               PERFORM 99999-ERROR-PROGRAMA
+           END-IF
+           .
+       
+      *-------------------------------------------------------------*
+      *                                                             *
+      *                       20500-MUEVE-SALIDA                    *
+      * SE MUEVEN DATOS DE SALIDA                                   *
+      *-------------------------------------------------------------*
+      *
+       20500-MUEVE-SALIDA.
+      *------------------.
+
+CASCH2*---------- ini ----------->
+          IF  W07CODESTCTA EQUAL CT-CASTIGADO AND
+              W21CODPAIS   EQUAL CT-CHILE
+              IF MP646-OPCION = PAGO-TOTAL
+                 MOVE W113IMPREC        TO ATPAGDIA-IMPDEUDA    
+                                           ATPAGDIA-IMPFAC
+                                           ATPAGDIA-IMPDEUDA-AMT
+                 MOVE ZERO              TO ATPAGDIA-IMPDEUDA-PTE
+              ELSE
+                 MOVE W113IMPREC        TO ATPAGDIA-IMPDEUDA
+                 MOVE MP646-IMPFAC      TO ATPAGDIA-IMPFAC
+                                           ATPAGDIA-IMPDEUDA-AMT
+
+                 COMPUTE ATPAGDIA-IMPDEUDA-PTE = ATPAGDIA-IMPDEUDA
+                                               - ATPAGDIA-IMPFAC
+              END-IF
+          END-IF
+CASCH2* <-------- fin ---------
+          MOVE ATPAGDIA-IMPDEUDA     TO MP646-IMPDEUDA
+          MOVE ATPAGDIA-IMPFAC       TO MP646-IMPFAC
+          MOVE ATPAGDIA-IMPDEUDA-AMT TO MP646-IMPDEUDA-AMT
+          MOVE ATPAGDIA-IMPDEUDA-PTE TO MP646-IMPDEUDA-PTE
+CASCH1    IF  W07CODESTCTA EQUAL CT-CASTIGADO AND
+CASCH1        W21CODPAIS   EQUAL CT-CHILE
+CASCH1        MOVE ZERO              TO MP646-IMPINTER
+CASCH1        MOVE ZERO              TO MP646-IMPGASTO
+CASCH1    ELSE
+          MOVE ATPAGDIA-IMPINTER     TO MP646-IMPINTER
+          MOVE ATPAGDIA-IMPGASTO     TO MP646-IMPGASTO
+CASCH1    END-IF
+INM01     IF MP646-OPCION = PAGO-TOTAL AND
+INM01        W21CODPAIS = CT-PERU
+INM01        IF W44CODIMPTO NOT EQUAL ZEROS
+INM01           PERFORM 10725-CALCULO-IMPUESTOS-TIPFAC
+INM01        END-IF
+INM01     END-IF
+INM01     ADD WS-IMPUESTO TO MP646-IMPDEUDA-AMT 
+
+
+          IF ATPAGDIA-IMPDEUDA-AMT EQUAL ZEROS
+              MOVE CT-MPE6647        TO MQCOPY-COD-ERROR
+              MOVE CT-ERROR          TO MQCOPY-RETORNO
+              PERFORM 99999-ERROR-PROGRAMA 
+          END-IF 
+          .
+
+INICIO*INM01
+      *-------------------------------------------------------------*
+      *                                                             *
+      *              10725-CALCULO-IMPUESTOS-TIPFAC                 *
+      *                                                             *
+      * SE LLAMA A LAS RUTINAS DE CALCULO DE IMPUESTOS PARA OBTENER *
+      * EL IMPUESTO SOBRE EL TIPO DE FACTURA. POR SI DEPENDIENDO DE *
+      * LA PARAMETRIZACION HUBIERA QUE CAPITALIZAR O NO DICHO       *
+      * IMPORTE.                                                    *
+      *                                                             *
+      *-------------------------------------------------------------*
+       10725-CALCULO-IMPUESTOS-TIPFAC.
+      *------------------------------.
+
+           MOVE  MP646-CODENT           TO    ATRUTIMP-CODENT
+           MOVE  W07CODREGIMEN          TO    ATRUTIMP-CODREGIMEN
+           MOVE  W44CODIMPTO            TO    ATRUTIMP-CODIMPTO
+           MOVE  MP646-IMPFAC           TO    ATRUTIMP-IMPORTE
+           MOVE  MP646-CLAMON           TO    ATRUTIMP-CLAMON
+           MOVE  CT-EMISOR              TO    ATRUTIMP-VERTIENTE
+           MOVE  MQCOPY-FECHA-OPE       TO    ATRUTIMP-FECHAPROC
+
+           CALL  CT-ATR036 USING ATRUTIMP
+
+           IF ATRUTIMP-CODRET-NOOK
+              MOVE CT-MPA0108          TO MQCOPY-COD-ERROR    
+              MOVE CT-ERROR          TO MQCOPY-RETORNO
+              PERFORM 99999-ERROR-PROGRAMA
+           ELSE
+              ADD ATRUTIMP-IMPUESTO    TO  WS-IMPUESTO 
+           END-IF.
+
+FIN   *INM01
+      *-------------------------------------------------------------*   
+      *                                                             *   
+      *                   20222-ERROR.                              *   
+      *                                                             *   
+      * LOS AVISOS DEVUELTOS POR LA RUTINA SON REALMENTE ERRORES    *   
+      * SE MUEVEN LOS AVISOS A LAS VARIABLES DE AVISOS Y SE INFORMA *   
+      * DEL ERROR                                                   *   
+      *-------------------------------------------------------------*   
+       20222-ERROR.                                                     
+      *-----------.                                                     
+                                                                        
+           MOVE CT-MPE9999                TO MQCOPY-COD-ERROR           
+           MOVE CT-ERROR                  TO MQCOPY-RETORNO
+           PERFORM 99999-ERROR-PROGRAMA.                                
+                                                                        
+      *-------------------------------------------------------------*   
+      *                                                             *   
+      *                   30000-FINAL.                              *   
+      *  DEVUELVE LOS CODIGOS DE RESPUESTA ADECUADOS                *   
+      *-------------------------------------------------------------*   
+       30000-FINAL.                                                     
+      *-----------                                
+           IF  SI-CORRECTO
+               MOVE CT-INFOR      TO MQCOPY-RETORNO
+               MOVE CT-MPA0166    TO MQCOPY-COD-AVISO1
+           END-IF
+            
+           MOVE CT-APLICACION              TO MP303-APLICAC
+       
+      *+-------------------------------------------------------------+
+      *
+      * EN LOS CAMPOS:     MQCOPY-COD-AVISO1
+      *                    MQCOPY-COD-ERROR
+      *
+      * EL SIGNIFICADO DE SUS POSICIONES ES EL SIGUIENTE
+      *
+      * 1 A 2 = 'MP'          APLICACION
+      *  
+      * 3     = 'A' 'E' 'I'   TIPO DE ERROR/AVISO
+      *         'A'           MENSAJE DE AVISO ERROR
+      *         'E'           MENSAJE DE ERROR
+      *         'I'           MENSAJE AVISO INFORMATIVO
+      *
+      * 4 A 7 = 'XXXX'        NUMERO DE ERROR O AVISO
+      *
+      * PARA CADA CASO SE MOVERA EL VALOR CORRESPONDIENTE.
+      *
+      *+-------------------------------------------------------------+
+      *
+           EVALUATE TRUE
+             WHEN MQCOPY-INFOR
+                MOVE MQCOPY-COD-AVISO1(4:4) TO MP303-NUMSEQ
+                MOVE MQCOPY-COD-AVISO1(3:1) TO MP303-TIPO
+             WHEN MQCOPY-AVISO
+             WHEN MQCOPY-ERROR
+             WHEN MQCOPY-ERROR-DB2
+             WHEN MQCOPY-ROLLBACK
+             WHEN MQCOPY-CICS-IMS
+                MOVE MQCOPY-COD-ERROR(4:4)  TO MP303-NUMSEQ
+                MOVE MQCOPY-COD-ERROR(3:1)  TO MP303-TIPO
+           END-EVALUATE
+
+           IF MQCOPY-RETORNO NOT = '00'
+              CALL  CT-RUT-ERRORES USING  DFHCOMMAREA
+                                          MPM0303
+              MOVE MP303-MSG-ERROR       TO WS-MSG-ERROR
+              MOVE MP303-MSG-ADI1        TO WS-MSG-ADI1
+              MOVE MP303-MSG-ADI2        TO WS-MSG-ADI2
+              MOVE MP303-MSG-ADI3        TO WS-MSG-ADI3
+390SAT*
+390SAT        MOVE MP303-SQLCODE         TO ATSQLERR
+390SAT*
+              IF NOT REG-NO-EXISTENTE-BD                                       
+                 AND NOT ACCESO-CORRECTO-BD                                    
+                 MOVE WS-MSG-ERROR(1:10) TO MQCOPY-TEXT1-AVISO1(1:10)
+                 MOVE WS-MSG-ADI1(1:7)   TO MQCOPY-TEXT1-AVISO1(11:1)
+                 MOVE WS-MSG-ADI2(1:6)   TO MQCOPY-TEXT1-AVISO1(21:1)
+                 MOVE WS-MSG-ADI3(1:9)   TO MQCOPY-TEXT1-AVISO1(31:1)
+              ELSE
+                 IF REG-NO-EXISTENTE-BD
+                    MOVE WS-MSG-ERROR     TO MQCOPY-TEXT1-AVISO1
+                    MOVE WS-MSG-ADI1(1:7) TO MQCOPY-TEXT2-AVISO1
+                 ELSE
+                    MOVE WS-TXT1-ERROR    TO MQCOPY-TEXT1-AVISO1
+                    MOVE WS-TXT2-ERROR    TO MQCOPY-TEXT2-AVISO1
+                 END-IF
+              END-IF
+           END-IF
+           MOVE MPM0646               TO MQCOPY-MENSAJE
+           GOBACK.
+      *
+      *-------------------------------------------------------+
+      *                   99999-ERROR-PROGRAMA                *
+      *+------------------------------------------------------+
+       99999-ERROR-PROGRAMA.
+      *---------------------.
+      *
+           SET NO-CORRECTO  TO TRUE
+           PERFORM 30000-FINAL.
+
+

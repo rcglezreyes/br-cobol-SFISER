@@ -1,0 +1,376 @@
+       IDENTIFICATION DIVISION.
+      *-----------------------.
+      *-------------------------------------------------------------*
+      * A PARTIR DEL CONTRATO, ACCEDE SOLAMENTE A LOS DATOS         *
+      * DE LA TABLA DE CONTRATOS MPDT007                            *
+      *-------------------------------------------------------------*
+       PROGRAM-ID.      ISER070.
+       AUTHOR.          INTEGRACION DE SERVICIOS.
+       DATE-WRITTEN.    30 DE AGOSTO DE 2007.
+       ENVIRONMENT DIVISION.
+      *--------------------.
+       CONFIGURATION SECTION.
+       SPECIAL-NAMES.
+           DECIMAL-POINT IS COMMA.
+       DATA DIVISION.
+      *-------------.
+       WORKING-STORAGE SECTION.
+      *+------------------------------------------------------------+
+      *                  VARIABLES DEL PROGRAMA                     *
+      *+------------------------------------------------------------+
+       01  WS-VARIABLES.
+           05  WS-CLAVE-COD.
+               10 WS-CODENT-COD         PIC X(04).
+               10 WS-CENTALTA-COD       PIC X(04).
+               10 WS-CUENTA-COD         PIC X(12).
+ 
+      *+-------------------------------------------------------------+
+      *                    CONSTANTES DEL PROGRAMA                   *
+      *+-------------------------------------------------------------+
+       01  CT-CONSTANTES.
+           05  CT-PROGRAMA              PIC X(08) VALUE 'ISER070'.
+           05  CT-APLICACION            PIC X(02) VALUE 'MP'.
+           05  CT-TABLENAME007          PIC X(08) VALUE 'MPDT007'.
+           05  CT-SELECT                PIC X(06) VALUE 'SELECT'.
+           05  CT-VALOR-NO              PIC X(01) VALUE 'N'.
+           05  CT-VALOR-SI              PIC X(01) VALUE 'S'.
+           05  CT-UNO                   PIC 9(01) VALUE 1.
+           05  CT-DOS                   PIC 9(01) VALUE 2.
+           05  CT-VALOR-0               PIC X(02) VALUE '00'.
+           05  CT-VALOR-1               PIC X(01) VALUE '1'.
+           05  CT-VALOR-2               PIC 9(02) VALUE 2.
+           05  CT-ERROR-7               PIC X(07) VALUE "MPE0007".
+           05  CT-ERROR-10              PIC X(02) VALUE '10'.
+           05  CT-ERROR-11              PIC X(02) VALUE '11'.
+           05  CT-RETORNO-10            PIC X(02) VALUE '10'.
+           05  CT-RETORNO-20            PIC X(02) VALUE '20'.
+           05  CT-RETORNO-30            PIC X(02) VALUE '30'.
+           05  CT-AVISO                 PIC X(02) VALUE '20'.
+           05  CT-AVISO-2               PIC X(07) VALUE "MPA0002".
+           05  CT-ERROR-DB2             PIC X(02) VALUE '30'.
+           05  CT-RETORNO-CORRECTO      PIC X(02) VALUE '00'.
+           05  CT-AVISO-CUENTA          PIC X(70) VALUE
+               "EL CAMPO CUENTA ES OBLIGATORIO ".
+           05  CT-AVISO-CENTALTA        PIC X(70) VALUE
+               "EL CAMPO CENTRO DE ALTA ES OBLIGATORIO ".
+           05  CT-AVISO-CODENT          PIC X(70) VALUE
+               "EL CAMPO ENTIDAD ES OBLIGATORIO ".
+           
+      *+-------------------------------------------------------------+
+      *           FLAGS DEL PROGRAMA
+      *+-------------------------------------------------------------+
+       01  SW-VIENE-CODENT              PIC X(1) VALUE 'N'.
+           88 SI-VIENE-CODENT                    VALUE 'N'.
+           88 NO-VIENE-CODENT                    VALUE 'S'.
+
+       01  SW-VIENE-CENTALTA            PIC X(1) VALUE 'N'.
+           88 SI-VIENE-CENTALTA                  VALUE 'S'.
+           88 NO-VIENE-CENTALTA                  VALUE 'N'.
+           
+       01  SW-VIENE-CUENTA              PIC X(1) VALUE 'N'.
+           88 SI-VIENE-CUENTA                    VALUE 'N'.
+           88 NO-VIENE-CUENTA                    VALUE 'S'.
+
+       01  SW-FIN-CORRECTO              PIC X(1) VALUE 'S'.
+           88 NO-CORRECTO                        VALUE 'N'.
+           88 SI-CORRECTO                        VALUE 'S'.
+      *+-------------------------------------------------------------+
+      *                   INDICES DEL PROGRAMA                       *
+      *+-------------------------------------------------------------+
+
+      *
+           EXEC SQL BEGIN DECLARE SECTION END-EXEC.
+      *
+      *+-------------------------------------------------------------+
+      *                         TABLAS SQL                           *
+      *+-------------------------------------------------------------+
+
+      * TABLA DE CUENTA O CONTRATO DE TARJETA
+           EXEC SQL
+             INCLUDE MPDT007
+           END-EXEC.
+
+      *+-------------------------------------------------------------+
+      *           WORKA CORRESPONDIENTE A LOS ERRORES DB2            *
+      *+-------------------------------------------------------------+
+           EXEC SQL
+             INCLUDE SQLCA
+           END-EXEC.
+      *+-------------------------------------------------------------+
+      *         COPYS DE ERROR
+      *+-------------------------------------------------------------+
+
+       01  WS-SQLERR.
+           COPY ATSQLERR.
+
+       01  WS-LIB070R.
+           COPY LIB070R.
+
+      *
+           EXEC SQL END DECLARE SECTION END-EXEC.
+      *
+       LINKAGE SECTION.
+      *---------------.
+       01  DFHCOMMAREA.
+           COPY ATCMQCOP.
+      *
+       PROCEDURE DIVISION USING DFHCOMMAREA.
+      *-------------------------------------
+       COMIENZO-ISER070.
+      *----------------.
+           PERFORM 10000-INICIO
+           PERFORM 20000-PROCESO
+           PERFORM 30000-FINAL.
+
+       10000-INICIO.
+      *------------.
+           SET MQCOPY-CORRECTO        TO TRUE
+           INITIALIZE WS-VARIABLES
+                      DATOS-RETORNO.
+           MOVE MQCOPY-MENSAJE        TO LIB070R. 
+
+       20000-PROCESO.
+      *-------------.
+           PERFORM 21000-VALIDAR-DATOS.
+           PERFORM 22000-MOVER-DATOS-TABLA
+           PERFORM 23000-ACCEDER-TBCTATAR.
+           PERFORM 24000-MOVER-DATOS.           
+
+       21000-VALIDAR-DATOS.
+      *--------------------.
+           IF LIB070R-CODENT EQUAL SPACES OR LOW-VALUES OR ZEROS
+              MOVE CT-AVISO-2            TO  MQCOPY-COD-ERROR
+              MOVE CT-AVISO              TO  MQCOPY-RETORNO
+              MOVE CT-AVISO-CODENT       TO  MQCOPY-TEXT1-AVISO1
+              PERFORM 999999-ERROR-PROGRAMA
+           END-IF.
+           IF LIB070R-CENTALTA EQUAL SPACES OR LOW-VALUES OR ZEROS
+              MOVE CT-AVISO-2            TO  MQCOPY-COD-ERROR
+              MOVE CT-AVISO              TO  MQCOPY-RETORNO
+              MOVE CT-AVISO-CENTALTA     TO  MQCOPY-TEXT1-AVISO1
+              PERFORM 999999-ERROR-PROGRAMA
+           END-IF.
+           IF LIB070R-CUENTA EQUAL SPACES OR LOW-VALUES OR ZEROS
+              MOVE CT-AVISO-2            TO  MQCOPY-COD-ERROR
+              MOVE CT-AVISO              TO  MQCOPY-RETORNO
+              MOVE CT-AVISO-CUENTA       TO  MQCOPY-TEXT1-AVISO1
+              PERFORM 999999-ERROR-PROGRAMA
+           END-IF.
+
+       22000-MOVER-DATOS-TABLA.
+      *-----------------------.
+           MOVE LIB070R-CODENT        TO CODENT    OF DCLMPDT007
+           MOVE LIB070R-CENTALTA      TO CENTALTA  OF DCLMPDT007
+           MOVE LIB070R-CUENTA        TO CUENTA    OF DCLMPDT007.
+
+       23000-ACCEDER-TBCTATAR.
+      *----------------------.
+           EXEC SQL
+                SELECT CODENT ,
+                       CENTALTA ,
+                       CUENTA ,
+                       FECALTA ,
+                       PRODUCTO ,
+                       SUBPRODU ,
+                       CONPROD ,
+                       CODCAM ,
+                       CODCONVEN ,
+                       FORPAGO ,
+                       FECULTCAR ,
+                       FECBAJA ,
+                       MOTBAJA ,
+                       FORPAGOTEM ,
+                       FIFORPAGT ,
+                       FFFORPAGT ,
+                       CODESTCTA ,
+                       FECULTESTCTA ,
+                       CODESTRPT ,
+                       FECULTESTRPT ,
+                       INDBLQOPE ,
+                       INDBLQCON ,
+                       INDCTAEMP ,
+                       INDNOMEMP ,
+                       NOMBREEMP ,
+                       INDSITCTA ,
+                       FECRESOL ,
+                       INDCTATRAS ,
+                       CODPROLIQ,
+                       GRUPOLIQ ,
+                       CODPROCUO,
+                       GRUPOCUO ,
+                       RESEMIEXT ,
+                       TIPBON ,
+                       CALPART ,
+                       NUMULTPLAS,
+                       CODPROMO ,
+                       INDPERCUO ,
+                       NUMMESTOT ,
+                       CODREGIMEN ,
+                       NUMFACSC ,
+                       NUMULTMOVD,
+                       IDENTCLI,  
+                       NUMBEN,    
+                       OFIGESTORA,
+                       CODFORMATO,  
+                       INDDOMCARCRE,
+                       FECULTCGLIQ,
+                       DESCPLANILLA,
+                       FACTCLI,     
+                       CODENTUMO,  
+                       CODOFIUMO,  
+                       USUARIOUMO,  
+                       CODTERMUMO, 
+                       CONTCUR
+                  INTO :DCLMPDT007.CODENT ,
+                       :DCLMPDT007.CENTALTA ,
+                       :DCLMPDT007.CUENTA ,
+                       :DCLMPDT007.FECALTA ,
+                       :DCLMPDT007.PRODUCTO ,
+                       :DCLMPDT007.SUBPRODU ,
+                       :DCLMPDT007.CONPROD ,
+                       :DCLMPDT007.CODCAM ,
+                       :DCLMPDT007.CODCONVEN ,
+                       :DCLMPDT007.FORPAGO ,
+                       :DCLMPDT007.FECULTCAR ,
+                       :DCLMPDT007.FECBAJA ,
+                       :DCLMPDT007.MOTBAJA ,
+                       :DCLMPDT007.FORPAGOTEM ,
+                       :DCLMPDT007.FIFORPAGT ,
+                       :DCLMPDT007.FFFORPAGT ,
+                       :DCLMPDT007.CODESTCTA ,
+                       :DCLMPDT007.FECULTESTCTA ,
+                       :DCLMPDT007.CODESTRPT ,
+                       :DCLMPDT007.FECULTESTRPT ,
+                       :DCLMPDT007.INDBLQOPE ,
+                       :DCLMPDT007.INDBLQCON ,
+                       :DCLMPDT007.INDCTAEMP ,
+                       :DCLMPDT007.INDNOMEMP ,
+                       :DCLMPDT007.NOMBREEMP ,
+                       :DCLMPDT007.INDSITCTA ,
+                       :DCLMPDT007.FECRESOL ,
+                       :DCLMPDT007.INDCTATRAS ,
+                       :DCLMPDT007.CODPROLIQ,
+                       :DCLMPDT007.GRUPOLIQ ,
+                       :DCLMPDT007.CODPROCUO,
+                       :DCLMPDT007.GRUPOCUO ,
+                       :DCLMPDT007.RESEMIEXT ,
+                       :DCLMPDT007.TIPBON ,
+                       :DCLMPDT007.CALPART ,
+                       :DCLMPDT007.NUMULTPLAS,
+                       :DCLMPDT007.CODPROMO ,
+                       :DCLMPDT007.INDPERCUO ,
+                       :DCLMPDT007.NUMMESTOT ,
+                       :DCLMPDT007.CODREGIMEN ,
+                       :DCLMPDT007.NUMFACSC ,
+                       :DCLMPDT007.NUMULTMOVD,
+                       :DCLMPDT007.IDENTCLI,  
+                       :DCLMPDT007.NUMBEN,    
+                       :DCLMPDT007.OFIGESTORA,
+                       :DCLMPDT007.CODFORMATO,  
+                       :DCLMPDT007.INDDOMCARCRE,
+                       :DCLMPDT007.FECULTCGLIQ,
+                       :DCLMPDT007.DESCPLANILLA,
+                       :DCLMPDT007.FACTCLI,     
+                       :DCLMPDT007.CODENTUMO,  
+                       :DCLMPDT007.CODOFIUMO,  
+                       :DCLMPDT007.USUARIOUMO,  
+                       :DCLMPDT007.CODTERMUMO, 
+                       :DCLMPDT007.CONTCUR
+                  FROM MPDT007
+                WHERE  CODENT   = :DCLMPDT007.CODENT
+                AND    CENTALTA = :DCLMPDT007.CENTALTA
+                AND    CUENTA   = :DCLMPDT007.CUENTA
+           END-EXEC
+      *
+           MOVE SQLCODE                TO ATSQLERR
+      *
+           MOVE '00'                   TO MQCOPY-RETORNO
+           IF NOT ACCESO-CORRECTO-BD
+              IF NOT REG-NO-EXISTENTE-BD
+                 MOVE CT-SELECT          TO  MQCOPY-OPERACION
+                 MOVE CT-TABLENAME007    TO  MQCOPY-NOMBRE-TABLA
+                 MOVE CT-PROGRAMA        TO  MQCOPY-NOMBRE-RUTINA
+                 MOVE SQLCODE            TO  MQCOPY-SQLCODE
+                 MOVE CT-ERROR-7         TO  MQCOPY-SQLERM
+                                             MQCOPY-COD-ERROR
+                 MOVE CT-ERROR-DB2       TO  MQCOPY-RETORNO
+
+                 PERFORM 999999-ERROR-PROGRAMA
+              ELSE
+                  MOVE CT-TABLENAME007 TO MQCOPY-NOMBRE-TABLA
+                  MOVE CT-ERROR-7      TO MQCOPY-COD-ERROR
+                  SET MQCOPY-AVISO     TO TRUE
+                  PERFORM 999999-ERROR-PROGRAMA
+              END-IF
+           END-IF.
+
+       24000-MOVER-DATOS.
+      *-----------------.
+           MOVE CODENT       OF DCLMPDT007 TO LIB070R-CODENT
+           MOVE CENTALTA     OF DCLMPDT007 TO LIB070R-CENTALTA
+           MOVE CUENTA       OF DCLMPDT007 TO LIB070R-CUENTA
+           MOVE FECALTA      OF DCLMPDT007 TO LIB070R-FECALTA
+           MOVE PRODUCTO     OF DCLMPDT007 TO LIB070R-PRODUCTO
+           MOVE SUBPRODU     OF DCLMPDT007 TO LIB070R-SUBPRODU
+           MOVE CONPROD      OF DCLMPDT007 TO LIB070R-CONPROD
+           MOVE CODCAM       OF DCLMPDT007 TO LIB070R-CODCAM
+           MOVE CODCONVEN    OF DCLMPDT007 TO LIB070R-CODCONVEN
+           MOVE FORPAGO      OF DCLMPDT007 TO LIB070R-FORPAGO
+           MOVE FECULTCAR    OF DCLMPDT007 TO LIB070R-FECULTCAR
+           MOVE FECBAJA      OF DCLMPDT007 TO LIB070R-FECBAJA
+           MOVE MOTBAJA      OF DCLMPDT007 TO LIB070R-MOTBAJA
+           MOVE FORPAGOTEM   OF DCLMPDT007 TO LIB070R-FORPAGOTEM
+           MOVE FIFORPAGT    OF DCLMPDT007 TO LIB070R-FIFORPAGT
+           MOVE FFFORPAGT    OF DCLMPDT007 TO LIB070R-FFFORPAGT
+           MOVE CODESTCTA    OF DCLMPDT007 TO LIB070R-CODESTCTA
+           MOVE FECULTESTCTA OF DCLMPDT007 TO LIB070R-FECULTESTCTA
+           MOVE INDBLQOPE    OF DCLMPDT007 TO LIB070R-INDBLQOPE
+           MOVE INDBLQCON    OF DCLMPDT007 TO LIB070R-INDBLQCON
+           MOVE INDCTAEMP    OF DCLMPDT007 TO LIB070R-INDCTAEMP
+           MOVE INDNOMEMP    OF DCLMPDT007 TO LIB070R-INDNOMEMP
+           MOVE NOMBREEMP    OF DCLMPDT007 TO LIB070R-NOMBREEMP
+           MOVE INDSITCTA    OF DCLMPDT007 TO LIB070R-INDSITCTA
+           MOVE FECRESOL     OF DCLMPDT007 TO LIB070R-FECRESOL
+           MOVE INDCTATRAS   OF DCLMPDT007 TO LIB070R-INDCTATRAS
+           MOVE GRUPOLIQ     OF DCLMPDT007 TO LIB070R-GRUPOLIQ
+           MOVE GRUPOCUO     OF DCLMPDT007 TO LIB070R-GRUPOCUO
+           MOVE RESEMIEXT    OF DCLMPDT007 TO LIB070R-RESEMIEXT
+           MOVE TIPBON       OF DCLMPDT007 TO LIB070R-TIPBON
+           MOVE CALPART      OF DCLMPDT007 TO LIB070R-CALPART
+           MOVE CODPROMO     OF DCLMPDT007 TO LIB070R-CODPROMO
+           MOVE INDPERCUO    OF DCLMPDT007 TO LIB070R-INDPERCUO
+           MOVE NUMMESTOT    OF DCLMPDT007 TO LIB070R-NUMMESTOT
+           MOVE CODREGIMEN   OF DCLMPDT007 TO LIB070R-CODREGIMEN
+           MOVE NUMFACSC     OF DCLMPDT007 TO LIB070R-NUMFACSC
+           MOVE IDENTCLI     OF DCLMPDT007 TO LIB070R-IDENTCLI
+           MOVE OFIGESTORA   OF DCLMPDT007 TO LIB070R-OFIGESTORA
+           MOVE CODFORMATO   OF DCLMPDT007 TO LIB070R-CODFORMATO
+           MOVE INDDOMCARCRE OF DCLMPDT007 TO LIB070R-INDDOMCARCRE
+           MOVE DESCPLANILLA OF DCLMPDT007 TO LIB070R-DESCPLANILLA
+           MOVE FACTCLI      OF DCLMPDT007 TO LIB070R-FACTCLI
+           MOVE CODESTRPT    OF DCLMPDT007 TO LIB070R-CODESTRPT
+           MOVE FECULTESTRPT OF DCLMPDT007 TO LIB070R-FECULTESTRPT
+           MOVE CONTCUR      OF DCLMPDT007 TO LIB070R-CONTCUR.
+           MOVE CONPROD      OF DCLMPDT007 TO LIB070R-CONPROD.
+           MOVE CODPROLIQ    OF DCLMPDT007 TO LIB070R-CODPROLIQ.
+           MOVE CODPROCUO    OF DCLMPDT007 TO LIB070R-CODPROCUO.
+           MOVE NUMULTPLAS   OF DCLMPDT007 TO LIB070R-NUMULTPLAS.
+           MOVE NUMFACSC     OF DCLMPDT007 TO LIB070R-NUMFACSC.
+           MOVE NUMULTMOVD   OF DCLMPDT007 TO LIB070R-NUMULTMOVD.
+           MOVE NUMBEN       OF DCLMPDT007 TO LIB070R-NUMBEN.  
+           MOVE FECULTCGLIQ  OF DCLMPDT007 TO LIB070R-FECULTCGLIQ.
+           MOVE CODENTUMO    OF DCLMPDT007 TO LIB070R-CODENTUMO.  
+           MOVE CODOFIUMO    OF DCLMPDT007 TO LIB070R-CODOFIUMO. 
+           MOVE USUARIOUMO   OF DCLMPDT007 TO LIB070R-USUARIOUMO.  
+           MOVE CODTERMUMO   OF DCLMPDT007 TO LIB070R-CODTERMUMO. 
+
+       999999-ERROR-PROGRAMA.
+      *---------------------
+           PERFORM 30000-FINAL.
+
+       30000-FINAL.
+      *-----------.
+           MOVE LIB070R                TO MQCOPY-MENSAJE
+           GOBACK.
+
+

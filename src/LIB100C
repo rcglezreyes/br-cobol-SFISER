@@ -1,0 +1,59 @@
+      *---------------------------------------------------------------------*
+      *  ESTA COPY CORRESPONDE AL FORMATO QUE USA EL SERVICIO COMPUESTO     *
+      *          CONSULTA DETALLE DE CUOTAS (SFISERV100C)  PAGINABLE        *
+      *---------------------------------------------------------------------*
+      * L100C-CODENT                    ENTIDAD                         [ob]*                                               
+      * L100C-CENTALTA                  CENTRO DE ALTA                  [ob]*                                   
+      * L100C-CUENTA                    CUENTA                          [ob]*
+      * L100C-CLAMON                    CLAVE MONEDA                    [ob]*
+      * L100C-LINEA                     LINEA                               * 
+      * L100C-IND-CUOTAS-VENC           INDICADOR CUOTAS VENCIDAS (S/N)     *
+      * L100C-IND-CUOTAS-FUTU           INDICADOR CUOTAS FUTURAS  (S/N)     *
+      * L100C-CAN-CUOTAS-FUTU           CANTIDAD CUOTAS FUTURAS             *
+      * L100C-CANT-CUOTAS-INFOR         CANTIDAD CUOTAS INFORMADAS          *   
+      * L100C-ARREGLO-CUOTA OCCURS 32 TIMES. ARREGLO DETALLE DE CUOTAS      *
+      *         L100C-FECCUO            FECHA CUOTA   YYYYMM                *     
+      *         L100C-SITDEUDA          SITUACION DE LA DEUDA (I,L,A,F)     * 
+      *         L100C-IMPORTE1          IMPORTE 1                           *
+      *         L100C-IMPORTE2          IMPORTE 2                           *
+      *               L100C-IMPORTE3          IMPORTE 3                           *
+      *         L100C-IMPORTE4          IMPORTE 4                           *
+      *         L100C-IMPORTE5          IMPORTE 5                           *
+      *         L100C-IMPORTE6          IMPORTE 6                           *
+      *               L100C-IMPORTE7          IMPORTE 7                           *
+      *         L100C-IMPORTE8          IMPORTE 8                           *
+      *               L100C-IMPORTE9          IMPORTE 9                           *
+      *         L100C-IMPORTE10         IMPORTE 10                          *
+      *         L100C-MONTOTOT          MONTO TOTAL DE LA CUOTA             *
+      * 
+      *---------------------------------------------------------------------*
+      *  COPY LIB100C                                                       *
+      *---------------------------------------------------------------------*
+           05  LIB100C.
+               10 L100C-CODENT                   PIC X(4).
+               10 L100C-CENTALTA                 PIC X(4).
+               10 L100C-CUENTA                   PIC X(12).
+               10 L100C-CLAMON                   PIC 9(3).
+               10 L100C-LINEA                    PIC X(4).
+               10 L100C-IND-CUOTAS-VENC          PIC X(1).
+               10 L100C-IND-CUOTAS-FUTU          PIC X(1).
+               10 L100C-CAN-CUOTAS-FUTU          PIC 9(2).
+               10 L100C-SALIDA                   PIC X(6210).
+               10 L100C-SALIDAR REDEFINES L100C-SALIDA.
+                  20 L100C-CANT-CUOTAS-INFOR     PIC 9(2).
+                  20 L100C-ARREGLO-CUOTA OCCURS 32 TIMES.
+                     30 L100C-FECCUO             PIC X(6).
+                     30 L100C-SITDEUDA           PIC X(1).
+                     30 L100C-IMPORTE1           PIC S9(15)V99.
+                     30 L100C-IMPORTE2           PIC S9(15)V99.
+                     30 L100C-IMPORTE3           PIC S9(15)V99.
+                     30 L100C-IMPORTE4           PIC S9(15)V99.
+                     30 L100C-IMPORTE5           PIC S9(15)V99.
+                     30 L100C-IMPORTE6           PIC S9(15)V99.
+                     30 L100C-IMPORTE7           PIC S9(15)V99.
+                     30 L100C-IMPORTE8           PIC S9(15)V99.
+                     30 L100C-IMPORTE9           PIC S9(15)V99.
+                     30 L100C-IMPORTE10          PIC S9(15)V99.
+                     30 L100C-MONTOTOT           PIC S9(15)V99.
+                     
+          

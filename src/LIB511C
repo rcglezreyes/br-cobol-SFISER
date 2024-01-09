@@ -1,0 +1,186 @@
+      *--------------------------------------------------------------
+      * ESTA COPY CORRESPONDE AL FORMATO QUE USA EL SERVICIO  
+      *       TRANSACCIONAL PREVIA DE PAGO (SFISERS510C)              
+      *--------------------------------------------------------------
+      * HEADER-CONECTOR.                   Header para Conector 
+      * 15 LIB510-COD-RETORNO              Cod. Retorno del Servicio
+      * 15 LIB510-NOMBRE-SERVICIO          Nombre Servicio a invocar
+      * 15 LIB510-LARGO-MENSAJE            Largo Mensaje a Invocar
+      * HEADER-LIB510C.                      Header standart
+      * 15 LIB510-CODIGO-CANAL             Codigo de Canal
+      * 15 LIB510-COD-USUARIO              Codigo de Usuario
+      * 15 LIB510-COD-OFICINA              Codigo de Oficina
+      * 15 LIB510-TERM-FISICO              Numero de Terminal
+      * 15 LIB510-ENTIDAD                  Codigo de entidad
+      * 15 LIB510-DOMINIO-PAIS             Codigo Dominio Pais
+      * ENTRADA-LIB510C.                   Datos de Entrada
+      * 15 LIB510-RUT                      Numero de Rut                  
+      * 15 LIB510-PAN                      Numero de Tarjeta                  
+      * 15 LIB510-CODENT                   Codigo de entidad                  
+      * 15 LIB510-CENTALTA                 Centro de Alta
+      * 15 LIB510-CUENTA                   Numero de Cuenta
+      * 15 LIB510-INDRECALCULO             Indicador de recalculo
+      * 15 LIB510-IMPRECALCULO             Monto de Recalculo
+      * SALIDA-COMUN.                      Salida Comun
+      * 15 LIB510-NOMBRE                   Nombre del cliente
+      * 15 LIB510-CLAMON-PRIN              Codigo de moneda Principal
+      * 15 LIB510-APE-PATERNO              Apellido Paterno
+      * 15 LIB510-APE-MATERNO              Apellido Materno
+      * SALIDA-PAN-CONTRATO.               Salida por Pan o Contrato
+      * 15 LIB510-IMP-LIMITE-CONT          IMPORTE LIMITE CONTRATO            
+      * 15 LIB510-IMP-PAGO-MINIMO          IMPORTE PAGO MINIMO                
+      * 15 LIB510-IMP-TOT-PAGAR            IMPORTE TOTAL A PAGAR              
+      * 15 LIB510-IMP-PAG-EFECTUADOS       IMPORTE PAGOS EFECTUADOS           
+      * 15 LIB510-FEC-ULT-FACT             FECHA ULTIMA FACTURACION           
+      * 15 LIB510-CANT-CUO-FUTU            CANTIDAD DE CUOTAS FUTURAS         
+      * 15 LIB510-ARREGLO-CUO-FUTU         ARREGLO CUOTAS FUTURAS             
+      *       20 LIB510-FECHA-VCTO         FECHA VENCIMIENTO  AAAAMMDD        
+      *       20 LIB510-VALOR-CUOTA        VALOR CUOTA                        
+      * 15 LIB510-CANT-OPC-PAGO            CANTIDAD OPCIONES DE PAGO          
+      * 15 LIB510-ARREGLO-OPX              ARREGLO OPCIONES DE PAGO           
+      *       20 LIB510-COD-OPX            CODIGO OPCION DE PAGO              
+      *       20 LIB510-DES-OPX            DESCRIOCION OPCION DE PAGO         
+      *       20 LIB510-TASA-OPX           TASA OPCION DE PAGO                
+      *       20 LIB510-CLAMON-OPX         CLAVE MONEDA OPCION DE PAGO        
+      *       20 LIB510-PAG-MINIMO-OPX     PAGO MINIMO EXIGIGO PARA OPX       
+      *       20 LIB510-MON-FINAN-OPX      MONTO FINANCIADO OPX               
+      *       20 LIB510-CANT-PLAZOS-OPX    CANTIDAD DE PLAZOS                 
+      *       20 LIB510-ARREGLO-PLAZOS-OPX ARREGLO DE PLAZOS de OPX                  
+      *          25 LIB510-PLAZO-OPX       VALOR PLAZO OPCION DE PAGO         
+      *          25 LIB510-VALOR-CUOTA-OPX VALOR CUOTA OPCION DE PAGO         
+      * 15 LIB510-MONTO-INT-ALDIA          MONTO INTERESES AL DIA              
+      * 15 LIB510-MONTO-GAS-ALDIA          MONTO GASTOS AL DIA                 
+      * 15 LIB510-MONTO-DE-LA-CUOTA        MONTO DE LA CUOTA LIQUIDADA        
+      * 15 LIB510-ITF                        VALOR ITF ASOCIADO A LA CUOTA
+      * 15 LIB510-COD-CARTERA              IDENTIFICADOR DE CARTERA VEN
+      * 15 LIB510-CANT-RECA                CANTIDAD DE RECAUDACIONES          
+      * 15 LIB510-MONTO-PAGO-RECA          IMPORTE TOTAL DE RECAUDACIONES     
+      * 15 LIB510-ARREGLO-RECA             ARREGLO DE RECAUDACIONES     
+      *       20 LIB510-CODCONREC          CODIGO DEL CONVENIO RECAUDACION 
+      *       20 LIB510-DESRECA            Descripcion de la Recaudacion
+      *       20 LIB510-NUMMOVREC          NUMERO MOV. DE RECAUDACION         
+      *       20 LIB510-VALOR-REC     VALOR CUOTA RECAUDACION
+      * 15 LIB510-MONTO-FIDELIZACION       Monto de Fidelizacion
+      * SALIDA-RUT.                   Salida por RUT 
+      * 15 LIB510-CANT-CONTRATOS           Cantidad de Contratos en Arreglo
+      * 15 LIB510-ARREGLO-CONTRATOS        Arreglo con 50 contratos 
+      *       20 LIB510-TCONT-CODENT       Codigo de entidad
+      *       20 LIB510-TCONT-CENTALTA     Centro de Alta
+      *       20 LIB510-TCONT-CUENTA       Numero de Cuenta
+      *       20 LIB510-TCONT-PAN          Numero de Tarjeta
+      *       20 LIB510-TCONT-MARCA        Codigo de Marca de Tarjeta
+      *       20 LIB510-TCONT-TIPO         Codigo de Tipo de Tarjeta
+      *       20 LIB510-TCONT-DESCRIP      Descripcion de Tarjeta
+      *       20 LIB510-TCONT-INTERES      Monto Interes al Dia
+      *       20 LIB510-TCONT-GASTO        Monto Gasto al Dia
+      *       20 LIB510-TCONT-TOTAL        Monto de la Cuota a Pagar
+      *       20 LIB510-TCONT-CLAMON       Clave moneda
+      *       20 LIB510-TCONT-RELPROD      Relacion con el Producto
+      *                                    (TITULAR   ADICIONAL)
+      *--------------------------------------------------------------
+      *  LONGITUD MENSAJES SALIDA:
+      *  ERROR:  250
+      *  CONSULTA POR PAN: 1674
+      *  cONSULTA POR RUT: 1674 + (118 * CANTIDAD-CONTRATOS)
+      *  MAXIMO :  6969
+
+          02   LIB510-ENTRADA. 
+               10 HEADER-CONECTOR.
+                  15 LIB510-COD-RETORNO           PIC  9(10).
+                  15 LIB510-NOMBRE-SERVICIO       PIC  X(50).
+                  15 LIB510-LARGO-MENSAJE         PIC  9(09).
+      *  LARGO HASTA ACA: 69
+               10 HEADER-LIB510C.
+                  15 LIB510-CODIGO-CANAL          PIC  X(06).
+                  15 LIB510-COD-USUARIO           PIC  X(08).
+                  15 LIB510-COD-OFICINA           PIC  X(04).
+                  15 LIB510-TERM-FISICO           PIC  X(04).
+                  15 LIB510-ENTIDAD               PIC  X(04). 
+                  15 LIB510-DOMINIO-PAIS          PIC  X(02).
+      *  LARGO HASTA ACA: 97
+               10 ENTRADA-LIB510C.
+                  15 LIB510-PAIS                  PIC  9(03).
+                  15 LIB510-RUT                   PIC  X(10).
+                  15 LIB510-PAN                   PIC  X(22).
+                  15 LIB510-CODENT                PIC  X(04).
+                  15 LIB510-CENTALTA              PIC  X(04).
+                  15 LIB510-CUENTA                PIC  X(12).
+                  15 LIB510-INDRECALCULO          PIC  X(01).
+                  15 LIB510-IMPRECALCULO          PIC S9(15)V99.
+      *  LARGO HASTA ACA: 170
+          02 LIB510-SALIDA.   
+               10 SALIDA-COMUN.
+                  15 LIB510-NOMBRE                PIC  X(20).
+                  15 LIB510-CLAMON-PRIN           PIC  9(03).   
+                  15 LIB510-APE-PATERNO           PIC  X(20).   
+                  15 LIB510-APE-MATERNO           PIC  X(20).
+               10 SALIDA-COMUN-RED REDEFINES SALIDA-COMUN.
+                  15 LIB510-MENSAJE               PIC  X(63).
+      *  LARGO HASTA ACA: 233
+               10 SALIDA-PAN-CONTRATO.
+                  15 LIB510-IMP-LIMITE-CONT       PIC  9(15)V99.
+                  15 LIB510-IMP-PAGO-MINIMO       PIC S9(15)V99.
+                  15 LIB510-IMP-TOT-PAGAR         PIC -9(14)V99.
+                  15 LIB510-IMP-PAG-EFECTUADOS    PIC  9(15)V99.
+                  15 LIB510-FEC-ULT-FACT          PIC  9(08).   
+                  15 LIB510-CANT-CUO-FUTU         PIC  9(02).    
+      *  LARGO HASTA ACA: 311
+                  15 LIB510-ARREGLO-CUO-FUTU      OCCURS 60 TIMES.
+                     20 LIB510-FECHA-VCTO         PIC  9(08).
+                     20 LIB510-VALOR-CUOTA        PIC -9(14)V99.
+      *  LARGO HASTA ACA: 561
+                  15 LIB510-CANT-OPC-PAGO         PIC  9(01).
+                  15 LIB510-ARREGLO-OPX           OCCURS 03 TIMES.
+                     20 LIB510-COD-OPX            PIC  X(04).
+                     20 LIB510-DES-OPX            PIC  X(20).
+                     20 LIB510-TASA-OPX           PIC  9(03)V9(4).
+                     20 LIB510-CLAMON-OPX         PIC  9(03).  
+                     20 LIB510-PAG-MINIMO-OPX     PIC S9(15)V99.
+                     20 LIB510-MON-FINAN-OPX      PIC S9(15)V99.
+                     20 LIB510-CANT-PLAZOS-OPX    PIC  9(02).
+                     20 LIB510-ARREGLO-PLAZOS-OPX OCCURS 04 TIMES.
+                        25 LIB510-NRO-OFE-OPX     PIC  9(06).
+                        25 LIB510-PLAZO-OPX       PIC  9(02). 
+                        25 LIB510-VALOR-CUOTA-OPX PIC S9(09)V99.
+
+      *  LARGO HASTA ACA: 1000
+                  15 LIB510-MONTO-INT-ALDIA       PIC S9(08)V99.
+                  15 LIB510-MONTO-GAS-ALDIA       PIC S9(08)V99.
+                  15 LIB510-MONTO-DE-LA-CUOTA     PIC -9(14)V99.
+                  15 LIB510-MONTO-MORA            PIC S9(15)V99.
+                  15 LIB510-COD-CARTERA           PIC  9(04).
+                  15 LIB510-CANT-RECA             PIC  9(02).
+                  15 LIB510-MONTO-PAGO-RECA       PIC S9(15)V99.
+                  15 LIB510-ARREGLO-RECA          OCCURS 10 TIMES.
+                     20 LIB510-CODCONREC          PIC  X(04).
+                     20 LIB510-DESRECA            PIC  X(20).
+                     20 LIB510-NUMMOVREC          PIC  9(17). 
+                     20 LIB510-VALOR-REC          PIC S9(15)V99.
+                  15 LIB510-MARCA                 PIC  9(02).
+                  15 LIB510-TIPO                  PIC  9(02).
+                  15 LIB510-DESCRI-MARCA-TIPO     PIC  X(20).
+                  15 LIB510-MENSAJE-PREVIA        PIC  X(2000).
+                  15 LIB510-MONTO-DEUDA-TOT       PIC S9(15)V99. 
+                  15 LIB510-PROMOCIONES-COMERC    PIC  X(1983).
+      *  LARGO HASTA ACA: 233
+               10 SALIDA-RUT REDEFINES SALIDA-PAN-CONTRATO.
+                  15 LIB510-CANT-CONTRATOS        PIC  9(02).
+                  15 LIB510-ARREGLO-CONTRATOS     OCCURS 45 TIMES.
+      *  LARGO CADA ARREGLO: 118
+                     20 LIB510-TCONT-CODENT       PIC  X(04). 
+                     20 LIB510-TCONT-CENTALTA     PIC  X(04). 
+                     20 LIB510-TCONT-CUENTA       PIC  X(12).
+                     20 LIB510-TCONT-PAN          PIC  X(22).
+                     20 LIB510-TCONT-MARCA        PIC  9(02).
+                     20 LIB510-TCONT-TIPO         PIC  9(02).
+                     20 LIB510-TCONT-DESCRIP      PIC  X(20).
+                     20 LIB510-TCONT-INTERES      PIC S9(08)V99.
+                     20 LIB510-TCONT-GASTO        PIC S9(08)V99.
+                     20 LIB510-TCONT-TOTAL        PIC -9(14)V99.
+                     20 LIB510-TCONT-CLAMON       PIC 9(03).
+                     20 LIB510-TCONT-RELPROD      PIC X(12).
+                  15 FILLER                       PIC X(1786).
+          02 SALIDA-ERROR REDEFINES LIB510-SALIDA.
+                  15 LIB510-MENSAJE-RESP-ERR      PIC X(400).
+                  15 LIB510-MENSAJE-RESP-ERR1     PIC X(6696).
+

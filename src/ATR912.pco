@@ -1,0 +1,3663 @@
+      *+---------------------------------------------------------------+
+      *                                                                *
+      *                    CP SISTEMAS DE PAGO                         *
+      *                          ATR912                                *
+      *            (CONTINGENCIA SERNAC PRELACION DE PAGOS)            *
+      *      OBTENCION DE LA DEUDA MAXIMA PRELABLE DE UN CONTRATO      *
+      *                                                                *
+      *  ESTA RUTINA ARMA A PARTIR DE LOS SALDOS DE LAS TABLAS SAT     *
+      *  EL DESGLOSE DE LA DEUDA PARA LA PRELACION DE PAGOS MAXIMO     *
+      *  DE ACUERDO A LOS SALDOS MOROSOS, LIQUIDADO Y FF SIGUIENTE.    *
+      *  CONSIDERA EL SALDO DISPUESTO Y PAGOS AUTORIZADOS.             *
+      *+---------------------------------------------------------------+
+      * INCIDENCIA : FACT80                                            *
+      * AUTOR      : TECNOCOM (OAAA)                                   *
+      * FECHA      : 2016-03-24                                        *
+      * DESCRIPCION: SE CONSIDERA MONTO FACTURA 80 COMO DEUDA ACTUAL.  *
+      *+--------------------------------------------------------------+*
+      * INCIDENCIA : GAP LEY PRODUCTIVIDAD TARJETA                     *
+      * MARCA      : GAP-PRODTAR                                       *
+      * AUTOR      : TECNOCOM    (HAFS)                                *
+      * FECHA      : 19-10-2017                                        *
+      * DESCRIPCION: SE ADAPTA PTOGRAMA PARA QUE PUEDA REDONDEAR PAGOS *
+      *              EN EFECTIVO REALIZADOS EN TERMINALES FINANCIEROS  *
+      *              SEGÚN LO INDICADO EN LA NUEVA LEY N°20.956        *
+      *+--------------------------------------------------------------+*
+       IDENTIFICATION DIVISION.
+      *-----------------------.
+       PROGRAM-ID.      ATR912.
+       AUTHOR.          TECNOCOM.
+       DATE-WRITTEN.    03 DE FEBRERO DE 2015.
+
+      *+---------------------------------------------------------------+
+      *                     ENVIRONMENT DIVISION                       *
+      *                    =====================                       *
+      *+---------------------------------------------------------------+
+       ENVIRONMENT DIVISION.
+      *--------------------.
+
+	     CONFIGURATION SECTION.
+
+       SPECIAL-NAMES.
+           DECIMAL-POINT IS COMMA.
+
+      *+---------------------------------------------------------------+
+      *                       DATA DIVISION                            *
+      *                      ===============                           *
+      *+---------------------------------------------------------------+
+       DATA DIVISION.
+      *-------------.
+
+      *+---------------------------------------------------------------+
+      *                 WORKING  STORAGE  SECTION                      *
+      *                ===========================                     *
+      *+---------------------------------------------------------------+
+       WORKING-STORAGE SECTION.
+
+       01 FILLER                           PIC X(25)
+                VALUE 'COMIENZO WORKING ATR912'.
+
+      *
+           EXEC SQL BEGIN DECLARE SECTION END-EXEC.
+      *
+      *+---------------------------------------------------------------+
+      *            SWICHEST DEL PROGRAMA                               *
+      *+---------------------------------------------------------------+
+
+       01 SW-CURSOR-IMPAGOS               PIC 9.
+          88 NO-FIN-CURSOR-IMPAGOS        VALUE 0.
+          88 FIN-CURSOR-IMPAGOS           VALUE 1.
+
+       01 SW-CURSOR-AUTORIZA              PIC 9.
+          88 NO-FIN-CURSOR-AUTORIZA       VALUE 0.
+          88 FIN-CURSOR-AUTORIZA          VALUE 1.
+
+       01 SW-CURSOR-FUTUROS               PIC 9.
+          88 NO-FIN-CURSOR-FUTUROS        VALUE 0.
+          88 FIN-CURSOR-FUTUROS           VALUE 1.
+
+       01 SW-CURSOR-LIQUIDADOS            PIC 9.
+          88 NO-FIN-CURSOR-LIQUIDADOS     VALUE 0.
+          88 FIN-CURSOR-LIQUIDADOS        VALUE 1.
+
+       01 SW-BUSCA-LIQUIDADOS             PIC 9.
+          88 NO-LIQUIDADO-ENCONTRADO      VALUE 0.
+          88 SI-LIQUIDADO-ENCONTRADO      VALUE 1.
+
+       01 SW-EXTRACTO-LIQUIDADO           PIC 9.
+          88 SIN-LIQUIDADO                VALUE 0.
+          88 CON-LIQUIDADO                VALUE 1.
+
+       01 SW-BUSCA-ACTUAL                 PIC 9.
+          88 NO-ACTUAL-ENCONTRADO         VALUE 0.
+          88 SI-ACTUAL-ENCONTRADO         VALUE 1.
+
+       01 SW-FACTURA-OMITIDA              PIC 9.
+          88 NO-OMITIDO                   VALUE 0.
+          88 SI-OMITIDO                   VALUE 1.
+
+       01  SW-CURSOR-TBMOVEXT             PIC 9(01).
+           88  SW-NO-FIN-CURSOR-TBMOVEXT  VALUE 0.
+           88  SW-FIN-CURSOR-TBMOVEXT     VALUE 1.
+
+       01  SW-CURSOR-PAGOS                PIC 9(01).
+           88  SW-NO-FIN-CURSOR-PAGOS     VALUE 0.
+           88  SW-FIN-CURSOR-PAGOS        VALUE 1.
+
+       01  SW-CURSOR-TBMOVCEC             PIC 9(01).
+           88  SW-NO-FIN-CURSOR-TBMOVCEC  VALUE 0.
+           88  SW-FIN-CURSOR-TBMOVCEC     VALUE 1.
+
+       01 SW-ENCONTRADO-WORK              PIC 9.
+          88 NO-ENCONTRADO-WORK           VALUE 0.
+          88 SI-ENCONTRADO-WORK           VALUE 1.
+
+       01 SW-PAGO                         PIC 9(04).
+          88  SI-PAGO                    VALUES 67 68 97 99 208 209 211.
+
+      *+---------------------------------------------------------------+
+      *            CONSTANTES                                          *
+      *+---------------------------------------------------------------+
+       01  CT-CONSTANTES.
+           05  CT-PAGO-MAXIMO             PIC X(11) VALUE 'PAGO-MAXIMO'.
+           05  CT-TOPE-ALTO               PIC X(09) VALUE 'TOPE-ALTO'.
+           05  CT-NO-INFORMATIVO           PIC X(01) VALUE 'N'.
+           05  CT-NO-FINANCIABLE           PIC X(01) VALUE 'N'.
+           05  CT-SALDO-APLAZADO           PIC S9(04) COMP-3 VALUE 101.
+           05  CT-NEGATIVO                 PIC X(01) VALUE  '-'.
+           05  CT-POSITIVO                 PIC X(01) VALUE  '+'.
+           05  CT-CODPROCESO               PIC X(10) VALUE 'CODPROCESO'.
+           05  CT-CODGRUPO                 PIC X(08) VALUE 'CODGRUPO'.
+           05  CT-VENCIMIENTO              PIC 9(01) VALUE 2.
+           05  CT-FACTURACION              PIC 9(01) VALUE 0.
+           05  CT-DESCUENTO                PIC X(01) VALUE 'D'.
+           05  CT-ACTIVA                   PIC 9(01) VALUE 1.
+           05  CT-PENDIENTE                PIC 9(01) VALUE 1.
+           05  CT-VALOR-1                  PIC 9(01) VALUE 1.
+           05  CT-MAX-FILAS                PIC 9(03) VALUE 500.
+           05  CT-MAX-FILAS-LIQ            PIC 9(02) VALUE 99.
+           05  CT-MAX-FILAS-ACT            PIC 9(02) VALUE 99.
+           05  CT-ATR990                   PIC X(06) VALUE 'ATR990'.
+           05  CT-ATR645                   PIC X(06) VALUE 'ATR645'.
+           05  CT-PROGRAMA                 PIC X(08) VALUE 'ATR912'.
+           05  CT-ATRW044                  PIC X(07) VALUE 'ATRW044'.
+           05  CT-MP                       PIC X(02) VALUE 'MP'.
+           05  CT-ABRIR-CURSOR             PIC X(04) VALUE 'OPEN'.
+           05  CT-CERRAR-CURSOR            PIC X(05) VALUE 'CLOSE'.
+           05  CT-FETCH-CURSOR             PIC X(05) VALUE 'FETCH'.
+           05  CT-CALL                     PIC X(04) VALUE 'CALL'.
+           05  CT-SELECT                   PIC X(06) VALUE 'SELECT'.
+           05  CT-TABLA1                   PIC X(07) VALUE 'MPDT460'.
+           05  CT-TABLA52                  PIC X(07) VALUE 'MPDT052'.
+           05  CT-TABLA007                 PIC X(07) VALUE 'MPDT007'.
+           05  CT-TABLA004                 PIC X(07) VALUE 'MPDT004'.
+           05  CT-TABLA021                 PIC X(07) VALUE 'MPDT021'.
+           05  CT-TABLA099                 PIC X(07) VALUE 'MPDT099'.
+           05  CT-TABLA189                 PIC X(07) VALUE 'MPDT189'.
+           05  CT-TABLA194                 PIC X(07) VALUE 'MPDT194'.
+           05  CT-TABLA011                 PIC X(07) VALUE 'MPDT011'.
+           05  CT-TABLA12                  PIC X(07) VALUE 'MPDT012'.
+           05  CT-TABLA462                 PIC X(07) VALUE 'MPDT462'.
+           05  CT-TABLA151                 PIC X(07) VALUE 'MPDT151'.
+           05  CT-TABLA85                  PIC X(07) VALUE 'MPDT085'.
+           05  CT-TABLA163                 PIC X(07) VALUE 'MPDT163'.
+           05  CT-TABLA182                 PIC X(07) VALUE 'MPDT182'.
+           05  CT-CODENT                   PIC X(06) VALUE 'CODENT'.
+           05  CT-CENTALTA                 PIC X(08) VALUE 'CENTALTA'.
+           05  CT-CUENTA                   PIC X(06) VALUE 'CUENTA'.
+           05  CT-CLAMON                   PIC X(06) VALUE 'CLAMON'.
+           05  CT-FECHA-MINIMA             PIC X(10) VALUE '0001-01-01'.
+           05  CT-MPA0001                  PIC X(07) VALUE 'MPA0001'.
+           05  CT-MPA0002                  PIC X(07) VALUE 'MPA0002'.
+           05  CT-ERROR-4                  PIC X(07) VALUE 'MPE0004'.
+           05  CT-MPA2308                  PIC X(07) VALUE 'MPA2308'.
+           05  CT-MPA0098                  PIC X(07) VALUE 'MPA0098'.
+           05  CT-IMPAGO                   PIC X(01) VALUE 'I'.
+           05  CT-FUTURO                   PIC X(01) VALUE 'F'.
+           05  CT-LIQUIDADO                PIC X(01) VALUE 'L'.
+           05  CT-ACTUAL                   PIC X(01) VALUE 'A'.
+           05  CT-T                        PIC X(01) VALUE 'T'.
+           05  CT-CAPITAL-FINAN            PIC 9(02) VALUE  1.
+           05  CT-COMISION                 PIC 9(02) VALUE  2.
+           05  CT-INTERESES                PIC 9(02) VALUE  3.
+           05  CT-IMPUESTO                 PIC 9(02) VALUE  4.
+           05  CT-COMISION-MORA            PIC 9(02) VALUE  5.
+           05  CT-INTERESES-MORA           PIC 9(02) VALUE  6.
+           05  CT-IMPUESTO-MORA            PIC 9(02) VALUE  7.
+           05  CT-CAPITAL-NO-FINAN         PIC 9(02) VALUE  8.
+           05  CT-GASTO-GSIC               PIC 9(02) VALUE  9.
+           05  CT-COMISION-EXTRACTO        PIC 9(02) VALUE 10.
+           05  CT-NO-ANULADO               PIC 9(01) VALUE 0.
+           05  CT-PAGO-APLICADO            PIC 9(01) VALUE 2.
+           05  CT-CASTIGADO                PIC 9(01) VALUE  6.
+      *GAP-PRODTAR-INI
+           05  CT-ACTIVO                  PIC X(09) VALUE 'CT-ACTIVO'.
+           05  CT-REDONDEO                PIC X(11) VALUE 'CT-REDONDEO'.
+           05  CT-ERROR                   PIC X(02) VALUE '20'.
+           05  CT-ERROR-4                 PIC X(07) VALUE 'MPE0004'.
+           05  CT-ERROR-DB2               PIC X(02) VALUE '30'.
+           05  CT-ALF-0001                PIC X(04) VALUE '0001'.
+           05  CT-ATR100                   PIC X(07) VALUE 'ATR100'.
+           05 CT-VALOR-0              PIC 9(1)  VALUE 0.
+      *GAP-PRODTAR-FIN
+
+      *+---------------------------------------------------------------+
+      *                   CAMPOS AUXILIARES DE TRABAJO                 *
+      *+---------------------------------------------------------------+
+       01  WS-VARIABLES.
+           05  WS-FECHA-CORTE                PIC X(10).
+           05  WS-FECHA-CORTE-VTO            PIC X(10).
+           05  WS-EXT-LIQUIDADO              PIC 9(4).
+           05  DISPLAY-NUM                   PIC -ZZZZZZZZZZ9,99.
+           05  WS-PAGPERNOR-DISP             PIC S9(15)V9(2).
+           05  WS-PAGPERNOR-AUT              PIC S9(15)V9(2).
+           05  WS-PAGPERNOR-IGMOR            PIC S9(15)V9(2).
+           05  WS-TOLERANCIA                 PIC S9(15).
+           05  WS-FACTOR                     PIC S9(15).
+           05  WS-COMPRAS-AUT                PIC S9(15)V9(2).
+           05  WS-PAGOS-AUT                  PIC S9(15)V9(2).
+           05  WS-PAGOS-AUT-AMOR             PIC S9(15)V9(2).
+           05  WS-IMPAGOS                    PIC S9(15)V9(2).
+           05  WS-LIQUIDADO                  PIC S9(15)V9(2).
+           05  WS-ACTUAL                     PIC S9(15)V9(2).
+           05  WS-FUTURO                     PIC S9(15)V9(2).
+           05  WS-INTERES-MORA               PIC S9(15)V9(2).
+           05  WS-GASTO-MORA-P                 PIC S9(15)V9(2).
+           05  WS-GASTO-MORA-S               PIC S9(15)V9(2).
+           05  WS-GASTO-MORA                  PIC S9(15)V9(2).
+           05  WS-TOLERANCIA-ALFA             PIC X(15).
+           05  WS-TOLERANCIA-NUM REDEFINES
+               WS-TOLERANCIA-ALFA             PIC 9(15).
+
+           05 WS-IND                     PIC 9(06).
+oaaa       05 WS-FECFUTVTO-NUM           PIC 9(06).
+           05 WS-CODENT-ANT              PIC X(04).
+           05 WS-NUMSECIMP-ANT           PIC S9(15)V USAGE COMP-3.
+           05 WS-LINEA-ANT               PIC X(04).
+           05 WS-TIPIMP-ANT              PIC S9(2)V USAGE COMP-3.
+           05 WS-IMPORTE-ANT             PIC S9(15)V9(2) USAGE COMP-3.
+           05 WS-IMPAPL-ANT              PIC S9(15)V9(2) USAGE COMP-3.
+           05 WS-FECALTA-ANT             PIC X(10).
+           05 WS-DEUDA-IMPORTE           PIC S9(15)V9(2) USAGE COMP-3.
+           05 DD-IND-AUX                 PIC S9(04)V USAGE COMP-3.
+           05 LIQ-IND-AUX                PIC S9(04)V USAGE COMP-3.
+           05 ACT-IND-AUX                PIC S9(04)V USAGE COMP-3.
+           05 IND-AUX                    PIC S9(04)V USAGE COMP-3.
+           05 WS-FECFUTVTO-N             PIC 9(06).
+           05 WS-IMPORTE-AUX             PIC S9(15)V9(2) USAGE COMP-3.
+           05 WS-IMPAPL-AUX              PIC S9(15)V9(2) USAGE COMP-3.
+           05 WS-IMPORTE                 PIC S9(15)V9(2) USAGE COMP-3.
+           05 WS-IMPORTE-01              PIC S9(15)V9(2) USAGE COMP-3.
+           05 WS-IMPORTE-02              PIC S9(15)V9(2) USAGE COMP-3.
+           05 WS-IMPORTE-03              PIC S9(15)V9(2) USAGE COMP-3.
+           05 WS-IMPORTE-04              PIC S9(15)V9(2) USAGE COMP-3.
+           05 WS-IMPORTE-05              PIC S9(15)V9(2) USAGE COMP-3.
+           05 WS-IMPORTE-06              PIC S9(15)V9(2) USAGE COMP-3.
+           05 WS-IMPORTE-07              PIC S9(15)V9(2) USAGE COMP-3.
+           05 WS-IMPORTE-08              PIC S9(15)V9(2) USAGE COMP-3.
+           05 WS-IMPORTE-09              PIC S9(15)V9(2) USAGE COMP-3.
+           05 WS-IMPORTE-10              PIC S9(15)V9(2) USAGE COMP-3.
+           05 WS-APLAZADO                PIC S9(15)V9(2) USAGE COMP-3.
+           05 WS-TIPIMP-AUX              PIC 9(2).
+           05 WS-SIGNO                   PIC X(1).
+      *GAP-PRODTAR-INI
+           05 WS-PARAM-CORTE               PIC X(20)      VALUE SPACES.
+           05 WS-MON-UNIDAD                PIC 9(01)      VALUE ZEROS.
+           05 WS-MON-RESTO                 PIC 9(01)      VALUE ZEROS.
+           05 WS-MON-SIN-REDONDEO          PIC S9(15)V99  VALUE ZEROS.
+           05 WS-MON-CON-REDONDEO          PIC S9(15)V99  VALUE ZEROS.
+           05 WS-IMPMINIMO-PASO            PIC 9(15)V99   VALUE ZEROS.
+           05 WS-FECHA.
+              10 WS-FECHA-PROC.
+                 15 WS-ANO-PROC            PIC 9(4)  VALUE ZEROS.
+                 15 WS-MES-PROC            PIC 9(2)  VALUE ZEROS.
+                 15 WS-DIA-PROC            PIC 9(2)  VALUE ZEROS.
+      *GAP-PRODTAR-FIN
+       01 WS-04-DATADI.
+          05 WS-04-DATADI-LEN                 PIC S9(4) USAGE COMP.
+          05 WS-04-DATADI-TEXT.
+             10 WS-04-SUCURSAL                PIC X(15).
+             10 WS-04-ENTRADA                 PIC S9(15)V9(2).
+             10 WS-04-DESCUENTO               PIC S9(15)V9(2).
+             10 WS-04-LINEA                   PIC X(04).
+             10 WS-04-NUM-CUOT-LIN-CRDT       PIC 9(03).
+             10 WS-04-TIP-CUOT-LIN-CRDT       PIC X(04).
+             10 WS-04-IMP-CUOT-LIN-CRDT       PIC S9(15)V9(2).
+             10 WS-04-NUM-CUO-CARENCIA        PIC 9(03).
+             10 WS-04-INT-APLIC               PIC 9(03)V9999.
+             10 WS-04-INT-CARENCIA            PIC 9(03)V9999.
+             10 WS-04-TASA-GSIC               PIC 9(03)V9999.
+             10 WS-04-PLA-GSIC2               PIC 9(03).
+             10 WS-04-NUMMESFIN               PIC X(12).
+             10 WS-04-MONTO-TOT               PIC S9(15)V9(2).
+             10 WS-04-MONTO-INT               PIC S9(15)V9(2).
+             10 WS-04-MONTO-GSIC              PIC S9(15)V9(2).
+             10 WS-04-MONTO-CAREN             PIC S9(15)V9(2).
+             10 WS-04-MONTO-GSIC2             PIC S9(15)V9(2).
+             10 WS-04-MONTO-ITE               PIC S9(15)V9(2).
+             10 WS-04-FECHA-VTO               PIC X(10).
+             10 WS-04-COMISION-ONLINE         PIC S9(07)V9(2).
+             10 WS-04-INDEXGSIC2              PIC X(01).
+             10 WS-04-COD-COMI                PIC X(05).
+             10 WS-04-COD-PLAZO-COM           PIC X(01).
+             10 WS-04-DIAS-DESFASE            PIC 9(03).
+             10 FILLER                        PIC X(04).
+
+
+      * COPY PARA LA INVOCACION DE LA RUTINA ATRW044 - TIPOFAC
+       01  WS-RUT044.
+           COPY ATRUT044.
+
+      * COPY PARA LA EDICION DE MENSAJES DE ERROR AL FINAL DEL PROCESO
+
+       01  WS-MUFINP.
+           COPY ATMUFINP.
+
+      * COPY PARA TEMPORAL
+       01  WS-ATPAGMAX.
+           COPY ATPAGMAX.
+
+      * COPY PARA LA RUTINA DE CALCULO GASTO E INTERES MORA
+       01  WS-ATPAGDIA.
+           COPY ATPAGDIA.
+
+      *GAP-PRODTAR-INI
+      *+-----------------------------------------------------------+
+      *             COPY RUTINA DE PARAMETROS                      *
+      *+-----------------------------------------------------------+
+       01  WS-ATRUTPAR.
+           COPY ATRUTPAR.
+      *GAP-PRODTAR-FIN
+      *+---------------------------------------------------------------+
+      *              DECLARACION DE VARIABLES HOST                     *
+      *+---------------------------------------------------------------+
+
+       01 WS-VARIABLES-HOST.
+          05 IMP-IMPAGOS.
+             10 IMP-CODENT               PIC X(04).
+             10 IMP-CENTALTA             PIC X(04).
+             10 IMP-CUENTA               PIC X(12).
+             10 IMP-CLAMON               PIC S9(03)V USAGE COMP-3.
+             10 IMP-NUMSECIMP            PIC S9(15)V USAGE COMP-3.
+             10 IMP-LINEA                PIC X(04).
+             10 IMP-TIPIMP               PIC S9(2)V USAGE COMP-3.
+             10 IMP-IMPORTE              PIC S9(15)V9(2) USAGE COMP-3.
+             10 IMP-IMPAPL               PIC S9(15)V9(2) USAGE COMP-3.
+             10 IMP-FECALTA              PIC X(10).
+
+          05 FUT-FUTUROS.
+             10 FUT-CODENT               PIC X(04).
+             10 FUT-CENTALTA             PIC X(04).
+             10 FUT-CUENTA               PIC X(12).
+             10 FUT-CLAMON               PIC S9(03)V USAGE COMP-3.
+             10 FUT-ESTCUO               PIC S9(02)V USAGE COMP-3.
+             10 FUT-ESTCOMPRA            PIC S9(02)V USAGE COMP-3.
+             10 FUT-LINEA                PIC X(04).
+             10 FUT-FECLIQ               PIC X(10).
+             10 FUT-BOLSILLO1            PIC S9(15)V9(2) USAGE COMP-3.
+             10 FUT-BOLSILLO2            PIC S9(15)V9(2) USAGE COMP-3.
+             10 FUT-BOLSILLO3            PIC S9(15)V9(2) USAGE COMP-3.
+             10 FUT-BOLSILLO4            PIC S9(15)V9(2) USAGE COMP-3.
+             10 FUT-BOLSILLO9            PIC S9(15)V9(2) USAGE COMP-3.
+             10 FUT-VENCIMIENTO          PIC X(10).
+
+          05 LIQ-LIQUIDADO.
+             10 LIQ-NUMEXTLIQ            PIC S9(03)V USAGE COMP-3.
+             10 LIQ-LINEA-ANT            PIC X(04).
+
+          05 ACT-ACTUAL.
+             10 ACT-FACTURACION          PIC X(10).
+
+      *+---------------------------------------------------------------+
+      *                       DEFINICIONES DB2                         *
+      *+---------------------------------------------------------------+
+
+      * TABLA CONCEPTOS
+
+           EXEC  SQL
+               INCLUDE MPDT052
+           END-EXEC.
+
+      * TABLA CONCEPTOS PENDIENTES DE LIQUIDAR
+
+           EXEC  SQL
+               INCLUDE MPDT194
+           END-EXEC.
+
+
+      * TABLA PARAMETROS
+
+           EXEC  SQL
+               INCLUDE MPDT099
+           END-EXEC.
+
+      * TABLA CALENDARIO
+
+           EXEC  SQL
+               INCLUDE MPDT085
+           END-EXEC.
+
+      * TABLA AUTORIZACIONES
+
+           EXEC  SQL
+               INCLUDE MPDT004
+           END-EXEC.
+
+
+      * TABLA DE PAGOS EN AUTORIZACION
+
+           EXEC  SQL
+               INCLUDE MPDT189
+           END-EXEC.
+
+
+      * TABLA DE EXTRACTOS
+
+           EXEC  SQL
+               INCLUDE MPDT011
+           END-EXEC.
+
+      * TABLA DE CONTRATOS
+
+           EXEC  SQL
+               INCLUDE MPDT007
+           END-EXEC.
+
+
+      * TABLA CONTRATO-MONEDA
+
+           EXEC  SQL
+               INCLUDE MPDT163
+           END-EXEC.
+
+      * TABLA EXTRACTOS – TIPO DE SALDO – TIPO DE IMPORTE
+
+           EXEC  SQL
+               INCLUDE MPDT182
+           END-EXEC.
+
+       01 WS-ATEXTIMP.
+           EXEC  SQL
+               INCLUDE ATEXTIMP
+           END-EXEC.
+
+
+      * TABLA DE MOVIMIENTOS DE CREDITOS
+       01  WS-MOVEXT.
+           EXEC  SQL
+               INCLUDE ATMOVEXT
+           END-EXEC.
+
+
+      * TABLA DE ENTIDADES
+       01  WS-ENTBAN.
+           EXEC SQL
+             INCLUDE ATENTBAN
+           END-EXEC.
+
+      * TABLA DE TIPOS DE FACTURA
+       01  WS-TIPFAC.
+           EXEC  SQL
+               INCLUDE  ATTIPFAC
+           END-EXEC.
+
+      * TABLA DE CONCEPTOS ASOCIADOS AL MOVIMIENTO
+       01  WS-MOVCEC.
+           EXEC  SQL
+               INCLUDE ATMOVCEC
+           END-EXEC.
+
+      * TABLA DE PRELACION DE PAGOS
+       01 WS-ATPAGAPL.
+           EXEC  SQL
+               INCLUDE  ATPAGAPL
+           END-EXEC.
+
+           EXEC  SQL
+               INCLUDE MPDT462
+           END-EXEC.
+
+      * AREA DE COMUNICACION CON EL DB2
+
+           EXEC  SQL
+               INCLUDE SQLCA
+           END-EXEC.
+
+      * ERRORES DB2
+
+       01  WS-SQLERR.
+           EXEC  SQL
+               INCLUDE ATSQLERR
+           END-EXEC.
+
+      *+---------------------------------------------------------------+
+      *      DECLARACION DEL CURSOR SOBRE IMPAGOS
+      *+---------------------------------------------------------------+
+
+           EXEC  SQL
+               DECLARE  ATR912_IMPAGO CURSOR  FOR
+                   SELECT  B.CODENT    ,
+                           B.NUMSECIMP ,
+                           B.LINEA     ,
+                           B.TIPIMP    ,
+                           B.IMPORTE   ,
+                           B.IMPAPL    ,
+                           A.FECALTA
+                     FROM  MPDT113 A, MPDT114 B
+                    WHERE  A.CODENT     = :IMP-CODENT
+                      AND  A.CENTALTA   = :IMP-CENTALTA
+                      AND  A.CUENTA     = :IMP-CUENTA
+                      AND  A.CLAMON     = :IMP-CLAMON
+                      AND  ( A.SITUACION  = 0 OR
+                             A.SITUACION  = 1 )
+                      AND  A.CODENT     = B.CODENT
+                      AND  A.NUMSECIMP  = B.NUMSECIMP
+                    ORDER BY B.LINEA ASC, B.TIPIMP ASC, A.NUMSECIMP ASC
+           END-EXEC.
+      *
+
+      *+---------------------------------------------------------------+
+      *      DECLARACION DEL CURSOR SOBRE DEUDA FUTURA
+      *+---------------------------------------------------------------+
+
+           EXEC  SQL
+               DECLARE  ATR912_FUTURO CURSOR  FOR
+               SELECT B.LINEA,
+                      B.FECLIQ,
+                      SUM(B.IMPCAPITAL       - B.IMPCAPAMORT ),
+                      SUM(NVL(C.IMPBRUECO,0) - NVL(C.IMPAMORECO,0)),
+                      SUM(B.IMPINTERESES     - B.IMPINTAMORT ),
+                      SUM(B.IMPIMPTO         - B.IMPIMPAMORT ),
+                      SUM(B.IMPGASTO2        - B.IMPGAS2AMORT)
+                 FROM MPDT205 A, MPDT207 B, MPDT208 C
+                WHERE A.CODENT    = :FUT-CODENT
+                  AND A.CENTALTA  = :FUT-CENTALTA
+                  AND A.CUENTA    = :FUT-CUENTA
+                  AND A.CLAMON    = :FUT-CLAMON
+                  AND B.ESTCUO    = :FUT-ESTCUO
+                  AND A.ESTCOMPRA = :FUT-ESTCOMPRA
+                  AND B.CODENT    = C.CODENT(+)
+                  AND B.CENTALTA  = C.CENTALTA(+)
+                  AND B.CUENTA    = C.CUENTA(+)
+                  AND B.CLAMON    = C.CLAMON(+)
+                  AND B.NUMOPECUO = C.NUMOPECUO(+)
+                  AND B.NUMFINAN  = C.NUMFINAN(+)
+                  AND B.NUMCUOTA  = C.NUMCUOTA(+)
+                  AND A.CODENT    = B.CODENT
+                  AND A.CENTALTA  = B.CENTALTA
+                  AND A.CUENTA    = B.CUENTA
+                  AND A.CLAMON    = B.CLAMON
+                  AND A.NUMOPECUO = B.NUMOPECUO
+                  AND A.NUMFINAN  = B.NUMFINAN
+                  AND A.LINEA     = B.LINEA
+                  AND B.FECLIQ    <= :WS-FECHA-CORTE
+                GROUP BY B.LINEA, B.FECLIQ
+               ORDER BY B.FECLIQ, B.LINEA
+           END-EXEC.
+      *
+      *+---------------------------------------------------------------+
+      *      DECLARACION DEL CURSOR SOBRE LIQUIDADO
+      *+---------------------------------------------------------------+
+
+           EXEC  SQL
+               DECLARE  ATR912_LIQUIDADO CURSOR  FOR
+               SELECT LINEA,
+                      TIPIMP,
+                      IMPINI,
+                      IMPAPL,
+                      IMPFIN
+                 FROM MPDT182
+                WHERE CODENT    = :DCLMPDT182.CODENT
+                  AND CENTALTA  = :DCLMPDT182.CENTALTA
+                  AND CUENTA    = :DCLMPDT182.CUENTA
+                  AND CLAMON    = :DCLMPDT182.CLAMON
+                  AND NUMEXTCTA = :DCLMPDT182.NUMEXTCTA
+               ORDER BY LINEA, TIPIMP
+           END-EXEC.
+
+      *+---------------------------------------------------------------+
+      *      DECLARACION DEL CURSOR SOBRE MOVIMIENTOS DEL SALDO ACTUAL
+      *+---------------------------------------------------------------+
+
+           EXEC  SQL
+               DECLARE  ATR912_ACTUAL1 CURSOR FOR
+                   SELECT CODENT,
+                          CENTALTA,
+                          CUENTA,
+                          NUMEXTCTA,
+                          CLAMON,
+                          NUMMOVEXT,
+                          TIPOFAC,
+                          INDNORCOR,
+                          INDMOVANU,
+                          IMPFAC,
+                          IMPIMPTO,
+                          LINEA,
+      * MANTIS-0014462-INI
+                          FECFAC
+      * MANTIS-0014462-FIN
+                     FROM MPDT012
+                    WHERE CODENT    = :W12CODENT
+                      AND CENTALTA  = :W12CENTALTA
+                      AND CUENTA    = :W12CUENTA
+                      AND NUMEXTCTA = :W12NUMEXTCTA
+                      AND CLAMON    = :W12CLAMON
+                      ORDER BY NUMEXTCTA, NUMMOVEXT
+           END-EXEC.
+
+      *+---------------------------------------------------------------+
+      *      DECLARACION DEL CURSOR SOBRE CONCEPTOS DEL SALDO ACTUAL
+      *+---------------------------------------------------------------+
+
+           EXEC  SQL
+               DECLARE  ATR912_CONCEP CURSOR FOR
+                   SELECT CODENT,
+                          CENTALTA,
+                          CUENTA,
+                          NUMEXTCTA,
+                          CLAMON,
+                          NUMMOVEXT,
+                          CODCONECO,
+                          TIPIMP,
+                          IMPAPLECO,
+                          IMPBRUECO,
+                          IMPBONECO,
+                          IMPIMPTO
+                     FROM MPDT151
+                    WHERE CODENT    = :W151CODENT
+                      AND CENTALTA  = :W151CENTALTA
+                      AND CUENTA    = :W151CUENTA
+                      AND CLAMON    = :W151CLAMON
+                      AND NUMEXTCTA = :W151NUMEXTCTA
+                      AND NUMMOVEXT = :W151NUMMOVEXT
+                      ORDER BY CODCONECO
+           END-EXEC.
+
+      *+---------------------------------------------------------------+
+      *      DECLARACION DEL CURSOR SOBRE PAGOS EN EL ACTUAL
+      *+---------------------------------------------------------------+
+
+           EXEC  SQL
+               DECLARE  ATR912_PAGOS CURSOR FOR
+                   SELECT LINEA    ,
+                          FECFUTVTO,
+                          SITDEUDA ,
+                          TIPSAL   ,
+                          TIPIMP   ,
+                          FECAPL   ,
+                          IMPAPL   ,
+                          NOMBRETAREA
+                     FROM MPDT462
+                    WHERE CODENT    = :W462CODENT
+                      AND CENTALTA  = :W462CENTALTA
+                      AND CUENTA    = :W462CUENTA
+                      AND NUMEXTCTA = :W462NUMEXTCTA
+                      AND NUMMOVEXT = :W462NUMMOVEXT
+                      AND CLAMON    = :W462CLAMON
+                      AND (SITDEUDA  = 'A' OR
+                           SITDEUDA  = 'L')
+           END-EXEC.
+      *
+
+      *+---------------------------------------------------------------+
+      *      DECLARACION DEL CURSOR SOBRE PAGOS EN EL ACTUAL
+      *+---------------------------------------------------------------+
+
+           EXEC  SQL
+               DECLARE  ATR912_AUTORIZA CURSOR FOR
+                   SELECT IMPAUTCON,
+                          DATADI
+                     FROM MPDT004
+                    WHERE CODENT    = :DCLMPDT004.CODENT
+                      AND CENTALTA  = :DCLMPDT004.CENTALTA
+                      AND CUENTA    = :DCLMPDT004.CUENTA
+                      AND INDCRUCE  = '0'
+                      AND INDANUL   = 0
+                      AND ( CODRESPU = '000' OR CODRESPU = '900')
+                      AND NOT (TIPOMSGON = '1220'
+                                AND CODPROON  = 200000 )
+                      AND IMPAUTCON <> 0
+           END-EXEC.
+
+
+           EXEC SQL END DECLARE SECTION END-EXEC.
+
+      * ================================================================
+      *                 TABLAS WORKING INTERNAS
+      * ================================================================
+       01 WORKING-LIQUIDADO.
+          10 LIQUIDADO-MAX-DD-IND         PIC S9(3) COMP-3.
+          10 LIQUIDADO-CONTENIDO OCCURS 99 TIMES
+                                 INDEXED BY LIQ-IND.
+             15 LIQUIDADO-CLAMON     PIC S9(3).
+             15 LIQUIDADO-LINEA      PIC X(4).
+             15 LIQUIDADO-FECFUTVTO  PIC S9(06) COMP-3.
+             15 LIQUIDADO-SITDEUDA   PIC X(1).
+             15 LIQUIDADO-IMPDEUDA1  PIC S9(15)V9(2) COMP-3.
+             15 LIQUIDADO-IMPDEUDA2  PIC S9(15)V9(2) COMP-3.
+             15 LIQUIDADO-IMPDEUDA3  PIC S9(15)V9(2) COMP-3.
+             15 LIQUIDADO-IMPDEUDA4  PIC S9(15)V9(2) COMP-3.
+             15 LIQUIDADO-IMPDEUDA5  PIC S9(15)V9(2) COMP-3.
+             15 LIQUIDADO-IMPDEUDA6  PIC S9(15)V9(2) COMP-3.
+             15 LIQUIDADO-IMPDEUDA7  PIC S9(15)V9(2) COMP-3.
+             15 LIQUIDADO-IMPDEUDA8  PIC S9(15)V9(2) COMP-3.
+             15 LIQUIDADO-IMPDEUDA9  PIC S9(15)V9(2) COMP-3.
+             15 LIQUIDADO-IMPDEUDA10 PIC S9(15)V9(2) COMP-3.
+
+       01 WORKING-ACTUAL.
+          10 ACTUAL-MAX-DD-IND         PIC S9(3) COMP-3.
+          10 ACTUAL-CONTENIDO OCCURS 99 TIMES
+                                 INDEXED BY ACT-IND.
+             15 ACTUAL-CLAMON     PIC S9(3).
+             15 ACTUAL-LINEA      PIC X(4).
+             15 ACTUAL-FECFUTVTO  PIC S9(06) COMP-3.
+             15 ACTUAL-SITDEUDA   PIC X(1).
+             15 ACTUAL-IMPDEUDA1  PIC S9(15)V9(2) COMP-3.
+             15 ACTUAL-IMPDEUDA2  PIC S9(15)V9(2) COMP-3.
+             15 ACTUAL-IMPDEUDA3  PIC S9(15)V9(2) COMP-3.
+             15 ACTUAL-IMPDEUDA4  PIC S9(15)V9(2) COMP-3.
+             15 ACTUAL-IMPDEUDA5  PIC S9(15)V9(2) COMP-3.
+             15 ACTUAL-IMPDEUDA6  PIC S9(15)V9(2) COMP-3.
+             15 ACTUAL-IMPDEUDA7  PIC S9(15)V9(2) COMP-3.
+             15 ACTUAL-IMPDEUDA8  PIC S9(15)V9(2) COMP-3.
+             15 ACTUAL-IMPDEUDA9  PIC S9(15)V9(2) COMP-3.
+             15 ACTUAL-IMPDEUDA10 PIC S9(15)V9(2) COMP-3.
+
+
+      * ================================================================
+       LINKAGE SECTION.
+      * ================================================================
+
+      * COPY PARA TEMPORAL
+       01  LK-ATPAGPER.
+           COPY ATPAGPER.
+
+       01 FILLER                          PIC X(25)
+               VALUE 'FINAL WORKING ATR912'.
+
+      *+---------------------------------------------------------------+
+      *                        PROCEDURE DIVISION                      *
+      *                        ==================                      *
+      *+---------------------------------------------------------------+
+       PROCEDURE DIVISION USING LK-ATPAGPER.
+      *------------------------------------.
+       COMIENZO-ATR912.
+      *---------------.
+
+           PERFORM 10000-INICIO
+
+           PERFORM 20000-PROCESO
+
+           PERFORM 30000-FINAL.
+
+
+      * ================================================================
+       10000-INICIO.
+      * ================================================================
+
+      *     DISPLAY 'ATR912 FECHA DE VERSION 05-02-2016'
+           PERFORM  11000-INICIALIZAR-VARIABLES
+      *GAP-PRODTAR-INI
+           PERFORM 12000-PARAM-CORTE-REDONDEO
+      *GAP-PRODTAR-FIN
+           PERFORM  12000-VALIDAR-DATOS.
+
+
+      * ================================================================
+       11000-INICIALIZAR-VARIABLES.
+      * ================================================================
+
+           INITIALIZE WS-VARIABLES
+                      WS-VARIABLES-HOST
+
+           SET ATPAGMAX-CODRET-OK    TO     TRUE
+           MOVE 1      TO LIQUIDADO-MAX-DD-IND
+           MOVE 1      TO ACTUAL-MAX-DD-IND
+
+           SET DD-IND                TO     CT-VALOR-1
+           PERFORM 11100-INICIALIZAR-TABLA
+             UNTIL DD-IND GREATER CT-MAX-FILAS
+
+           SET DD-IND                TO     CT-VALOR-1
+           PERFORM 11100-INICIALIZAR-TABLA-LIQ
+             UNTIL DD-IND GREATER CT-MAX-FILAS-LIQ
+
+           SET DD-IND             TO CT-VALOR-1
+
+           SET DD-IND                TO     CT-VALOR-1
+           PERFORM 11100-INICIALIZAR-TABLA-ACT
+             UNTIL DD-IND GREATER CT-MAX-FILAS-ACT
+
+           SET DD-IND             TO CT-VALOR-1
+
+           MOVE ATPAGPER-E-CODENT          TO ATPAGMAX-E-CODENT
+           MOVE ATPAGPER-E-CENTALTA        TO ATPAGMAX-E-CENTALTA
+           MOVE ATPAGPER-E-CUENTA          TO ATPAGMAX-E-CUENTA
+           MOVE ATPAGPER-E-CLAMON          TO ATPAGMAX-E-CLAMON
+
+           .
+
+
+      * ================================================================
+       11100-INICIALIZAR-TABLA.
+      * ================================================================
+
+           MOVE ZEROS  TO ATPAGMAX-S-CLAMON     (DD-IND)
+           MOVE SPACES TO ATPAGMAX-S-LINEA      (DD-IND)
+           MOVE ZEROS  TO ATPAGMAX-S-FECFUTVTO  (DD-IND)
+           MOVE SPACES TO ATPAGMAX-S-SITDEUDA   (DD-IND)
+           MOVE ZEROS  TO ATPAGMAX-S-IMPDEUDA1  (DD-IND)
+           MOVE ZEROS  TO ATPAGMAX-S-IMPDEUDA2  (DD-IND)
+           MOVE ZEROS  TO ATPAGMAX-S-IMPDEUDA3  (DD-IND)
+           MOVE ZEROS  TO ATPAGMAX-S-IMPDEUDA4  (DD-IND)
+           MOVE ZEROS  TO ATPAGMAX-S-IMPDEUDA5  (DD-IND)
+           MOVE ZEROS  TO ATPAGMAX-S-IMPDEUDA6  (DD-IND)
+           MOVE ZEROS  TO ATPAGMAX-S-IMPDEUDA7  (DD-IND)
+           MOVE ZEROS  TO ATPAGMAX-S-IMPDEUDA8  (DD-IND)
+           MOVE ZEROS  TO ATPAGMAX-S-IMPDEUDA9  (DD-IND)
+           MOVE ZEROS  TO ATPAGMAX-S-IMPDEUDA10 (DD-IND)
+           SET DD-IND UP BY 1
+           .
+
+      * ================================================================
+       11100-INICIALIZAR-TABLA-LIQ.
+      * ================================================================
+
+           MOVE ZEROS  TO LIQUIDADO-CLAMON     (DD-IND)
+           MOVE SPACES TO LIQUIDADO-LINEA      (DD-IND)
+           MOVE ZEROS  TO LIQUIDADO-FECFUTVTO  (DD-IND)
+           MOVE SPACES TO LIQUIDADO-SITDEUDA   (DD-IND)
+           MOVE ZEROS  TO LIQUIDADO-IMPDEUDA1  (DD-IND)
+           MOVE ZEROS  TO LIQUIDADO-IMPDEUDA2  (DD-IND)
+           MOVE ZEROS  TO LIQUIDADO-IMPDEUDA3  (DD-IND)
+           MOVE ZEROS  TO LIQUIDADO-IMPDEUDA4  (DD-IND)
+           MOVE ZEROS  TO LIQUIDADO-IMPDEUDA5  (DD-IND)
+           MOVE ZEROS  TO LIQUIDADO-IMPDEUDA6  (DD-IND)
+           MOVE ZEROS  TO LIQUIDADO-IMPDEUDA7  (DD-IND)
+           MOVE ZEROS  TO LIQUIDADO-IMPDEUDA8  (DD-IND)
+           MOVE ZEROS  TO LIQUIDADO-IMPDEUDA9  (DD-IND)
+           MOVE ZEROS  TO LIQUIDADO-IMPDEUDA10 (DD-IND)
+           SET DD-IND UP BY 1
+           .
+
+      * ================================================================
+       11100-INICIALIZAR-TABLA-ACT.
+      * ================================================================
+
+           MOVE ZEROS  TO ACTUAL-CLAMON     (DD-IND)
+           MOVE SPACES TO ACTUAL-LINEA      (DD-IND)
+           MOVE ZEROS  TO ACTUAL-FECFUTVTO  (DD-IND)
+           MOVE SPACES TO ACTUAL-SITDEUDA   (DD-IND)
+           MOVE ZEROS  TO ACTUAL-IMPDEUDA1  (DD-IND)
+           MOVE ZEROS  TO ACTUAL-IMPDEUDA2  (DD-IND)
+           MOVE ZEROS  TO ACTUAL-IMPDEUDA3  (DD-IND)
+           MOVE ZEROS  TO ACTUAL-IMPDEUDA4  (DD-IND)
+           MOVE ZEROS  TO ACTUAL-IMPDEUDA5  (DD-IND)
+           MOVE ZEROS  TO ACTUAL-IMPDEUDA6  (DD-IND)
+           MOVE ZEROS  TO ACTUAL-IMPDEUDA7  (DD-IND)
+           MOVE ZEROS  TO ACTUAL-IMPDEUDA8  (DD-IND)
+           MOVE ZEROS  TO ACTUAL-IMPDEUDA9  (DD-IND)
+           MOVE ZEROS  TO ACTUAL-IMPDEUDA10 (DD-IND)
+           SET DD-IND UP BY 1
+           .
+      *GAP-PRODTAR-INI
+      *=================================================================
+       12000-PARAM-CORTE-REDONDEO.
+      *=================================================================
+
+           INITIALIZE WS-ATRUTPAR
+
+           MOVE  CT-REDONDEO               TO    RUTPAR-CODPAR
+           MOVE  CT-ALF-0001               TO    RUTPAR-CODENT
+           MOVE  CT-ACTIVO                 TO    RUTPAR-CODVAR
+           MOVE  ATPAGPER-E-FECHA          TO    RUTPAR-FECHA
+      *    MOVE  WS-FECHA-CORTE            TO    RUTPAR-FECHA
+
+           CALL  CT-ATR100  USING ATRUTPAR
+
+           EVALUATE TRUE
+             WHEN RUTPAR-OK
+                  MOVE RUTPAR-CODVALOR-DET(1)   TO WS-PARAM-CORTE
+             WHEN RUTPAR-NO-OK
+               MOVE  CT-ATR100             TO    DESCRIP-ERR(1)
+               MOVE  RUTPAR-ERROR-ONLINE   TO    VALOR-ERR(1)
+               MOVE  CT-CODENT             TO    DESCRIP-ERR(2)
+               MOVE  ATPAGPER-E-CODENT     TO    VALOR-ERR(2)
+               MOVE  CT-REDONDEO           TO    DESCRIP-ERR(3)
+               MOVE  CT-VALOR-0            TO    FLAG-FIN-CORRECTO
+               PERFORM  30000-FINAL
+             WHEN RUTPAR-NO-OK-BD
+               MOVE  RUTPAR-NOMBRE-BD      TO    NOMBRE-BD
+               MOVE  RUTPAR-NOMBRE-TABLA   TO    NOMBRE-TABLA
+               MOVE  RUTPAR-OPERACION      TO    OPERACION
+               MOVE  RUTPAR-ERROR          TO    NUMERO-ERROR
+               MOVE  CT-CODENT             TO    DESCRIP-ERR(1)
+               MOVE  ATPAGPER-E-CODENT     TO    VALOR-ERR(1)
+               MOVE  CT-REDONDEO           TO    DESCRIP-ERR(2)
+               MOVE  CT-VALOR-0            TO    FLAG-FIN-CORRECTO
+               PERFORM  30000-FINAL
+           END-EVALUATE.
+      *GAP-PRODTAR-FIN
+      * ================================================================
+       12000-VALIDAR-DATOS.
+      * ================================================================
+
+           IF  ATPAGMAX-E-CODENT EQUAL ZEROS OR LOW-VALUES OR SPACES
+               MOVE CT-CODENT             TO ATPAGMAX-VAR1-ERROR1
+               MOVE CT-MPA0002            TO ATPAGMAX-COD-ERROR1
+               SET ATPAGMAX-CODRET-ERROR  TO TRUE
+               PERFORM  30000-FINAL
+           END-IF
+
+           IF  ATPAGMAX-E-CENTALTA EQUAL ZEROS OR LOW-VALUES OR SPACES
+               MOVE CT-CENTALTA           TO ATPAGMAX-VAR1-ERROR1
+               MOVE CT-MPA0002            TO ATPAGMAX-COD-ERROR1
+               SET ATPAGMAX-CODRET-ERROR  TO TRUE
+               PERFORM  30000-FINAL
+           END-IF
+
+           IF  ATPAGMAX-E-CUENTA EQUAL ZEROS OR LOW-VALUES OR SPACES
+               MOVE CT-CUENTA             TO ATPAGMAX-VAR1-ERROR1
+               MOVE CT-MPA0002            TO ATPAGMAX-COD-ERROR1
+               SET ATPAGMAX-CODRET-ERROR  TO TRUE
+               PERFORM  30000-FINAL
+           END-IF
+
+           IF ATPAGMAX-E-CLAMON IS NOT NUMERIC
+               MOVE CT-CLAMON             TO ATPAGMAX-VAR1-ERROR1
+               MOVE CT-MPA0001            TO ATPAGMAX-COD-ERROR1
+               SET ATPAGMAX-CODRET-ERROR  TO TRUE
+               PERFORM  30000-FINAL
+           ELSE
+               IF ATPAGMAX-E-CLAMON  EQUAL ZEROS
+                   MOVE CT-CLAMON             TO ATPAGMAX-VAR1-ERROR1
+                   MOVE CT-MPA0002            TO ATPAGMAX-COD-ERROR1
+                   SET ATPAGMAX-CODRET-ERROR  TO TRUE
+                   PERFORM  30000-FINAL
+               END-IF
+           END-IF
+           .
+
+
+      * ================================================================
+       20000-PROCESO.
+      * ================================================================
+
+           PERFORM 20050-OBTENER-GRUPOLIQ
+           PERFORM 20040-VALOR-TOPE-ALTO
+           PERFORM 20100-OBTENER-DEUDA-IMPAGA
+           PERFORM 20200-OBTENER-DEUDA-LIQUIDADA
+           PERFORM 20300-OBTENER-DEUDA-ACTUAL
+           PERFORM 20400-OBTENER-DEUDA-FUTURA
+           PERFORM 20500-OBTENER-AUTORIZADO
+
+           PERFORM 20230E-VOLCAR-WORK
+           PERFORM 20230E-VOLCAR-WORK-ACTUAL
+            SET ATPAGMAX-MAX-DD-IND  TO DD-IND
+           .
+
+      * ================================================================
+       20100-OBTENER-DEUDA-IMPAGA.
+      * ================================================================
+
+            PERFORM 20110-OBTENER-IMPAGOS-PTES.
+
+
+      * ================================================================
+       20110-OBTENER-IMPAGOS-PTES.
+      * ================================================================
+
+           PERFORM 20110A-OPEN-CURSOR-113-114
+
+           PERFORM 20110B-FETCH-CURSOR-113-114
+                   UNTIL FIN-CURSOR-IMPAGOS
+
+           PERFORM 20110C-CLOSE-CURSOR-113-114.
+
+
+      * ================================================================
+       20110A-OPEN-CURSOR-113-114.
+      * ================================================================
+
+           SET NO-FIN-CURSOR-IMPAGOS TO  TRUE
+
+           MOVE ATPAGMAX-E-CODENT    TO  IMP-CODENT
+           MOVE ATPAGMAX-E-CENTALTA  TO  IMP-CENTALTA
+           MOVE ATPAGMAX-E-CUENTA    TO  IMP-CUENTA
+           MOVE ATPAGMAX-E-CLAMON    TO  IMP-CLAMON
+
+           EXEC SQL
+               OPEN ATR912_IMPAGO
+           END-EXEC
+
+           MOVE SQLCODE               TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+               MOVE CT-MP                     TO ATPAGMAX-NOMBRE-BD
+               MOVE CT-PROGRAMA               TO ATPAGMAX-NOMBRE-RUTINA
+               MOVE CT-TABLA1                 TO ATPAGMAX-NOMBRE-TABLA
+               MOVE CT-ABRIR-CURSOR           TO ATPAGMAX-OPERACION
+               MOVE SQLCODE                   TO ATPAGMAX-SQLCODE
+               SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+               PERFORM 30000-FINAL
+           END-IF.
+
+      * ================================================================
+       20110B-FETCH-CURSOR-113-114.
+      * ================================================================
+
+
+           EXEC SQL
+               FETCH ATR912_IMPAGO
+                INTO :IMP-CODENT    ,
+                     :IMP-NUMSECIMP ,
+                     :IMP-LINEA     ,
+                     :IMP-TIPIMP    ,
+                     :IMP-IMPORTE   ,
+                     :IMP-IMPAPL    ,
+                     :IMP-FECALTA
+           END-EXEC
+
+           MOVE SQLCODE                   TO ATSQLERR
+           EVALUATE TRUE
+            WHEN ACCESO-CORRECTO-BD
+
+              COMPUTE WS-DEUDA-IMPORTE = IMP-IMPORTE - IMP-IMPAPL
+
+              IF IMP-LINEA  <> WS-LINEA-ANT
+                 OR IMP-TIPIMP <> WS-TIPIMP-ANT
+
+                 MOVE IMP-CODENT      TO WS-CODENT-ANT
+                 MOVE IMP-NUMSECIMP   TO WS-NUMSECIMP-ANT
+                 MOVE IMP-LINEA       TO WS-LINEA-ANT
+                 MOVE IMP-TIPIMP      TO WS-TIPIMP-ANT
+                 MOVE IMP-IMPORTE     TO WS-IMPORTE-ANT
+                 MOVE IMP-IMPAPL      TO WS-IMPAPL-ANT
+                 MOVE IMP-FECALTA     TO WS-FECALTA-ANT
+
+                 PERFORM 20111-SEARCH-WORK
+                 IF SI-ENCONTRADO-WORK
+                    MOVE DD-IND-AUX   TO   IND-AUX
+                    PERFORM 20112-ACUMULAR-TIPIMP
+                 ELSE
+                    MOVE IMP-FECALTA(1:4) TO WS-FECFUTVTO-N(1:4)
+                    MOVE IMP-FECALTA(6:2) TO WS-FECFUTVTO-N(5:2)
+                    MOVE IMP-CLAMON      TO ATPAGMAX-S-CLAMON(DD-IND)
+                    MOVE IMP-LINEA       TO ATPAGMAX-S-LINEA(DD-IND)
+                    MOVE WS-FECFUTVTO-N  TO ATPAGMAX-S-FECFUTVTO(DD-IND)
+                    MOVE CT-IMPAGO       TO ATPAGMAX-S-SITDEUDA(DD-IND)
+                    SET IND-AUX  TO   DD-IND
+                    SET DD-IND        UP BY 1
+                    PERFORM 20112-ACUMULAR-TIPIMP
+                 END-IF
+              ELSE
+                 MOVE IMP-IMPORTE        TO WS-IMPORTE-AUX
+                 MOVE IMP-IMPAPL         TO WS-IMPAPL-AUX
+                 SUBTRACT WS-IMPORTE-ANT FROM IMP-IMPORTE
+                 SUBTRACT WS-IMPAPL-ANT  FROM IMP-IMPAPL
+                 MOVE WS-IMPORTE-AUX    TO WS-IMPORTE-ANT
+                 MOVE WS-IMPAPL-AUX     TO WS-IMPAPL-ANT
+                 COMPUTE WS-DEUDA-IMPORTE = IMP-IMPORTE - IMP-IMPAPL
+                 PERFORM 20111-SEARCH-WORK
+                 IF SI-ENCONTRADO-WORK
+                    MOVE DD-IND-AUX   TO   IND-AUX
+                    PERFORM 20112-ACUMULAR-TIPIMP
+                 ELSE
+                    MOVE IMP-FECALTA(1:4) TO WS-FECFUTVTO-N(1:4)
+                    MOVE IMP-FECALTA(6:2) TO WS-FECFUTVTO-N(5:2)
+                    MOVE IMP-CLAMON      TO ATPAGMAX-S-CLAMON(DD-IND)
+                    MOVE IMP-LINEA       TO ATPAGMAX-S-LINEA(DD-IND)
+                    MOVE WS-FECFUTVTO-N  TO ATPAGMAX-S-FECFUTVTO(DD-IND)
+                    MOVE CT-IMPAGO       TO ATPAGMAX-S-SITDEUDA(DD-IND)
+                    SET IND-AUX  TO   DD-IND
+                    SET DD-IND        UP BY 1
+                    PERFORM 20112-ACUMULAR-TIPIMP
+                 END-IF
+
+            WHEN REG-NO-EXISTENTE-BD
+              SET FIN-CURSOR-IMPAGOS        TO TRUE
+            WHEN OTHER
+              MOVE CT-MP                    TO ATPAGMAX-NOMBRE-BD
+              MOVE CT-PROGRAMA              TO ATPAGMAX-NOMBRE-RUTINA
+              MOVE CT-TABLA1                TO ATPAGMAX-NOMBRE-TABLA
+              MOVE CT-FETCH-CURSOR          TO ATPAGMAX-OPERACION
+              MOVE SQLCODE                  TO ATPAGMAX-SQLCODE
+              SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+              PERFORM 30000-FINAL
+           END-EVALUATE.
+
+      * ================================================================
+       20111-SEARCH-WORK.
+      * ================================================================
+           SET NO-ENCONTRADO-WORK TO TRUE
+           MOVE IMP-FECALTA(1:4) TO WS-FECFUTVTO-N(1:4)
+           MOVE IMP-FECALTA(6:2) TO WS-FECFUTVTO-N(5:2)
+           MOVE 1                TO DD-IND-AUX
+
+           PERFORM UNTIL DD-IND-AUX > DD-IND OR SI-ENCONTRADO-WORK
+                IF ATPAGMAX-S-CLAMON(DD-IND-AUX)   = IMP-CLAMON     AND
+                   ATPAGMAX-S-LINEA(DD-IND-AUX)    = IMP-LINEA      AND
+                   ATPAGMAX-S-FECFUTVTO(DD-IND-AUX)= WS-FECFUTVTO-N AND
+                   ATPAGMAX-S-SITDEUDA(DD-IND-AUX) = CT-IMPAGO
+                   SET SI-ENCONTRADO-WORK TO TRUE
+                ELSE
+                   ADD 1 TO DD-IND-AUX
+                END-IF
+           END-PERFORM.
+
+      * ================================================================
+       20112-ACUMULAR-TIPIMP.
+      * ================================================================
+
+           EVALUATE IMP-TIPIMP
+               WHEN CT-CAPITAL-FINAN
+                  ADD  WS-DEUDA-IMPORTE TO ATPAGMAX-S-IMPDEUDA1(IND-AUX)
+
+               WHEN CT-COMISION
+                  ADD WS-DEUDA-IMPORTE TO ATPAGMAX-S-IMPDEUDA2(IND-AUX)
+
+               WHEN CT-INTERESES
+                  ADD WS-DEUDA-IMPORTE TO ATPAGMAX-S-IMPDEUDA3(IND-AUX)
+
+               WHEN CT-IMPUESTO
+                  ADD WS-DEUDA-IMPORTE TO ATPAGMAX-S-IMPDEUDA4(IND-AUX)
+
+               WHEN CT-COMISION-MORA
+                  ADD WS-DEUDA-IMPORTE TO ATPAGMAX-S-IMPDEUDA5(IND-AUX)
+
+               WHEN CT-INTERESES-MORA
+                  ADD WS-DEUDA-IMPORTE TO ATPAGMAX-S-IMPDEUDA6(IND-AUX)
+
+               WHEN CT-IMPUESTO-MORA
+                  ADD WS-DEUDA-IMPORTE TO ATPAGMAX-S-IMPDEUDA7(IND-AUX)
+
+               WHEN CT-CAPITAL-NO-FINAN
+                  ADD WS-DEUDA-IMPORTE TO ATPAGMAX-S-IMPDEUDA8(IND-AUX)
+
+               WHEN CT-GASTO-GSIC
+                  ADD WS-DEUDA-IMPORTE TO ATPAGMAX-S-IMPDEUDA9(IND-AUX)
+
+               WHEN CT-COMISION-EXTRACTO
+                  ADD WS-DEUDA-IMPORTE TO ATPAGMAX-S-IMPDEUDA10(IND-AUX)
+           END-EVALUATE.
+
+
+      * ================================================================
+       20110C-CLOSE-CURSOR-113-114.
+      * ================================================================
+
+           EXEC SQL
+              CLOSE ATR912_IMPAGO
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+              MOVE CT-MP                      TO ATPAGMAX-NOMBRE-BD
+              MOVE CT-PROGRAMA                TO ATPAGMAX-NOMBRE-RUTINA
+              MOVE CT-TABLA1                  TO ATPAGMAX-NOMBRE-TABLA
+              MOVE CT-CERRAR-CURSOR           TO ATPAGMAX-OPERACION
+              MOVE SQLCODE                    TO ATPAGMAX-SQLCODE
+              SET  ATPAGMAX-CODRET-ERROR-DB2  TO TRUE
+              PERFORM 30000-FINAL
+           END-IF.
+      * ================================================================
+       20400-OBTENER-DEUDA-FUTURA.
+      * ================================================================
+
+           PERFORM 20410-OBTENER-CUOTAS-PTES.
+
+
+      * ================================================================
+       20410-OBTENER-CUOTAS-PTES.
+      * ================================================================
+            PERFORM 204120B-BUSCAR-FECHA-CORTE
+            PERFORM 20410A-OPEN-CURSOR-205-207
+            PERFORM 20410B-FETCH-CURSOR-205-207
+              UNTIL FIN-CURSOR-FUTUROS
+
+            PERFORM 20410C-CLOSE-CURSOR-205-207
+            .
+
+
+      * ================================================================
+       20410A-OPEN-CURSOR-205-207.
+      * ================================================================
+
+           SET NO-FIN-CURSOR-FUTUROS TO  TRUE
+
+
+
+           MOVE ATPAGMAX-E-CODENT    TO  FUT-CODENT
+           MOVE ATPAGMAX-E-CENTALTA  TO  FUT-CENTALTA
+           MOVE ATPAGMAX-E-CUENTA    TO  FUT-CUENTA
+           MOVE ATPAGMAX-E-CLAMON    TO  FUT-CLAMON
+           MOVE CT-ACTIVA            TO  FUT-ESTCOMPRA
+           MOVE CT-PENDIENTE         TO  FUT-ESTCUO
+
+           EXEC SQL
+               OPEN ATR912_FUTURO
+           END-EXEC
+
+           MOVE SQLCODE               TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+               MOVE CT-MP                     TO ATPAGMAX-NOMBRE-BD
+               MOVE CT-PROGRAMA               TO ATPAGMAX-NOMBRE-RUTINA
+               MOVE CT-TABLA1                 TO ATPAGMAX-NOMBRE-TABLA
+               MOVE CT-ABRIR-CURSOR           TO ATPAGMAX-OPERACION
+               MOVE SQLCODE                   TO ATPAGMAX-SQLCODE
+               SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+               PERFORM 30000-FINAL
+           END-IF.
+
+
+      * ================================================================
+       20410B-FETCH-CURSOR-205-207.
+      * ================================================================
+
+           EXEC SQL
+               FETCH ATR912_FUTURO
+                INTO :FUT-LINEA       ,
+                     :FUT-FECLIQ      ,
+                     :FUT-BOLSILLO1   ,
+                     :FUT-BOLSILLO2   ,
+                     :FUT-BOLSILLO3   ,
+                     :FUT-BOLSILLO4   ,
+                     :FUT-BOLSILLO9
+           END-EXEC
+
+           MOVE SQLCODE                   TO ATSQLERR
+           EVALUATE TRUE
+            WHEN ACCESO-CORRECTO-BD
+                 PERFORM 20411B-ACUMULAR-FUTURO
+            WHEN REG-NO-EXISTENTE-BD
+              SET FIN-CURSOR-FUTUROS        TO TRUE
+            WHEN OTHER
+              MOVE CT-MP                    TO ATPAGMAX-NOMBRE-BD
+              MOVE CT-PROGRAMA              TO ATPAGMAX-NOMBRE-RUTINA
+              MOVE CT-TABLA1                TO ATPAGMAX-NOMBRE-TABLA
+              MOVE CT-FETCH-CURSOR          TO ATPAGMAX-OPERACION
+              MOVE SQLCODE                  TO ATPAGMAX-SQLCODE
+              SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+              PERFORM 30000-FINAL
+           END-EVALUATE.
+
+      * ================================================================
+       20411B-ACUMULAR-FUTURO.
+      * ================================================================
+
+           MOVE FUT-CLAMON        TO ATPAGMAX-S-CLAMON    (DD-IND)
+           MOVE FUT-LINEA         TO ATPAGMAX-S-LINEA     (DD-IND)
+
+           MOVE ATPAGMAX-E-CODENT      TO CODENT     OF DCLMPDT085
+           MOVE ATPAGMAX-E-CODPROCESO  TO CODPROCESO OF DCLMPDT085
+           MOVE ATPAGMAX-E-CODGRUPO    TO CODGRUPO   OF DCLMPDT085
+           MOVE CT-VENCIMIENTO         TO TIPFECHA   OF DCLMPDT085
+           MOVE FUT-FECLIQ             TO FECHA      OF DCLMPDT085
+
+           PERFORM 204120B-BUSCAR-FV
+
+           MOVE FUT-VENCIMIENTO(1:4)   TO WS-FECFUTVTO-N(1:4)
+           MOVE FUT-VENCIMIENTO(6:2)   TO WS-FECFUTVTO-N(5:2)
+
+           MOVE WS-FECFUTVTO-N    TO ATPAGMAX-S-FECFUTVTO (DD-IND)
+           MOVE FUT-BOLSILLO1     TO ATPAGMAX-S-IMPDEUDA1 (DD-IND)
+           MOVE FUT-BOLSILLO2     TO ATPAGMAX-S-IMPDEUDA2 (DD-IND)
+           MOVE FUT-BOLSILLO3     TO ATPAGMAX-S-IMPDEUDA3 (DD-IND)
+           MOVE FUT-BOLSILLO4     TO ATPAGMAX-S-IMPDEUDA4 (DD-IND)
+           MOVE FUT-BOLSILLO9     TO ATPAGMAX-S-IMPDEUDA9 (DD-IND)
+           MOVE CT-FUTURO         TO ATPAGMAX-S-SITDEUDA  (DD-IND)
+           MOVE ZEROES            TO ATPAGMAX-S-IMPDEUDA5 (DD-IND)
+                                     ATPAGMAX-S-IMPDEUDA6 (DD-IND)
+                                     ATPAGMAX-S-IMPDEUDA7 (DD-IND)
+                                     ATPAGMAX-S-IMPDEUDA8 (DD-IND)
+                                     ATPAGMAX-S-IMPDEUDA10(DD-IND)
+           SET DD-IND        UP BY 1
+           .
+
+      * ================================================================
+       204120B-BUSCAR-FV.
+      * ================================================================
+
+           EXEC  SQL
+                SELECT MIN(FECHA)
+                 INTO   :FUT-VENCIMIENTO
+                FROM MPDT085
+                WHERE   CODENT     = :DCLMPDT085.CODENT
+                    AND CODPROCESO = :DCLMPDT085.CODPROCESO
+                    AND CODGRUPO   = :DCLMPDT085.CODGRUPO
+                    AND TIPFECHA   = :DCLMPDT085.TIPFECHA
+                    AND FECHA      > :DCLMPDT085.FECHA
+           END-EXEC
+
+           MOVE SQLCODE             TO    ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD OR VALOR-CAMPO-NULO
+              MOVE CT-MP                    TO ATPAGMAX-NOMBRE-BD
+              MOVE CT-PROGRAMA              TO ATPAGMAX-NOMBRE-RUTINA
+              MOVE CT-TABLA85               TO ATPAGMAX-NOMBRE-TABLA
+              MOVE CT-SELECT                TO ATPAGMAX-OPERACION
+              MOVE SQLCODE                  TO ATPAGMAX-SQLCODE
+              SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+              PERFORM 30000-FINAL
+           END-IF.
+
+      * ================================================================
+       20410C-CLOSE-CURSOR-205-207.
+      * ================================================================
+
+           EXEC SQL
+              CLOSE ATR912_FUTURO
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+              MOVE CT-MP                      TO ATPAGMAX-NOMBRE-BD
+              MOVE CT-PROGRAMA                TO ATPAGMAX-NOMBRE-RUTINA
+              MOVE CT-TABLA1                  TO ATPAGMAX-NOMBRE-TABLA
+              MOVE CT-CERRAR-CURSOR           TO ATPAGMAX-OPERACION
+              MOVE SQLCODE                    TO ATPAGMAX-SQLCODE
+              SET  ATPAGMAX-CODRET-ERROR-DB2  TO TRUE
+              PERFORM 30000-FINAL
+           END-IF.
+
+      * ================================================================
+       20200-OBTENER-DEUDA-LIQUIDADA.
+      * ================================================================
+
+           PERFORM 20210-OBTENER-EXTRACTO
+
+           IF NUMULTEXT OF DCLMPDT163 <> ZEROES
+      *       SINO SIGNIFICA QUE NO HA FACTURADO NUNCA
+      * PRELACION DE PAGOS-INI
+      *          IF NUMULTEXT OF DCLMPDT163 = NUMEXTPEN OF DCLMPDT163
+      * PRELACION DE PAGOS-FIN
+      *          SIGNIFICA QUE FACTURO Y ABRIO UN NUEVO EXTRACTO
+      *          POR LO TANTO EL EXTRACTO LIQUIDADO ES NUMULTEXT -1
+      * PRELACION DE PAGOS-INI
+      *             SUBTRACT 1 FROM NUMULTEXT OF DCLMPDT163 GIVING
+      *                                         LIQ-NUMEXTLIQ
+      * PRELACION DE PAGOS-INI
+              MOVE NUMULTEXT OF DCLMPDT163 TO LIQ-NUMEXTLIQ
+      * PRELACION DE PAGOS-FIN
+      *          ELSE
+      *          EN ESTE CASO EL CONTRATO LIQUIDO,NO GENERO PENDIENTE Y
+      *          NO HA TENIDO MOVIMIENTOS EN EL ACTUAL SE MANTIENE EL
+      *          EXTRACTO
+      * PRELACION DE PAGOS-INI
+      *          MOVE NUMULTEXT OF DCLMPDT163 TO LIQ-NUMEXTLIQ
+      *          END-IF
+      * PRELACION DE PAGOS-FIN
+              PERFORM 20215-VALIDAR-EXTRACTO-LIQ
+
+              IF CON-LIQUIDADO
+                 PERFORM 20220-ACCEDER-MPDT182
+              END-IF
+           END-IF
+           .
+
+      * ================================================================
+       20215-VALIDAR-EXTRACTO-LIQ.
+      * ================================================================
+
+           INITIALIZE DCLMPDT011
+           SET SIN-LIQUIDADO TO TRUE
+
+           MOVE ATPAGMAX-E-CODENT    TO CODENT    OF DCLMPDT011
+           MOVE ATPAGMAX-E-CENTALTA  TO CENTALTA  OF DCLMPDT011
+           MOVE ATPAGMAX-E-CUENTA    TO CUENTA    OF DCLMPDT011
+           MOVE ATPAGMAX-E-CLAMON    TO CLAMON    OF DCLMPDT011
+           MOVE LIQ-NUMEXTLIQ        TO NUMEXTCTA OF DCLMPDT011
+      * PRELACION DE PAGOS-INI
+           SUBTRACT 1  FROM             NUMEXTCTA OF DCLMPDT011
+      * PRELACION DE PAGOS-FIN
+           MOVE 2                    TO INDSITEXT OF DCLMPDT011
+           EXEC  SQL
+                SELECT INDSITEXT
+                  INTO :DCLMPDT011.INDSITEXT
+                FROM MPDT011
+                WHERE CODENT    = :DCLMPDT011.CODENT
+                  AND CENTALTA  = :DCLMPDT011.CENTALTA
+                  AND CUENTA    = :DCLMPDT011.CUENTA
+                  AND CLAMON    = :DCLMPDT011.CLAMON
+                  AND NUMEXTCTA = :DCLMPDT011.NUMEXTCTA
+                  AND INDSITEXT = :DCLMPDT011.INDSITEXT
+           END-EXEC
+
+           MOVE SQLCODE             TO    ATSQLERR
+
+           EVALUATE TRUE
+               WHEN REG-NO-EXISTENTE-BD
+                    SET SIN-LIQUIDADO TO TRUE
+                    MOVE ZEROES              TO WS-EXT-LIQUIDADO
+               WHEN ACCESO-CORRECTO-BD
+                    SET CON-LIQUIDADO TO TRUE
+                    MOVE NUMEXTCTA OF DCLMPDT011 TO WS-EXT-LIQUIDADO
+                    MOVE ZEROES                  TO WS-EXT-LIQUIDADO
+               WHEN OTHER
+                    MOVE CT-MP               TO ATPAGMAX-NOMBRE-BD
+                    MOVE CT-PROGRAMA         TO ATPAGMAX-NOMBRE-RUTINA
+                    MOVE CT-TABLA011         TO ATPAGMAX-NOMBRE-TABLA
+                    MOVE CT-SELECT           TO ATPAGMAX-OPERACION
+                    MOVE SQLCODE             TO ATPAGMAX-SQLCODE
+                    SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+                    PERFORM 30000-FINAL
+           END-EVALUATE.
+
+      * ================================================================
+       20210-OBTENER-EXTRACTO.
+      * ================================================================
+
+           INITIALIZE DCLMPDT163
+
+           MOVE ATPAGMAX-E-CODENT    TO CODENT   OF DCLMPDT163
+           MOVE ATPAGMAX-E-CENTALTA  TO CENTALTA OF DCLMPDT163
+           MOVE ATPAGMAX-E-CUENTA    TO CUENTA   OF DCLMPDT163
+           MOVE ATPAGMAX-E-CLAMON    TO CLAMON   OF DCLMPDT163
+
+           EXEC  SQL
+                SELECT NUMULTEXT,
+                       NUMEXTPEN,
+                       FECULTEXT
+                  INTO :DCLMPDT163.NUMULTEXT,
+                       :DCLMPDT163.NUMEXTPEN,
+                       :DCLMPDT163.FECULTEXT
+                FROM MPDT163
+                WHERE CODENT   = :DCLMPDT163.CODENT
+                  AND CENTALTA = :DCLMPDT163.CENTALTA
+                  AND CUENTA   = :DCLMPDT163.CUENTA
+                  AND CLAMON   = :DCLMPDT163.CLAMON
+           END-EXEC
+
+           MOVE SQLCODE             TO    ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+              MOVE CT-MP                    TO ATPAGMAX-NOMBRE-BD
+              MOVE CT-PROGRAMA              TO ATPAGMAX-NOMBRE-RUTINA
+              MOVE CT-TABLA163              TO ATPAGMAX-NOMBRE-TABLA
+              MOVE CT-SELECT                TO ATPAGMAX-OPERACION
+              MOVE SQLCODE                  TO ATPAGMAX-SQLCODE
+              SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+              PERFORM 30000-FINAL
+           END-IF
+
+           MOVE ATPAGMAX-E-CODENT           TO CODENT     OF DCLMPDT085
+           MOVE ATPAGMAX-E-CODPROCESO       TO CODPROCESO OF DCLMPDT085
+           MOVE ATPAGMAX-E-CODGRUPO         TO CODGRUPO   OF DCLMPDT085
+           MOVE CT-VENCIMIENTO              TO TIPFECHA   OF DCLMPDT085
+           MOVE FECULTEXT OF DCLMPDT163     TO FECHA      OF DCLMPDT085
+
+           PERFORM 204120B-BUSCAR-FV
+
+           MOVE FUT-VENCIMIENTO(1:4)   TO WS-FECFUTVTO-N(1:4)
+           MOVE FUT-VENCIMIENTO(6:2)   TO WS-FECFUTVTO-N(5:2)
+           .
+
+      * ================================================================
+       20220-ACCEDER-MPDT182.
+      * ================================================================
+
+           PERFORM 20230A-OPEN-CURSOR-182
+
+           PERFORM 20230B-FETCH-CURSOR-182
+               UNTIL FIN-CURSOR-LIQUIDADOS
+
+           PERFORM 20230D-RESTAR-IMPAGOS
+
+           PERFORM 20230C-CLOSE-CURSOR-182
+           .
+
+      * ================================================================
+       20230A-OPEN-CURSOR-182.
+      * ================================================================
+
+           INITIALIZE  DCLMPDT182
+           MOVE 1      TO LIQUIDADO-MAX-DD-IND
+           MOVE ZEROES TO LIQ-LINEA-ANT
+           SET NO-FIN-CURSOR-LIQUIDADOS TO  TRUE
+
+           MOVE ATPAGMAX-E-CODENT    TO  CODENT    OF DCLMPDT182
+           MOVE ATPAGMAX-E-CENTALTA  TO  CENTALTA  OF DCLMPDT182
+           MOVE ATPAGMAX-E-CUENTA    TO  CUENTA    OF DCLMPDT182
+           MOVE ATPAGMAX-E-CLAMON    TO  CLAMON    OF DCLMPDT182
+           MOVE LIQ-NUMEXTLIQ        TO  NUMEXTCTA OF DCLMPDT182
+
+           EXEC SQL
+               OPEN ATR912_LIQUIDADO
+           END-EXEC
+
+           MOVE SQLCODE               TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+               MOVE CT-MP                     TO ATPAGMAX-NOMBRE-BD
+               MOVE CT-PROGRAMA               TO ATPAGMAX-NOMBRE-RUTINA
+               MOVE CT-TABLA182               TO ATPAGMAX-NOMBRE-TABLA
+               MOVE CT-ABRIR-CURSOR           TO ATPAGMAX-OPERACION
+               MOVE SQLCODE                   TO ATPAGMAX-SQLCODE
+               SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+               PERFORM 30000-FINAL
+           END-IF.
+
+
+      * ================================================================
+       20230B-FETCH-CURSOR-182.
+      * ================================================================
+
+           EXEC SQL
+               FETCH ATR912_LIQUIDADO
+                INTO :DCLMPDT182.LINEA,
+                     :DCLMPDT182.TIPIMP,
+                     :DCLMPDT182.IMPINI,
+                     :DCLMPDT182.IMPAPL,
+                     :DCLMPDT182.IMPFIN
+           END-EXEC
+
+           MOVE SQLCODE                   TO ATSQLERR
+           EVALUATE TRUE
+            WHEN ACCESO-CORRECTO-BD
+                 PERFORM 20231B-ACUMULAR-LIQUIDADO
+            WHEN REG-NO-EXISTENTE-BD
+              SET FIN-CURSOR-LIQUIDADOS     TO TRUE
+            WHEN OTHER
+              MOVE CT-MP                    TO ATPAGMAX-NOMBRE-BD
+              MOVE CT-PROGRAMA              TO ATPAGMAX-NOMBRE-RUTINA
+              MOVE CT-TABLA182              TO ATPAGMAX-NOMBRE-TABLA
+              MOVE CT-FETCH-CURSOR          TO ATPAGMAX-OPERACION
+              MOVE SQLCODE                  TO ATPAGMAX-SQLCODE
+              SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+              PERFORM 30000-FINAL
+           END-EVALUATE.
+
+      * ================================================================
+       20231B-ACUMULAR-LIQUIDADO.
+      * ================================================================
+
+           SET NO-LIQUIDADO-ENCONTRADO  TO TRUE
+
+      *     SUBTRACT IMPAPL OF DCLMPDT182
+      *     FROM     IMPINI OF DCLMPDT182
+      *     GIVING   WS-DEUDA-IMPORTE
+      * PRELACION DE PAGOS-INI
+      *       MOVE IMPFIN OF DCLMPDT182 TO WS-DEUDA-IMPORTE
+            MOVE IMPINI OF DCLMPDT182 TO WS-DEUDA-IMPORTE
+      * PRELACION DE PAGOS-FIN
+           PERFORM 2031B-RESCATAR-PAGO-LIQUIDADO
+           SUBTRACT W182IMPAPL FROM WS-DEUDA-IMPORTE
+
+           IF WS-DEUDA-IMPORTE > 0
+              SET LIQ-IND TO 1
+             PERFORM UNTIL LIQ-IND > LIQUIDADO-MAX-DD-IND
+                OR SI-LIQUIDADO-ENCONTRADO
+            IF LIQUIDADO-CLAMON    (LIQ-IND) = CLAMON OF DCLMPDT182 AND
+               LIQUIDADO-LINEA     (LIQ-IND) = LINEA  OF DCLMPDT182 AND
+               LIQUIDADO-FECFUTVTO (LIQ-IND) = WS-FECFUTVTO-N       AND
+               LIQUIDADO-SITDEUDA  (LIQ-IND) = CT-LIQUIDADO
+               PERFORM 20132B-ACUMULA-TIPIMP-LIQ
+               SET SI-LIQUIDADO-ENCONTRADO  TO TRUE
+             END-IF
+             SET LIQ-IND UP BY 1
+             END-PERFORM
+
+
+           IF NO-LIQUIDADO-ENCONTRADO
+              MOVE CLAMON OF DCLMPDT182
+                            TO LIQUIDADO-CLAMON   (LIQUIDADO-MAX-DD-IND)
+              MOVE LINEA  OF DCLMPDT182
+                            TO LIQUIDADO-LINEA    (LIQUIDADO-MAX-DD-IND)
+              MOVE WS-FECFUTVTO-N
+                            TO LIQUIDADO-FECFUTVTO(LIQUIDADO-MAX-DD-IND)
+              MOVE CT-LIQUIDADO
+                            TO LIQUIDADO-SITDEUDA (LIQUIDADO-MAX-DD-IND)
+              SET  LIQ-IND TO LIQUIDADO-MAX-DD-IND
+              PERFORM 20132B-ACUMULA-TIPIMP-LIQ
+              ADD 1 TO LIQUIDADO-MAX-DD-IND
+           END-IF
+          END-IF
+           .
+      * ================================================================
+       2031B-RESCATAR-PAGO-LIQUIDADO.
+      * ================================================================
+
+           INITIALIZE ATEXTIMP
+           MOVE CODENT    OF DCLMPDT182 TO W182CODENT
+           MOVE CENTALTA  OF DCLMPDT182 TO W182CENTALTA
+           MOVE CUENTA    OF DCLMPDT182 TO W182CUENTA
+           MOVE NUMEXTCTA OF DCLMPDT182 TO W182NUMEXTCTA
+      * PRELACION DE PAGOS-INI
+      *    ADD  1                       TO W182NUMEXTCTA
+      * PRELACION DE PAGOS-FIN
+           MOVE CLAMON    OF DCLMPDT182 TO W182CLAMON
+           MOVE LINEA     OF DCLMPDT182 TO W182LINEA
+           MOVE TIPIMP    OF DCLMPDT182 TO W182TIPIMP
+
+           EXEC  SQL
+                SELECT IMPAPL
+                 INTO   :W182IMPAPL
+                FROM MPDT182
+                WHERE   CODENT    = :W182CODENT
+                    AND CENTALTA  = :W182CENTALTA
+                    AND CUENTA    = :W182CUENTA
+                    AND NUMEXTCTA = :W182NUMEXTCTA
+                    AND CLAMON    = :W182CLAMON
+                    AND LINEA     = :W182LINEA
+                    AND TIPIMP    = :W182TIPIMP
+           END-EXEC
+
+           MOVE SQLCODE             TO    ATSQLERR
+
+           EVALUATE TRUE
+            WHEN ACCESO-CORRECTO-BD
+      * PRELACION DE PAGOS-INI
+      *           IF W182TIPIMP = 5 OR W182TIPIMP = 6
+      * PRELACION DE PAGOS-FIN
+                  PERFORM 2033B-RESCATAR-PAGO-ACT-5-6
+                  SUBTRACT IMPAPL OF DCLMPDT462 FROM W182IMPAPL
+      * PRELACION DE PAGOS-INI
+      *           END-IF
+      * PRELACION DE PAGOS-FIN
+            WHEN REG-NO-EXISTENTE-BD
+                 MOVE ZEROES TO W182IMPAPL
+            WHEN OTHER
+                MOVE CT-MP                    TO ATPAGMAX-NOMBRE-BD
+                MOVE CT-PROGRAMA              TO ATPAGMAX-NOMBRE-RUTINA
+                MOVE CT-TABLA182              TO ATPAGMAX-NOMBRE-TABLA
+                MOVE CT-SELECT                TO ATPAGMAX-OPERACION
+                MOVE SQLCODE                  TO ATPAGMAX-SQLCODE
+                SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+                PERFORM 30000-FINAL
+           END-EVALUATE
+           .
+      * ================================================================
+       2033B-RESCATAR-PAGO-ACT-5-6.
+      * ================================================================
+
+           INITIALIZE DCLMPDT462
+
+           MOVE W182CODENT     TO CODENT    OF DCLMPDT462
+           MOVE W182CENTALTA   TO CENTALTA  OF DCLMPDT462
+           MOVE W182CUENTA     TO CUENTA    OF DCLMPDT462
+           MOVE W182NUMEXTCTA  TO NUMEXTCTA OF DCLMPDT462
+           MOVE W182CLAMON     TO CLAMON    OF DCLMPDT462
+           MOVE W182LINEA      TO LINEA     OF DCLMPDT462
+           MOVE W182TIPIMP     TO TIPIMP    OF DCLMPDT462
+           MOVE 'UN'           TO TIPSAL    OF DCLMPDT462
+           MOVE 'A'            TO SITDEUDA  OF DCLMPDT462
+
+           EXEC  SQL
+                SELECT SUM(IMPAPL)
+                 INTO   :DCLMPDT462.IMPAPL
+                FROM MPDT462
+                WHERE CODENT     = :DCLMPDT462.CODENT
+                  AND CENTALTA   = :DCLMPDT462.CENTALTA
+                  AND CUENTA     = :DCLMPDT462.CUENTA
+                  AND NUMEXTCTA  = :DCLMPDT462.NUMEXTCTA
+                  AND CLAMON     = :DCLMPDT462.CLAMON
+                  AND LINEA      = :DCLMPDT462.LINEA
+                  AND TIPIMP     = :DCLMPDT462.TIPIMP
+                  AND TIPSAL     = :DCLMPDT462.TIPSAL
+                  AND SITDEUDA   = :DCLMPDT462.SITDEUDA
+           END-EXEC
+
+           MOVE SQLCODE             TO    ATSQLERR
+
+           EVALUATE TRUE
+            WHEN ACCESO-CORRECTO-BD
+                 CONTINUE
+            WHEN REG-NO-EXISTENTE-BD
+            WHEN VALOR-CAMPO-NULO
+                 MOVE ZEROES TO IMPAPL OF DCLMPDT462
+            WHEN OTHER
+                MOVE CT-MP                    TO ATPAGMAX-NOMBRE-BD
+                MOVE CT-PROGRAMA              TO ATPAGMAX-NOMBRE-RUTINA
+                MOVE CT-TABLA462              TO ATPAGMAX-NOMBRE-TABLA
+                MOVE CT-SELECT                TO ATPAGMAX-OPERACION
+                MOVE SQLCODE                  TO ATPAGMAX-SQLCODE
+                SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+                PERFORM 30000-FINAL
+           END-EVALUATE
+           .
+      * ================================================================
+       20132B-ACUMULA-TIPIMP-LIQ.
+      * ================================================================
+
+           EVALUATE TIPIMP OF DCLMPDT182
+               WHEN CT-CAPITAL-FINAN
+                  ADD  WS-DEUDA-IMPORTE TO LIQUIDADO-IMPDEUDA1(LIQ-IND)
+
+               WHEN CT-COMISION
+                  ADD WS-DEUDA-IMPORTE TO LIQUIDADO-IMPDEUDA2(LIQ-IND)
+
+               WHEN CT-INTERESES
+                  ADD WS-DEUDA-IMPORTE TO LIQUIDADO-IMPDEUDA3(LIQ-IND)
+
+               WHEN CT-IMPUESTO
+                  ADD WS-DEUDA-IMPORTE TO LIQUIDADO-IMPDEUDA4(LIQ-IND)
+
+               WHEN CT-COMISION-MORA
+                  ADD WS-DEUDA-IMPORTE TO LIQUIDADO-IMPDEUDA5(LIQ-IND)
+
+               WHEN CT-INTERESES-MORA
+                  ADD WS-DEUDA-IMPORTE TO LIQUIDADO-IMPDEUDA6(LIQ-IND)
+
+               WHEN CT-IMPUESTO-MORA
+                  ADD WS-DEUDA-IMPORTE TO LIQUIDADO-IMPDEUDA7(LIQ-IND)
+
+               WHEN CT-CAPITAL-NO-FINAN
+                  ADD WS-DEUDA-IMPORTE TO LIQUIDADO-IMPDEUDA8(LIQ-IND)
+
+               WHEN CT-GASTO-GSIC
+                  ADD WS-DEUDA-IMPORTE TO LIQUIDADO-IMPDEUDA9(LIQ-IND)
+
+               WHEN CT-COMISION-EXTRACTO
+                  ADD WS-DEUDA-IMPORTE TO LIQUIDADO-IMPDEUDA10(LIQ-IND)
+           END-EVALUATE
+           .
+
+      * ================================================================
+       20230D-RESTAR-IMPAGOS.
+      * ================================================================
+
+
+           MOVE 1                 TO LIQ-IND-AUX
+
+           PERFORM UNTIL LIQ-IND-AUX > LIQUIDADO-MAX-DD-IND
+               MOVE 1                 TO DD-IND-AUX
+               PERFORM UNTIL DD-IND-AUX > DD-IND
+                IF ATPAGMAX-S-CLAMON(DD-IND-AUX) =
+                                   LIQUIDADO-CLAMON(LIQ-IND-AUX)   AND
+                   ATPAGMAX-S-LINEA(DD-IND-AUX)  =
+                                   LIQUIDADO-LINEA(LIQ-IND-AUX)    AND
+                   ATPAGMAX-S-SITDEUDA(DD-IND-AUX) = CT-IMPAGO
+                   SUBTRACT ATPAGMAX-S-IMPDEUDA1(DD-IND-AUX) FROM
+                                        LIQUIDADO-IMPDEUDA1(LIQ-IND-AUX)
+                   SUBTRACT ATPAGMAX-S-IMPDEUDA2(DD-IND-AUX) FROM
+                                        LIQUIDADO-IMPDEUDA2(LIQ-IND-AUX)
+                   SUBTRACT ATPAGMAX-S-IMPDEUDA3(DD-IND-AUX) FROM
+                                        LIQUIDADO-IMPDEUDA3(LIQ-IND-AUX)
+                   SUBTRACT ATPAGMAX-S-IMPDEUDA4(DD-IND-AUX) FROM
+                                        LIQUIDADO-IMPDEUDA4(LIQ-IND-AUX)
+                   SUBTRACT ATPAGMAX-S-IMPDEUDA5(DD-IND-AUX) FROM
+                                        LIQUIDADO-IMPDEUDA5(LIQ-IND-AUX)
+                   SUBTRACT ATPAGMAX-S-IMPDEUDA6(DD-IND-AUX) FROM
+                                        LIQUIDADO-IMPDEUDA6(LIQ-IND-AUX)
+                   SUBTRACT ATPAGMAX-S-IMPDEUDA7(DD-IND-AUX) FROM
+                                        LIQUIDADO-IMPDEUDA7(LIQ-IND-AUX)
+                   SUBTRACT ATPAGMAX-S-IMPDEUDA8(DD-IND-AUX) FROM
+                                        LIQUIDADO-IMPDEUDA8(LIQ-IND-AUX)
+                   SUBTRACT ATPAGMAX-S-IMPDEUDA9(DD-IND-AUX) FROM
+                                        LIQUIDADO-IMPDEUDA9(LIQ-IND-AUX)
+                   SUBTRACT ATPAGMAX-S-IMPDEUDA10(DD-IND-AUX) FROM
+                                       LIQUIDADO-IMPDEUDA10(LIQ-IND-AUX)
+                END-IF
+                ADD 1 TO DD-IND-AUX
+               END-PERFORM
+               ADD 1 TO LIQ-IND-AUX
+           END-PERFORM
+           .
+
+      * ================================================================
+       20230E-VOLCAR-WORK.
+      * ================================================================
+
+              MOVE 1                 TO LIQ-IND-AUX
+
+              PERFORM UNTIL LIQ-IND-AUX > LIQUIDADO-MAX-DD-IND
+                   OR LIQUIDADO-CLAMON    (LIQ-IND-AUX) = ZEROES
+
+               IF LIQUIDADO-IMPDEUDA1(LIQ-IND-AUX) > 0 OR
+                  LIQUIDADO-IMPDEUDA2(LIQ-IND-AUX) > 0 OR
+                  LIQUIDADO-IMPDEUDA3(LIQ-IND-AUX) > 0 OR
+                  LIQUIDADO-IMPDEUDA4(LIQ-IND-AUX) > 0 OR
+                  LIQUIDADO-IMPDEUDA5(LIQ-IND-AUX) > 0 OR
+                  LIQUIDADO-IMPDEUDA6(LIQ-IND-AUX) > 0 OR
+                  LIQUIDADO-IMPDEUDA7(LIQ-IND-AUX) > 0 OR
+                  LIQUIDADO-IMPDEUDA8(LIQ-IND-AUX) > 0 OR
+                  LIQUIDADO-IMPDEUDA9(LIQ-IND-AUX) > 0 OR
+                  LIQUIDADO-IMPDEUDA10(LIQ-IND-AUX) > 0
+
+                 MOVE LIQUIDADO-CLAMON    (LIQ-IND-AUX)
+                                        TO ATPAGMAX-S-CLAMON    (DD-IND)
+                 MOVE LIQUIDADO-LINEA     (LIQ-IND-AUX)
+                                        TO ATPAGMAX-S-LINEA     (DD-IND)
+                 MOVE LIQUIDADO-FECFUTVTO (LIQ-IND-AUX)
+                                        TO ATPAGMAX-S-FECFUTVTO (DD-IND)
+                 MOVE LIQUIDADO-SITDEUDA  (LIQ-IND-AUX)
+                                        TO ATPAGMAX-S-SITDEUDA  (DD-IND)
+                 MOVE LIQUIDADO-IMPDEUDA1 (LIQ-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA1 (DD-IND)
+                 MOVE LIQUIDADO-IMPDEUDA2 (LIQ-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA2 (DD-IND)
+                 MOVE LIQUIDADO-IMPDEUDA3 (LIQ-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA3 (DD-IND)
+                 MOVE LIQUIDADO-IMPDEUDA4 (LIQ-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA4 (DD-IND)
+                 MOVE LIQUIDADO-IMPDEUDA5 (LIQ-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA5 (DD-IND)
+                 MOVE LIQUIDADO-IMPDEUDA6 (LIQ-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA6 (DD-IND)
+                 MOVE LIQUIDADO-IMPDEUDA7 (LIQ-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA7 (DD-IND)
+                 MOVE LIQUIDADO-IMPDEUDA8 (LIQ-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA8 (DD-IND)
+                 MOVE LIQUIDADO-IMPDEUDA9 (LIQ-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA9 (DD-IND)
+                 MOVE LIQUIDADO-IMPDEUDA10(LIQ-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA10(DD-IND)
+                 SET DD-IND UP BY 1
+               END-IF
+               ADD 1 TO LIQ-IND-AUX
+
+              END-PERFORM
+           .
+
+      * ================================================================
+       20230C-CLOSE-CURSOR-182.
+      * ================================================================
+
+           EXEC SQL
+              CLOSE ATR912_LIQUIDADO
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+              MOVE CT-MP                      TO ATPAGMAX-NOMBRE-BD
+              MOVE CT-PROGRAMA                TO ATPAGMAX-NOMBRE-RUTINA
+              MOVE CT-TABLA163                TO ATPAGMAX-NOMBRE-TABLA
+              MOVE CT-CERRAR-CURSOR           TO ATPAGMAX-OPERACION
+              MOVE SQLCODE                    TO ATPAGMAX-SQLCODE
+              SET  ATPAGMAX-CODRET-ERROR-DB2  TO TRUE
+              PERFORM 30000-FINAL
+           END-IF.
+
+
+      * ================================================================
+       20300-OBTENER-DEUDA-ACTUAL.
+      * ================================================================
+
+            IF NUMEXTPEN OF DCLMPDT163 > 0
+               PERFORM 20400-PROCESAR-ACTUAL
+            END-IF
+            .
+
+      * ================================================================
+       20400-PROCESAR-ACTUAL.
+      * ================================================================
+
+           PERFORM 204120B-BUSCAR-FV-ACTUAL
+           PERFORM 20410-ABRIR-CURSOR-TBMOVEXT
+
+           PERFORM 20420-LEER-CURSOR-TBMOVEXT
+
+           PERFORM 20430-TRATAR-MOVIMIENTOS
+             UNTIL SW-FIN-CURSOR-TBMOVEXT
+
+           PERFORM 23130-CERRAR-CURSOR-TBMOVEXT
+
+           .
+
+      * ================================================================
+       204120B-BUSCAR-FV-ACTUAL.
+      * ================================================================
+
+           MOVE ATPAGMAX-E-CODENT      TO CODENT     OF DCLMPDT085
+           MOVE ATPAGMAX-E-CODPROCESO  TO CODPROCESO OF DCLMPDT085
+           MOVE ATPAGMAX-E-CODGRUPO    TO CODGRUPO   OF DCLMPDT085
+           MOVE CT-FACTURACION         TO TIPFECHA   OF DCLMPDT085
+
+           EXEC  SQL
+                SELECT MIN(FECHA)
+                 INTO   :ACT-FACTURACION
+                FROM MPDT085
+                WHERE   CODENT     = :DCLMPDT085.CODENT
+                    AND CODPROCESO = :DCLMPDT085.CODPROCESO
+                    AND CODGRUPO   = :DCLMPDT085.CODGRUPO
+                    AND TIPFECHA   = :DCLMPDT085.TIPFECHA
+                    AND INDPROC    = 'N'
+           END-EXEC
+
+           MOVE SQLCODE             TO    ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD OR VALOR-CAMPO-NULO
+              MOVE CT-MP                    TO ATPAGMAX-NOMBRE-BD
+              MOVE CT-PROGRAMA              TO ATPAGMAX-NOMBRE-RUTINA
+              MOVE CT-TABLA85               TO ATPAGMAX-NOMBRE-TABLA
+              MOVE CT-SELECT                TO ATPAGMAX-OPERACION
+              MOVE SQLCODE                  TO ATPAGMAX-SQLCODE
+              SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+              PERFORM 30000-FINAL
+           END-IF
+
+
+           MOVE ATPAGMAX-E-CODENT      TO CODENT     OF DCLMPDT085
+           MOVE ATPAGMAX-E-CODPROCESO  TO CODPROCESO OF DCLMPDT085
+           MOVE ATPAGMAX-E-CODGRUPO    TO CODGRUPO   OF DCLMPDT085
+           MOVE CT-VENCIMIENTO         TO TIPFECHA   OF DCLMPDT085
+           MOVE ACT-FACTURACION        TO FECHA      OF DCLMPDT085
+
+           EXEC  SQL
+                SELECT MIN(FECHA)
+                 INTO   :FUT-VENCIMIENTO
+                FROM MPDT085
+                WHERE   CODENT     = :DCLMPDT085.CODENT
+                    AND CODPROCESO = :DCLMPDT085.CODPROCESO
+                    AND CODGRUPO   = :DCLMPDT085.CODGRUPO
+                    AND TIPFECHA   = :DCLMPDT085.TIPFECHA
+                    AND FECHA      > :DCLMPDT085.FECHA
+           END-EXEC
+
+           MOVE SQLCODE             TO    ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD OR VALOR-CAMPO-NULO
+              MOVE CT-MP                    TO ATPAGMAX-NOMBRE-BD
+              MOVE CT-PROGRAMA              TO ATPAGMAX-NOMBRE-RUTINA
+              MOVE CT-TABLA85               TO ATPAGMAX-NOMBRE-TABLA
+              MOVE CT-SELECT                TO ATPAGMAX-OPERACION
+              MOVE SQLCODE                  TO ATPAGMAX-SQLCODE
+              SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+              PERFORM 30000-FINAL
+           END-IF
+
+           MOVE FUT-VENCIMIENTO(1:4)   TO WS-FECFUTVTO-N(1:4)
+           MOVE FUT-VENCIMIENTO(6:2)   TO WS-FECFUTVTO-N(5:2)
+           .
+
+
+      * ================================================================
+       20230E-VOLCAR-WORK-ACTUAL.
+      * ================================================================
+
+           MOVE 1                 TO ACT-IND-AUX
+
+           PERFORM UNTIL ACT-IND-AUX > ACTUAL-MAX-DD-IND
+              OR ACTUAL-CLAMON    (ACT-IND-AUX) = ZEROES
+              IF ACTUAL-IMPDEUDA1(ACT-IND-AUX) <> 0 OR
+                 ACTUAL-IMPDEUDA2(ACT-IND-AUX) <> 0 OR
+                 ACTUAL-IMPDEUDA3(ACT-IND-AUX) <> 0 OR
+                 ACTUAL-IMPDEUDA4(ACT-IND-AUX) <> 0 OR
+                 ACTUAL-IMPDEUDA5(ACT-IND-AUX) <> 0 OR
+                 ACTUAL-IMPDEUDA6(ACT-IND-AUX) <> 0 OR
+                 ACTUAL-IMPDEUDA7(ACT-IND-AUX) <> 0 OR
+                 ACTUAL-IMPDEUDA8(ACT-IND-AUX) <> 0 OR
+                 ACTUAL-IMPDEUDA9(ACT-IND-AUX) <> 0 OR
+                 ACTUAL-IMPDEUDA10(ACT-IND-AUX) <> 0
+
+                 MOVE ACTUAL-CLAMON    (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-CLAMON    (DD-IND)
+                 MOVE ACTUAL-LINEA     (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-LINEA     (DD-IND)
+                 MOVE ACTUAL-FECFUTVTO (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-FECFUTVTO (DD-IND)
+                 MOVE ACTUAL-SITDEUDA  (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-SITDEUDA  (DD-IND)
+                 IF ACTUAL-IMPDEUDA1 (ACT-IND-AUX) < 0
+                    MOVE ACTUAL-IMPDEUDA1 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA8 (DD-IND)
+                 ELSE
+                    MOVE ACTUAL-IMPDEUDA1 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA1 (DD-IND)
+                 END-IF
+                 IF ACTUAL-IMPDEUDA2 (ACT-IND-AUX) < 0
+                    MOVE ACTUAL-IMPDEUDA2 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA8 (DD-IND)
+                 ELSE
+                    MOVE ACTUAL-IMPDEUDA2 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA2 (DD-IND)
+                 END-IF
+                 IF ACTUAL-IMPDEUDA3 (ACT-IND-AUX) < 0
+                    MOVE ACTUAL-IMPDEUDA3 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA8 (DD-IND)
+                 ELSE
+                    MOVE ACTUAL-IMPDEUDA3 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA3 (DD-IND)
+                 END-IF
+                 IF ACTUAL-IMPDEUDA4 (ACT-IND-AUX) < 0
+                    MOVE ACTUAL-IMPDEUDA4 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA8 (DD-IND)
+                 ELSE
+                    MOVE ACTUAL-IMPDEUDA4 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA4 (DD-IND)
+                 END-IF
+                 IF ACTUAL-IMPDEUDA5 (ACT-IND-AUX) < 0
+                    MOVE ACTUAL-IMPDEUDA5 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA8 (DD-IND)
+                 ELSE
+                    MOVE ACTUAL-IMPDEUDA5 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA5 (DD-IND)
+                 END-IF
+                 IF ACTUAL-IMPDEUDA6 (ACT-IND-AUX) < 0
+                    MOVE ACTUAL-IMPDEUDA6 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA8 (DD-IND)
+                 ELSE
+                    MOVE ACTUAL-IMPDEUDA6 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA6 (DD-IND)
+                 END-IF
+                 IF ACTUAL-IMPDEUDA6 (ACT-IND-AUX) < 0
+                    MOVE ACTUAL-IMPDEUDA6 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA8 (DD-IND)
+                 ELSE
+                    MOVE ACTUAL-IMPDEUDA6 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA6 (DD-IND)
+                 END-IF
+                 IF ACTUAL-IMPDEUDA7 (ACT-IND-AUX) < 0
+                    MOVE ACTUAL-IMPDEUDA7 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA8 (DD-IND)
+                 ELSE
+                    MOVE ACTUAL-IMPDEUDA7 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA7 (DD-IND)
+                 END-IF
+                 IF ACTUAL-IMPDEUDA8 (ACT-IND-AUX) < 0
+                    MOVE ACTUAL-IMPDEUDA8 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA8 (DD-IND)
+                 ELSE
+                    MOVE ACTUAL-IMPDEUDA8 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA8 (DD-IND)
+                 END-IF
+                 IF ACTUAL-IMPDEUDA9 (ACT-IND-AUX) < 0
+                    MOVE ACTUAL-IMPDEUDA9 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA8 (DD-IND)
+                 ELSE
+                    MOVE ACTUAL-IMPDEUDA9 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA9 (DD-IND)
+                 END-IF
+                 IF ACTUAL-IMPDEUDA10 (ACT-IND-AUX) < 0
+                    MOVE ACTUAL-IMPDEUDA10 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA8 (DD-IND)
+                 ELSE
+                    MOVE ACTUAL-IMPDEUDA10 (ACT-IND-AUX)
+                                        TO ATPAGMAX-S-IMPDEUDA10(DD-IND)
+                 END-IF
+
+                 SET DD-IND UP BY 1
+              END-IF
+              ADD 1 TO ACT-IND-AUX
+
+           END-PERFORM
+           .
+
+      * ================================================================
+       20410-ABRIR-CURSOR-TBMOVEXT.
+      * ================================================================
+
+           SET SW-NO-FIN-CURSOR-TBMOVEXT    TO TRUE
+           MOVE 1      TO ACTUAL-MAX-DD-IND
+
+           MOVE ATPAGMAX-E-CODENT              TO   W12CODENT
+           MOVE ATPAGMAX-E-CENTALTA            TO   W12CENTALTA
+           MOVE ATPAGMAX-E-CUENTA              TO   W12CUENTA
+           MOVE ATPAGMAX-E-CLAMON              TO   W12CLAMON
+           MOVE NUMEXTPEN OF DCLMPDT163        TO   W12NUMEXTCTA
+           MOVE ZEROS                          TO   W12NUMMOVEXT
+
+           EXEC  SQL
+               OPEN ATR912_ACTUAL1
+           END-EXEC
+
+           MOVE SQLCODE         TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+              MOVE CT-MP                      TO ATPAGMAX-NOMBRE-BD
+              MOVE CT-PROGRAMA                TO ATPAGMAX-NOMBRE-RUTINA
+              MOVE CT-TABLA12                 TO ATPAGMAX-NOMBRE-TABLA
+              MOVE CT-ABRIR-CURSOR            TO ATPAGMAX-OPERACION
+              MOVE SQLCODE                    TO ATPAGMAX-SQLCODE
+              SET  ATPAGMAX-CODRET-ERROR-DB2  TO TRUE
+              PERFORM 30000-FINAL
+           END-IF.
+
+
+      * ================================================================
+       20420-LEER-CURSOR-TBMOVEXT.
+      * ================================================================
+
+           EXEC  SQL
+               FETCH  ATR912_ACTUAL1
+                INTO  :W12CODENT,
+                      :W12CENTALTA,
+                      :W12CUENTA,
+                      :W12NUMEXTCTA,
+                      :W12CLAMON,
+                      :W12NUMMOVEXT,
+                      :W12TIPOFAC,
+                      :W12INDNORCOR,
+                      :W12INDMOVANU,
+                      :W12IMPFAC,
+                      :W12IMPIMPTO,
+                      :W12LINEA,
+      * MANTIS-0014462-INI
+                      :W12FECFAC
+      * MANTIS-0014462-FIN
+           END-EXEC
+
+           MOVE SQLCODE          TO ATSQLERR
+
+           IF  REG-NO-EXISTENTE-BD
+               SET  SW-FIN-CURSOR-TBMOVEXT TO TRUE
+           ELSE
+             IF  NOT  ACCESO-CORRECTO-BD
+                 MOVE CT-MP                  TO ATPAGMAX-NOMBRE-BD
+                 MOVE CT-PROGRAMA            TO ATPAGMAX-NOMBRE-RUTINA
+                 MOVE CT-TABLA12             TO ATPAGMAX-NOMBRE-TABLA
+                 MOVE CT-FETCH-CURSOR        TO ATPAGMAX-OPERACION
+                 MOVE SQLCODE                TO ATPAGMAX-SQLCODE
+                 SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+                 PERFORM 30000-FINAL
+             END-IF
+           END-IF.
+
+
+      * ================================================================
+       20430-TRATAR-MOVIMIENTOS.
+      * ================================================================
+
+           IF W12INDMOVANU EQUAL CT-NO-ANULADO OR
+              W12INDMOVANU EQUAL CT-PAGO-APLICADO
+
+              PERFORM 23121-BUSCAR-TIPOFAC
+
+              PERFORM 23122-ACUMULAR-MOVIMIENTO
+
+              IF NO-OMITIDO AND NOT SI-PAGO
+                 PERFORM 23123-ABRIR-CURSOR-TBMOVCEC
+
+                 PERFORM 93000-LEER-CURSOR-TBMOVCEC
+
+                 PERFORM 23124-TRATAR-CONCEPTOS
+                   UNTIL SW-FIN-CURSOR-TBMOVCEC
+
+                 PERFORM 23126-CERRAR-CURSOR-TBMOVCEC
+              END-IF
+           END-IF
+
+           PERFORM 20420-LEER-CURSOR-TBMOVEXT
+           .
+
+
+      * ================================================================
+       23121-BUSCAR-TIPOFAC.
+      * ================================================================
+
+           IF W12CODENT      NOT EQUAL ATRUT044-E-CODENT    OR
+              W12TIPOFAC     NOT EQUAL ATRUT044-E-TIPOFAC   OR
+              W12INDNORCOR   NOT EQUALS ATRUT044-E-INDNORCOR
+
+              MOVE  W12CODENT            TO ATRUT044-E-CODENT
+              MOVE  W12INDNORCOR         TO ATRUT044-E-INDNORCOR
+              MOVE  W12TIPOFAC           TO ATRUT044-E-TIPOFAC
+
+              CALL CT-ATRW044  USING WS-RUT044
+
+              IF ATRUT044-CODRET-NOOK
+                 MOVE ATRUT044-NOMBRE-BD       TO ATPAGMAX-NOMBRE-BD
+                 MOVE CT-ATRW044               TO ATPAGMAX-NOMBRE-RUTINA
+                 MOVE ATRUT044-NOMBRE-TABLA    TO ATPAGMAX-NOMBRE-TABLA
+                 MOVE ATRUT044-OPERACION       TO ATPAGMAX-OPERACION
+                 MOVE ATRUT044-SQLCODE         TO ATPAGMAX-SQLCODE
+                 SET  ATPAGMAX-CODRET-ERROR    TO TRUE
+                 PERFORM 30000-FINAL
+              ELSE
+                 IF ATRUT044-CODRET-ERRSQL
+                    MOVE ATRUT044-NOMBRE-BD    TO ATPAGMAX-NOMBRE-BD
+                    MOVE CT-ATRW044            TO ATPAGMAX-NOMBRE-RUTINA
+                    MOVE ATRUT044-NOMBRE-TABLA TO ATPAGMAX-NOMBRE-TABLA
+                    MOVE ATRUT044-OPERACION    TO ATPAGMAX-OPERACION
+                    MOVE ATRUT044-SQLCODE      TO ATPAGMAX-SQLCODE
+                    SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+                    PERFORM 30000-FINAL
+                 END-IF
+              END-IF
+              MOVE ATRUT044-ESTRUCTURA TO WS-TIPFAC
+           END-IF
+           .
+
+
+      * ================================================================
+       23122-ACUMULAR-MOVIMIENTO.
+      * ================================================================
+
+           MOVE ZEROES TO WS-IMPORTE-01     WS-IMPORTE-02
+                          WS-IMPORTE-03     WS-IMPORTE-04
+                          WS-IMPORTE-05     WS-IMPORTE-06
+                          WS-IMPORTE-07     WS-IMPORTE-08
+                          WS-IMPORTE-09     WS-IMPORTE-10
+
+           SET NO-ACTUAL-ENCONTRADO  TO TRUE
+           SET NO-OMITIDO            TO TRUE
+
+           MOVE W44TIPOFACSIST TO SW-PAGO
+
+           IF SI-PAGO
+               IF W12INDMOVANU <> 1
+                  PERFORM 23122-ACCEDER-PAGOS-APLICADOS
+               ELSE
+                  SET SI-OMITIDO            TO TRUE
+               END-IF
+           ELSE
+              IF W44TIPOFAC = 108 OR W44TIPOFAC = 100
+FACT80           OR W44TIPOFAC = 80
+                 IF (W44TIPOFAC = 100 AND W12INDNORCOR = 1)
+                    SUBTRACT W12IMPFAC   FROM WS-IMPORTE-08
+                 ELSE
+                   IF (W44TIPOFAC = 108 )
+FACT80             OR W44TIPOFAC = 80
+                     MOVE W12IMPFAC   TO WS-IMPORTE-08
+                   ELSE
+                    SET SI-OMITIDO            TO TRUE
+                   END-IF
+                 END-IF
+              ELSE
+                IF (W44INDFACINF EQUAL CT-NO-INFORMATIVO
+                AND  W44TIPOFAC NOT EQUAL 90)
+                   IF W44SIGNO EQUAL CT-POSITIVO
+                      ADD W12IMPFAC   TO WS-IMPORTE-08
+                      ADD W12IMPIMPTO TO WS-IMPORTE-04
+                   ELSE
+                      SUBTRACT W12IMPFAC   FROM WS-IMPORTE-08
+                      SUBTRACT W12IMPIMPTO FROM WS-IMPORTE-04
+                   END-IF
+                ELSE
+                   IF W44TIPOFAC EQUAL CT-SALDO-APLAZADO
+                      PERFORM 23123-BUSCA-SALDO-APLAZADO
+                   ELSE
+                      IF W44SIGNO EQUAL CT-POSITIVO
+                         MOVE W12IMPIMPTO TO WS-IMPORTE-04
+                      ELSE
+                         SUBTRACT W12IMPIMPTO FROM WS-IMPORTE-04
+                      END-IF
+                   END-IF
+                END-IF
+              END-IF
+           END-IF
+
+           IF NO-OMITIDO AND NOT SI-PAGO
+              SET ACT-IND TO 1
+              PERFORM UNTIL ACT-IND > ACTUAL-MAX-DD-IND
+                   OR SI-ACTUAL-ENCONTRADO
+               IF ACTUAL-CLAMON    (ACT-IND) = W12CLAMON      AND
+                  ACTUAL-LINEA     (ACT-IND) = W12LINEA       AND
+                  ACTUAL-FECFUTVTO (ACT-IND) = WS-FECFUTVTO-N AND
+                  ACTUAL-SITDEUDA  (ACT-IND) = CT-ACTUAL
+                  PERFORM 20132B-ACUMULA-TIPIMP-ACT
+                  SET SI-ACTUAL-ENCONTRADO  TO TRUE
+               END-IF
+               SET ACT-IND UP BY 1
+              END-PERFORM
+
+              IF NO-ACTUAL-ENCONTRADO
+                 MOVE W12CLAMON   TO ACTUAL-CLAMON   (ACTUAL-MAX-DD-IND)
+                 MOVE W12LINEA    TO ACTUAL-LINEA    (ACTUAL-MAX-DD-IND)
+                 MOVE WS-FECFUTVTO-N
+                                  TO ACTUAL-FECFUTVTO(ACTUAL-MAX-DD-IND)
+                 MOVE CT-ACTUAL   TO ACTUAL-SITDEUDA (ACTUAL-MAX-DD-IND)
+                 SET  ACT-IND     TO ACTUAL-MAX-DD-IND
+                 PERFORM 20132B-ACUMULA-TIPIMP-ACT
+                 ADD 1 TO ACTUAL-MAX-DD-IND
+              END-IF
+           END-IF
+           .
+
+      * ================================================================
+       20132B-ACUMULA-TIPIMP-ACT.
+      * ================================================================
+
+            ADD  WS-IMPORTE-01  TO ACTUAL-IMPDEUDA1(ACT-IND)
+            ADD  WS-IMPORTE-02  TO ACTUAL-IMPDEUDA2(ACT-IND)
+            ADD  WS-IMPORTE-03  TO ACTUAL-IMPDEUDA3(ACT-IND)
+            ADD  WS-IMPORTE-04  TO ACTUAL-IMPDEUDA4(ACT-IND)
+            ADD  WS-IMPORTE-05  TO ACTUAL-IMPDEUDA5(ACT-IND)
+            ADD  WS-IMPORTE-06  TO ACTUAL-IMPDEUDA6(ACT-IND)
+            ADD  WS-IMPORTE-07  TO ACTUAL-IMPDEUDA7(ACT-IND)
+            ADD  WS-IMPORTE-08  TO ACTUAL-IMPDEUDA8(ACT-IND)
+            ADD  WS-IMPORTE-09  TO ACTUAL-IMPDEUDA9(ACT-IND)
+            ADD  WS-IMPORTE-10  TO ACTUAL-IMPDEUDA10(ACT-IND)
+            .
+
+      * ================================================================
+       23122-ACCEDER-PAGOS-APLICADOS.
+      * ================================================================
+
+           INITIALIZE    ATPAGAPL
+           MOVE W12CODENT           TO  W462CODENT
+           MOVE W12CENTALTA         TO  W462CENTALTA
+           MOVE W12CUENTA           TO  W462CUENTA
+           MOVE W12NUMEXTCTA        TO  W462NUMEXTCTA
+           MOVE W12NUMMOVEXT        TO  W462NUMMOVEXT
+           MOVE W12CLAMON           TO  W462CLAMON
+
+
+           PERFORM 20410-ABRIR-CURSOR-PAGOS
+           PERFORM 93000-LEER-CURSOR-PAGOS
+           IF SW-FIN-CURSOR-PAGOS
+              SET SI-OMITIDO TO TRUE
+           END-IF
+           PERFORM 20500-TRATAR-PAGOS
+                  UNTIL SW-FIN-CURSOR-PAGOS
+
+           PERFORM 20510-CERRAR-CURSOR-PAGOS
+           .
+
+      * ================================================================
+       20410-ABRIR-CURSOR-PAGOS.
+      * ================================================================
+
+           SET SW-NO-FIN-CURSOR-PAGOS    TO TRUE
+
+           EXEC  SQL
+               OPEN ATR912_PAGOS
+           END-EXEC
+
+           MOVE SQLCODE         TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+              MOVE CT-MP                      TO ATPAGMAX-NOMBRE-BD
+              MOVE CT-PROGRAMA                TO ATPAGMAX-NOMBRE-RUTINA
+              MOVE CT-TABLA462                TO ATPAGMAX-NOMBRE-TABLA
+              MOVE CT-ABRIR-CURSOR            TO ATPAGMAX-OPERACION
+              MOVE SQLCODE                    TO ATPAGMAX-SQLCODE
+              SET  ATPAGMAX-CODRET-ERROR-DB2  TO TRUE
+              PERFORM 30000-FINAL
+           END-IF.
+
+      * ================================================================
+       23123-BUSCA-SALDO-APLAZADO.
+      * ================================================================
+
+           MOVE 1 TO WS-TIPIMP-AUX
+
+           PERFORM 10 TIMES
+              INITIALIZE ATEXTIMP
+              MOVE ZEROES TO WS-APLAZADO
+              MOVE W12CODENT         TO W182CODENT
+              MOVE W12CENTALTA       TO W182CENTALTA
+              MOVE W12CUENTA         TO W182CUENTA
+              MOVE W12CLAMON         TO W182CLAMON
+              MOVE W12NUMEXTCTA      TO W182NUMEXTCTA
+              MOVE W12LINEA          TO W182LINEA
+              MOVE WS-TIPIMP-AUX     TO W182TIPIMP
+
+              EXEC SQL
+                   SELECT IMPINI,
+                          IMPMIN
+                   INTO   :W182IMPINI,
+                          :W182IMPMIN
+                   FROM MPDT182
+                   WHERE CODENT    =:W182CODENT
+                    AND  CENTALTA  =:W182CENTALTA
+                    AND  CUENTA    =:W182CUENTA
+                    AND  CLAMON    =:W182CLAMON
+                    AND  NUMEXTCTA =:W182NUMEXTCTA
+                    AND  LINEA     =:W182LINEA
+                    AND  TIPIMP    =:W182TIPIMP
+              END-EXEC
+
+              MOVE SQLCODE        TO ATSQLERR
+
+              EVALUATE TRUE
+                  WHEN ACCESO-CORRECTO-BD
+                       COMPUTE WS-APLAZADO = W182IMPINI - W182IMPMIN
+      * MANTIS-0014462-INI
+                       PERFORM 2033B-RESCATAR-PAGOS-FACTURADOS
+                       IF IMPAPL OF DCLMPDT462 >= W182IMPMIN
+                         COMPUTE WS-APLAZADO = W182IMPINI -
+                                             IMPAPL OF DCLMPDT462
+                       ELSE
+                         COMPUTE WS-APLAZADO = W182IMPINI - W182IMPMIN
+                       END-IF
+                       IF  WS-APLAZADO < 0
+                           MOVE 0 TO WS-APLAZADO
+                       END-IF
+      * MANTIS-0014462-FIN
+                  WHEN REG-NO-EXISTENTE-BD
+                       MOVE ZEROES TO WS-APLAZADO
+                  WHEN OTHER
+                       MOVE CT-MP              TO ATPAGMAX-NOMBRE-BD
+                       MOVE CT-PROGRAMA        TO ATPAGMAX-NOMBRE-RUTINA
+                       MOVE CT-TABLA182        TO ATPAGMAX-NOMBRE-TABLA
+                       MOVE CT-SELECT          TO ATPAGMAX-OPERACION
+                       MOVE SQLCODE            TO ATPAGMAX-SQLCODE
+                       SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+                       PERFORM 30000-FINAL
+              END-EVALUATE
+
+              EVALUATE W182TIPIMP
+                  WHEN CT-CAPITAL-FINAN
+                     MOVE WS-APLAZADO TO WS-IMPORTE-01
+
+                  WHEN CT-COMISION
+                     MOVE WS-APLAZADO TO WS-IMPORTE-02
+
+                  WHEN CT-INTERESES
+                     MOVE WS-APLAZADO TO WS-IMPORTE-03
+
+                  WHEN CT-IMPUESTO
+                     MOVE WS-APLAZADO TO WS-IMPORTE-04
+
+                  WHEN CT-COMISION-MORA
+                     MOVE WS-APLAZADO TO WS-IMPORTE-05
+
+                  WHEN CT-INTERESES-MORA
+                     MOVE WS-APLAZADO TO WS-IMPORTE-06
+
+                  WHEN CT-IMPUESTO-MORA
+                     MOVE WS-APLAZADO TO WS-IMPORTE-07
+
+                  WHEN CT-CAPITAL-NO-FINAN
+                     MOVE WS-APLAZADO TO WS-IMPORTE-08
+
+                  WHEN CT-GASTO-GSIC
+                     MOVE WS-APLAZADO TO WS-IMPORTE-09
+
+                  WHEN CT-COMISION-EXTRACTO
+                     MOVE WS-APLAZADO TO WS-IMPORTE-10
+              END-EVALUATE
+              ADD 1 TO WS-TIPIMP-AUX
+           END-PERFORM
+      *SATI-659877-INI
+           ADD W12IMPIMPTO TO WS-IMPORTE-04
+      *SATI-659877-FIN
+           .
+
+      * ================================================================
+       93000-LEER-CURSOR-PAGOS.
+      * ================================================================
+
+           EXEC  SQL
+               FETCH  ATR912_PAGOS
+                INTO :W462LINEA    ,
+                     :W462FECFUTVTO,
+                     :W462SITDEUDA ,
+                     :W462TIPSAL   ,
+                     :W462TIPIMP   ,
+                     :W462FECAPL   ,
+                     :W462IMPAPL   ,
+                     :W462NOMBRETAREA
+           END-EXEC
+
+           MOVE SQLCODE          TO ATSQLERR
+
+           IF  REG-NO-EXISTENTE-BD
+               SET SW-FIN-CURSOR-PAGOS TO TRUE
+           ELSE
+               IF  NOT  ACCESO-CORRECTO-BD
+                  MOVE CT-MP                  TO ATPAGMAX-NOMBRE-BD
+                  MOVE CT-PROGRAMA            TO ATPAGMAX-NOMBRE-RUTINA
+                  MOVE CT-TABLA462            TO ATPAGMAX-NOMBRE-TABLA
+                  MOVE CT-FETCH-CURSOR        TO ATPAGMAX-OPERACION
+                  MOVE SQLCODE                TO ATPAGMAX-SQLCODE
+                  SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+                  PERFORM 30000-FINAL
+               END-IF
+           END-IF.
+
+      * ================================================================
+       20500-TRATAR-PAGOS.
+      * ================================================================
+
+           SET ACT-IND TO 1
+           IF W462NOMBRETAREA = 'PRONTO PAGO' AND W462TIPIMP = 2
+              CONTINUE
+           ELSE
+              IF W462SITDEUDA = 'A'
+                 SET NO-ACTUAL-ENCONTRADO TO TRUE
+OAAA             MOVE W462FECFUTVTO (1:6) TO WS-FECFUTVTO-NUM
+
+                 PERFORM UNTIL ACT-IND > ACTUAL-MAX-DD-IND
+                      OR SI-ACTUAL-ENCONTRADO
+                    IF ACTUAL-CLAMON    (ACT-IND) = W462CLAMON      AND
+                       ACTUAL-LINEA     (ACT-IND) = W462LINEA       AND
+                       ACTUAL-FECFUTVTO (ACT-IND) = WS-FECFUTVTO-NUM AND
+                       ACTUAL-SITDEUDA  (ACT-IND) = W462SITDEUDA
+                       COMPUTE WS-IMPORTE = W462IMPAPL * -1
+                       EVALUATE W462TIPIMP
+                         WHEN CT-CAPITAL-FINAN
+                            ADD  WS-IMPORTE TO ACTUAL-IMPDEUDA1(ACT-IND)
+
+                         WHEN CT-COMISION
+                            ADD  WS-IMPORTE TO ACTUAL-IMPDEUDA2(ACT-IND)
+
+                         WHEN CT-INTERESES
+                            ADD  WS-IMPORTE TO ACTUAL-IMPDEUDA3(ACT-IND)
+
+                         WHEN CT-IMPUESTO
+                            ADD  WS-IMPORTE TO ACTUAL-IMPDEUDA4(ACT-IND)
+
+                         WHEN CT-COMISION-MORA
+                            ADD  WS-IMPORTE TO ACTUAL-IMPDEUDA5(ACT-IND)
+
+                         WHEN CT-INTERESES-MORA
+                            ADD  WS-IMPORTE TO ACTUAL-IMPDEUDA6(ACT-IND)
+
+                         WHEN CT-IMPUESTO-MORA
+                            ADD  WS-IMPORTE TO ACTUAL-IMPDEUDA7(ACT-IND)
+
+                         WHEN CT-CAPITAL-NO-FINAN
+                            ADD  WS-IMPORTE TO ACTUAL-IMPDEUDA8(ACT-IND)
+
+                         WHEN CT-GASTO-GSIC
+                            ADD  WS-IMPORTE TO ACTUAL-IMPDEUDA9(ACT-IND)
+
+                         WHEN CT-COMISION-EXTRACTO
+                           ADD  WS-IMPORTE TO ACTUAL-IMPDEUDA10(ACT-IND)
+                       END-EVALUATE
+                       SET SI-ACTUAL-ENCONTRADO  TO TRUE
+                    END-IF
+                    SET ACT-IND UP BY 1
+                 END-PERFORM
+
+                 IF NO-ACTUAL-ENCONTRADO
+                    MOVE W462CLAMON
+                                  TO ACTUAL-CLAMON   (ACTUAL-MAX-DD-IND)
+                    MOVE W462LINEA
+                                  TO ACTUAL-LINEA    (ACTUAL-MAX-DD-IND)
+
+OAAA                MOVE W462FECFUTVTO (1:6) TO WS-FECFUTVTO-NUM
+
+                    MOVE WS-FECFUTVTO-NUM
+                                  TO ACTUAL-FECFUTVTO(ACTUAL-MAX-DD-IND)
+                    MOVE CT-ACTUAL
+                                  TO ACTUAL-SITDEUDA (ACTUAL-MAX-DD-IND)
+                    SET  ACT-IND        TO ACTUAL-MAX-DD-IND
+                    COMPUTE WS-IMPORTE = W462IMPAPL * -1
+                    EVALUATE W462TIPIMP
+                       WHEN CT-CAPITAL-FINAN
+                            ADD  WS-IMPORTE
+                                  TO ACTUAL-IMPDEUDA1(ACTUAL-MAX-DD-IND)
+
+                       WHEN CT-COMISION
+                          ADD  WS-IMPORTE
+                                  TO ACTUAL-IMPDEUDA2(ACTUAL-MAX-DD-IND)
+
+                       WHEN CT-INTERESES
+                          ADD  WS-IMPORTE
+                                  TO ACTUAL-IMPDEUDA3(ACTUAL-MAX-DD-IND)
+
+                       WHEN CT-IMPUESTO
+                          ADD  WS-IMPORTE
+                                  TO ACTUAL-IMPDEUDA4(ACTUAL-MAX-DD-IND)
+
+                       WHEN CT-COMISION-MORA
+                          ADD  WS-IMPORTE
+                                  TO ACTUAL-IMPDEUDA5(ACTUAL-MAX-DD-IND)
+
+                       WHEN CT-INTERESES-MORA
+                          ADD  WS-IMPORTE
+                                  TO ACTUAL-IMPDEUDA6(ACTUAL-MAX-DD-IND)
+
+                       WHEN CT-IMPUESTO-MORA
+                          ADD  WS-IMPORTE
+                                  TO ACTUAL-IMPDEUDA7(ACTUAL-MAX-DD-IND)
+
+                       WHEN CT-CAPITAL-NO-FINAN
+                          ADD  WS-IMPORTE
+                                  TO ACTUAL-IMPDEUDA8(ACTUAL-MAX-DD-IND)
+
+                       WHEN CT-GASTO-GSIC
+                          ADD  WS-IMPORTE
+                                  TO ACTUAL-IMPDEUDA9(ACTUAL-MAX-DD-IND)
+
+                       WHEN CT-COMISION-EXTRACTO
+                         ADD  WS-IMPORTE
+                                 TO ACTUAL-IMPDEUDA10(ACTUAL-MAX-DD-IND)
+                    END-EVALUATE
+                    ADD 1 TO ACTUAL-MAX-DD-IND
+                 END-IF
+              ELSE
+      * PRELACION DE PAGOS-INI
+      *           IF W462TIPIMP = 5 OR W462TIPIMP = 6
+                  IF W462TIPIMP = 0
+      * PRELACION DE PAGOS-FIN
+                    SET NO-LIQUIDADO-ENCONTRADO  TO TRUE
+                    COMPUTE WS-DEUDA-IMPORTE = W462IMPAPL * -1
+OAAA                MOVE W462FECFUTVTO (1:6) TO  WS-FECFUTVTO-NUM
+                    SET LIQ-IND TO 1
+                    PERFORM UNTIL LIQ-IND > LIQUIDADO-MAX-DD-IND
+                    OR SI-LIQUIDADO-ENCONTRADO
+                      IF LIQUIDADO-CLAMON    (LIQ-IND) =
+                                                W462CLAMON AND
+                         LIQUIDADO-LINEA     (LIQ-IND) =
+                                                W462LINEA  AND
+                         LIQUIDADO-FECFUTVTO(LIQ-IND)=
+                                             WS-FECFUTVTO-NUM AND
+                         LIQUIDADO-SITDEUDA  (LIQ-IND) = CT-LIQUIDADO
+                         EVALUATE W462TIPIMP
+                             WHEN CT-CAPITAL-FINAN
+                                ADD  WS-DEUDA-IMPORTE
+                                         TO LIQUIDADO-IMPDEUDA1(LIQ-IND)
+
+                             WHEN CT-COMISION
+                                ADD WS-DEUDA-IMPORTE
+                                         TO LIQUIDADO-IMPDEUDA2(LIQ-IND)
+
+                             WHEN CT-INTERESES
+                                ADD WS-DEUDA-IMPORTE
+                                         TO LIQUIDADO-IMPDEUDA3(LIQ-IND)
+
+                             WHEN CT-IMPUESTO
+                                ADD WS-DEUDA-IMPORTE
+                                         TO LIQUIDADO-IMPDEUDA4(LIQ-IND)
+
+                             WHEN CT-COMISION-MORA
+                                ADD WS-DEUDA-IMPORTE
+                                         TO LIQUIDADO-IMPDEUDA5(LIQ-IND)
+
+                             WHEN CT-INTERESES-MORA
+                                ADD WS-DEUDA-IMPORTE
+                                         TO LIQUIDADO-IMPDEUDA6(LIQ-IND)
+
+                             WHEN CT-IMPUESTO-MORA
+                                ADD WS-DEUDA-IMPORTE
+                                         TO LIQUIDADO-IMPDEUDA7(LIQ-IND)
+
+                             WHEN CT-CAPITAL-NO-FINAN
+                                ADD WS-DEUDA-IMPORTE
+                                         TO LIQUIDADO-IMPDEUDA8(LIQ-IND)
+
+                             WHEN CT-GASTO-GSIC
+                                ADD WS-DEUDA-IMPORTE
+                                         TO LIQUIDADO-IMPDEUDA9(LIQ-IND)
+
+                             WHEN CT-COMISION-EXTRACTO
+                                ADD WS-DEUDA-IMPORTE
+                                        TO LIQUIDADO-IMPDEUDA10(LIQ-IND)
+                         END-EVALUATE
+
+                         SET SI-LIQUIDADO-ENCONTRADO  TO TRUE
+                      END-IF
+                      SET LIQ-IND UP BY 1
+                   END-PERFORM
+                   IF NO-LIQUIDADO-ENCONTRADO
+                    MOVE W462CLAMON
+                            TO LIQUIDADO-CLAMON   (LIQUIDADO-MAX-DD-IND)
+                    MOVE W462LINEA
+                            TO LIQUIDADO-LINEA    (LIQUIDADO-MAX-DD-IND)
+
+OAAA                MOVE W462FECFUTVTO (1:6) TO WS-FECFUTVTO-NUM
+
+                    MOVE WS-FECFUTVTO-NUM
+                            TO LIQUIDADO-FECFUTVTO(LIQUIDADO-MAX-DD-IND)
+                    MOVE CT-LIQUIDADO
+                            TO LIQUIDADO-SITDEUDA (LIQUIDADO-MAX-DD-IND)
+                    SET  LIQ-IND TO LIQUIDADO-MAX-DD-IND
+                    EVALUATE W462TIPIMP
+                        WHEN CT-CAPITAL-FINAN
+                           ADD  WS-DEUDA-IMPORTE
+                                    TO LIQUIDADO-IMPDEUDA1(LIQ-IND)
+
+                        WHEN CT-COMISION
+                           ADD WS-DEUDA-IMPORTE
+                                    TO LIQUIDADO-IMPDEUDA2(LIQ-IND)
+
+                        WHEN CT-INTERESES
+                           ADD WS-DEUDA-IMPORTE
+                                    TO LIQUIDADO-IMPDEUDA3(LIQ-IND)
+
+                        WHEN CT-IMPUESTO
+                           ADD WS-DEUDA-IMPORTE
+                                    TO LIQUIDADO-IMPDEUDA4(LIQ-IND)
+
+                        WHEN CT-COMISION-MORA
+                           ADD WS-DEUDA-IMPORTE
+                                    TO LIQUIDADO-IMPDEUDA5(LIQ-IND)
+
+                        WHEN CT-INTERESES-MORA
+                           ADD WS-DEUDA-IMPORTE
+                                    TO LIQUIDADO-IMPDEUDA6(LIQ-IND)
+
+                        WHEN CT-IMPUESTO-MORA
+                           ADD WS-DEUDA-IMPORTE
+                                    TO LIQUIDADO-IMPDEUDA7(LIQ-IND)
+
+                        WHEN CT-CAPITAL-NO-FINAN
+                           ADD WS-DEUDA-IMPORTE
+                                    TO LIQUIDADO-IMPDEUDA8(LIQ-IND)
+
+                        WHEN CT-GASTO-GSIC
+                           ADD WS-DEUDA-IMPORTE
+                                    TO LIQUIDADO-IMPDEUDA9(LIQ-IND)
+
+                        WHEN CT-COMISION-EXTRACTO
+                           ADD WS-DEUDA-IMPORTE
+                                   TO LIQUIDADO-IMPDEUDA10(LIQ-IND)
+                    END-EVALUATE
+
+                    ADD 1 TO LIQUIDADO-MAX-DD-IND
+                  END-IF
+                 END-IF
+              END-IF
+           END-IF
+           PERFORM 93000-LEER-CURSOR-PAGOS
+           .
+
+
+      * ================================================================
+       20510-CERRAR-CURSOR-PAGOS.
+      * ================================================================
+
+           EXEC  SQL
+               CLOSE  ATR912_PAGOS
+           END-EXEC
+
+           MOVE SQLCODE            TO ATSQLERR
+
+           IF  NOT   ACCESO-CORRECTO-BD
+               MOVE CT-MP                  TO ATPAGMAX-NOMBRE-BD
+               MOVE CT-PROGRAMA            TO ATPAGMAX-NOMBRE-RUTINA
+               MOVE CT-TABLA462            TO ATPAGMAX-NOMBRE-TABLA
+               MOVE CT-CERRAR-CURSOR        TO ATPAGMAX-OPERACION
+               MOVE SQLCODE                TO ATPAGMAX-SQLCODE
+               SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+               PERFORM 30000-FINAL
+           END-IF
+           .
+
+      * ================================================================
+       23123-ABRIR-CURSOR-TBMOVCEC.
+      * ================================================================
+
+           SET SW-NO-FIN-CURSOR-TBMOVCEC    TO TRUE
+
+           MOVE W12CODENT          TO W151CODENT
+           MOVE W12CENTALTA        TO W151CENTALTA
+           MOVE W12CUENTA          TO W151CUENTA
+           MOVE W12CLAMON          TO W151CLAMON
+           MOVE W12NUMEXTCTA       TO W151NUMEXTCTA
+           MOVE W12NUMMOVEXT       TO W151NUMMOVEXT
+
+           EXEC  SQL
+               OPEN ATR912_CONCEP
+           END-EXEC
+
+           MOVE SQLCODE         TO ATSQLERR
+
+           IF  NOT   ACCESO-CORRECTO-BD
+               MOVE CT-MP                  TO ATPAGMAX-NOMBRE-BD
+               MOVE CT-PROGRAMA            TO ATPAGMAX-NOMBRE-RUTINA
+               MOVE CT-TABLA151            TO ATPAGMAX-NOMBRE-TABLA
+               MOVE CT-ABRIR-CURSOR        TO ATPAGMAX-OPERACION
+               MOVE SQLCODE                TO ATPAGMAX-SQLCODE
+               SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+               PERFORM 30000-FINAL
+           END-IF.
+
+      * ================================================================
+       93000-LEER-CURSOR-TBMOVCEC.
+      * ================================================================
+
+           EXEC  SQL
+               FETCH  ATR912_CONCEP
+                INTO :W151CODENT,
+                     :W151CENTALTA,
+                     :W151CUENTA,
+                     :W151NUMEXTCTA,
+                     :W151CLAMON,
+                     :W151NUMMOVEXT,
+                     :W151CODCONECO,
+                     :W151TIPIMP,
+                     :W151IMPAPLECO,
+                     :W151IMPBRUECO,
+                     :W151IMPBONECO,
+                     :W151IMPIMPTO
+           END-EXEC
+
+           MOVE SQLCODE          TO ATSQLERR
+
+           IF  REG-NO-EXISTENTE-BD
+               SET SW-FIN-CURSOR-TBMOVCEC TO TRUE
+           ELSE
+               IF  NOT  ACCESO-CORRECTO-BD
+                  MOVE CT-MP                  TO ATPAGMAX-NOMBRE-BD
+                  MOVE CT-PROGRAMA            TO ATPAGMAX-NOMBRE-RUTINA
+                  MOVE CT-TABLA151            TO ATPAGMAX-NOMBRE-TABLA
+                  MOVE CT-FETCH-CURSOR        TO ATPAGMAX-OPERACION
+                  MOVE SQLCODE                TO ATPAGMAX-SQLCODE
+                  SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+                  PERFORM 30000-FINAL
+               END-IF
+           END-IF.
+
+      * ================================================================
+       23124-TRATAR-CONCEPTOS.
+      * ================================================================
+
+
+           MOVE ZEROES TO WS-IMPORTE-01     WS-IMPORTE-02
+                          WS-IMPORTE-03     WS-IMPORTE-04
+                          WS-IMPORTE-05     WS-IMPORTE-06
+                          WS-IMPORTE-07     WS-IMPORTE-08
+                          WS-IMPORTE-09     WS-IMPORTE-10
+
+          IF W151TIPIMP    EQUAL  CT-COMISION
+             PERFORM 2242-ACCEDER-TBCONECO
+
+             IF TIPCONECO OF DCLMPDT052   EQUAL  CT-DESCUENTO
+               MOVE SIGNO OF DCLMPDT052  TO WS-SIGNO
+             ELSE
+               MOVE W44SIGNO             TO WS-SIGNO
+             END-IF
+          ELSE
+             MOVE W44SIGNO      TO WS-SIGNO
+          END-IF
+
+          IF WS-SIGNO EQUAL CT-POSITIVO
+
+             COMPUTE WS-IMPORTE =  W151IMPBRUECO +
+                                   W151IMPIMPTO - W151IMPBONECO
+
+          ELSE
+             COMPUTE WS-IMPORTE =  W151IMPBONECO - W151IMPBRUECO -
+                                   W151IMPIMPTO
+          END-IF
+
+          EVALUATE W151TIPIMP
+               WHEN CT-CAPITAL-FINAN
+                  ADD  WS-IMPORTE TO WS-IMPORTE-01
+
+               WHEN CT-COMISION
+                  ADD  WS-IMPORTE TO WS-IMPORTE-02
+
+               WHEN CT-INTERESES
+                  ADD  WS-IMPORTE TO WS-IMPORTE-03
+
+               WHEN CT-IMPUESTO
+                  ADD  WS-IMPORTE TO WS-IMPORTE-04
+
+               WHEN CT-COMISION-MORA
+                  ADD  WS-IMPORTE TO WS-IMPORTE-05
+
+               WHEN CT-INTERESES-MORA
+                  ADD  WS-IMPORTE TO WS-IMPORTE-06
+
+               WHEN CT-IMPUESTO-MORA
+                  ADD  WS-IMPORTE TO WS-IMPORTE-07
+
+               WHEN CT-CAPITAL-NO-FINAN
+                  ADD  WS-IMPORTE TO WS-IMPORTE-08
+
+               WHEN CT-GASTO-GSIC
+                  ADD  WS-IMPORTE TO WS-IMPORTE-09
+
+               WHEN CT-COMISION-EXTRACTO
+                  ADD  WS-IMPORTE TO WS-IMPORTE-10
+           END-EVALUATE
+
+           SET NO-ACTUAL-ENCONTRADO TO TRUE
+
+           SET ACT-IND TO 1
+           PERFORM UNTIL ACT-IND > ACTUAL-MAX-DD-IND
+                OR SI-ACTUAL-ENCONTRADO
+            IF ACTUAL-CLAMON    (ACT-IND) = W151CLAMON     AND
+               ACTUAL-LINEA     (ACT-IND) = W12LINEA       AND
+               ACTUAL-FECFUTVTO (ACT-IND) = WS-FECFUTVTO-N AND
+               ACTUAL-SITDEUDA  (ACT-IND) = CT-ACTUAL
+               PERFORM 20132B-ACUMULA-TIPIMP-ACT
+               SET SI-ACTUAL-ENCONTRADO  TO TRUE
+            END-IF
+            SET ACT-IND UP BY 1
+           END-PERFORM
+
+           IF NO-ACTUAL-ENCONTRADO
+              MOVE W151CLAMON     TO ACTUAL-CLAMON   (ACTUAL-MAX-DD-IND)
+              MOVE W12LINEA       TO ACTUAL-LINEA    (ACTUAL-MAX-DD-IND)
+              MOVE WS-FECFUTVTO-N TO ACTUAL-FECFUTVTO(ACTUAL-MAX-DD-IND)
+              MOVE CT-ACTUAL      TO ACTUAL-SITDEUDA (ACTUAL-MAX-DD-IND)
+              SET  ACT-IND        TO ACTUAL-MAX-DD-IND
+              PERFORM 20132B-ACUMULA-TIPIMP-ACT
+              ADD 1 TO ACTUAL-MAX-DD-IND
+           END-IF
+          PERFORM 93000-LEER-CURSOR-TBMOVCEC
+          .
+
+
+      * ================================================================
+       2242-ACCEDER-TBCONECO.
+      * ================================================================
+
+           MOVE  W151CODENT               TO CODENT    OF DCLMPDT052
+           MOVE  W151CODCONECO            TO CODCONECO OF DCLMPDT052
+
+           EXEC SQL
+                SELECT TIPCONECO,
+                       SIGNO
+                INTO   :DCLMPDT052.TIPCONECO,
+                       :DCLMPDT052.SIGNO
+                FROM MPDT052
+                WHERE CODENT    =:DCLMPDT052.CODENT
+                 AND  CODCONECO =:DCLMPDT052.CODCONECO
+           END-EXEC
+
+           MOVE SQLCODE        TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+                  MOVE CT-MP                  TO ATPAGMAX-NOMBRE-BD
+                  MOVE CT-PROGRAMA            TO ATPAGMAX-NOMBRE-RUTINA
+                  MOVE CT-TABLA52             TO ATPAGMAX-NOMBRE-TABLA
+                  MOVE CT-SELECT              TO ATPAGMAX-OPERACION
+                  MOVE SQLCODE                TO ATPAGMAX-SQLCODE
+                  SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+                  PERFORM 30000-FINAL
+           END-IF.
+
+
+      * ================================================================
+       23126-CERRAR-CURSOR-TBMOVCEC.
+      * ================================================================
+
+           EXEC  SQL
+               CLOSE  ATR912_CONCEP
+           END-EXEC
+
+           MOVE SQLCODE            TO ATSQLERR
+
+           IF  NOT   ACCESO-CORRECTO-BD
+               MOVE CT-MP                  TO ATPAGMAX-NOMBRE-BD
+               MOVE CT-PROGRAMA            TO ATPAGMAX-NOMBRE-RUTINA
+               MOVE CT-TABLA151            TO ATPAGMAX-NOMBRE-TABLA
+               MOVE CT-CERRAR-CURSOR        TO ATPAGMAX-OPERACION
+               MOVE SQLCODE                TO ATPAGMAX-SQLCODE
+               SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+               PERFORM 30000-FINAL
+           END-IF.
+
+      * ================================================================
+       23130-CERRAR-CURSOR-TBMOVEXT.
+      * ================================================================
+
+           EXEC  SQL
+               CLOSE  ATR912_ACTUAL1
+           END-EXEC
+
+           MOVE SQLCODE         TO ATSQLERR
+
+           IF  NOT  ACCESO-CORRECTO-BD
+               MOVE CT-MP                  TO ATPAGMAX-NOMBRE-BD
+               MOVE CT-PROGRAMA            TO ATPAGMAX-NOMBRE-RUTINA
+               MOVE CT-TABLA12             TO ATPAGMAX-NOMBRE-TABLA
+               MOVE CT-CERRAR-CURSOR       TO ATPAGMAX-OPERACION
+               MOVE SQLCODE                TO ATPAGMAX-SQLCODE
+               SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+               PERFORM 30000-FINAL
+          END-IF.
+
+      * ================================================================
+       2033B-RESCATAR-PAGOS-FACTURADOS.
+      * ================================================================
+
+           INITIALIZE DCLMPDT462
+
+           MOVE W182CODENT     TO CODENT    OF DCLMPDT462
+           MOVE W182CENTALTA   TO CENTALTA  OF DCLMPDT462
+           MOVE W182CUENTA     TO CUENTA    OF DCLMPDT462
+           MOVE W182NUMEXTCTA  TO NUMEXTCTA OF DCLMPDT462
+           MOVE W182CLAMON     TO CLAMON    OF DCLMPDT462
+           MOVE W182LINEA      TO LINEA     OF DCLMPDT462
+           MOVE W182TIPIMP     TO TIPIMP    OF DCLMPDT462
+           MOVE 'UN'           TO TIPSAL    OF DCLMPDT462
+           MOVE W12FECFAC      TO FECAPL    OF DCLMPDT462
+
+           EXEC  SQL
+                SELECT SUM(IMPAPL)
+                 INTO   :DCLMPDT462.IMPAPL
+                FROM MPDT462
+                WHERE CODENT     = :DCLMPDT462.CODENT
+                  AND CENTALTA   = :DCLMPDT462.CENTALTA
+                  AND CUENTA     = :DCLMPDT462.CUENTA
+                  AND NUMEXTCTA  = :DCLMPDT462.NUMEXTCTA
+                  AND CLAMON     = :DCLMPDT462.CLAMON
+                  AND LINEA      = :DCLMPDT462.LINEA
+                  AND TIPIMP     = :DCLMPDT462.TIPIMP
+                  AND TIPSAL     = :DCLMPDT462.TIPSAL
+                  AND ( SITDEUDA   = 'L' OR
+                        ( SITDEUDA   = 'I' AND
+                          FECAPL  <= :DCLMPDT462.FECAPL)
+                      )
+           END-EXEC
+
+           MOVE SQLCODE             TO    ATSQLERR
+
+           EVALUATE TRUE
+            WHEN ACCESO-CORRECTO-BD
+                 CONTINUE
+            WHEN REG-NO-EXISTENTE-BD
+            WHEN VALOR-CAMPO-NULO
+                 MOVE ZEROES TO IMPAPL OF DCLMPDT462
+            WHEN OTHER
+                MOVE CT-MP                    TO ATPAGMAX-NOMBRE-BD
+                MOVE CT-PROGRAMA              TO ATPAGMAX-NOMBRE-RUTINA
+                MOVE CT-TABLA462              TO ATPAGMAX-NOMBRE-TABLA
+                MOVE CT-SELECT                TO ATPAGMAX-OPERACION
+                MOVE SQLCODE                  TO ATPAGMAX-SQLCODE
+                SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+                PERFORM 30000-FINAL
+           END-EVALUATE
+           .
+
+      * ================================================================
+       20050-OBTENER-GRUPOLIQ.
+      * ================================================================
+
+           INITIALIZE DCLMPDT007
+
+           MOVE ATPAGMAX-E-CODENT    TO CODENT    OF DCLMPDT007
+           MOVE ATPAGMAX-E-CENTALTA  TO CENTALTA  OF DCLMPDT007
+           MOVE ATPAGMAX-E-CUENTA    TO CUENTA    OF DCLMPDT007
+
+           EXEC  SQL
+                SELECT GRUPOLIQ,
+                       CODPROLIQ,
+                       FECBAJA,
+                       PRODUCTO,
+                       SUBPRODU,
+                       CODESTCTA,
+                       CONPROD,
+                       TIPBON
+                  INTO :DCLMPDT007.GRUPOLIQ,
+                       :DCLMPDT007.CODPROLIQ,
+                       :DCLMPDT007.FECBAJA,
+                       :DCLMPDT007.PRODUCTO,
+                       :DCLMPDT007.SUBPRODU,
+                       :DCLMPDT007.CODESTCTA,
+                       :DCLMPDT007.CONPROD,
+                       :DCLMPDT007.TIPBON
+                FROM MPDT007
+                WHERE CODENT    = :DCLMPDT007.CODENT
+                  AND CENTALTA  = :DCLMPDT007.CENTALTA
+                  AND CUENTA    = :DCLMPDT007.CUENTA
+           END-EXEC
+
+           MOVE SQLCODE             TO    ATSQLERR
+
+           EVALUATE TRUE
+               WHEN ACCESO-CORRECTO-BD
+                  IF  FECBAJA OF DCLMPDT007  NOT EQUAL CT-FECHA-MINIMA
+
+                    IF  CODESTCTA OF DCLMPDT007  EQUAL CT-CASTIGADO
+                         DISPLAY ' FECBAJA  : ' FECBAJA OF DCLMPDT007
+                         DISPLAY  'CODESTCTA : ' CODESTCTA OF DCLMPDT007
+                         MOVE CT-MPA2308         TO ATPAGMAX-COD-ERROR1
+                         SET ATPAGMAX-CODRET-ERROR  TO TRUE
+                         PERFORM  30000-FINAL
+                    ELSE
+                         DISPLAY ' FECBAJA  : ' FECBAJA OF DCLMPDT007
+                         DISPLAY  'CODESTCTA : ' CODESTCTA OF DCLMPDT007
+                         MOVE CT-MPA0098         TO ATPAGMAX-COD-ERROR1
+                         SET ATPAGMAX-CODRET-ERROR  TO TRUE
+                         PERFORM  30000-FINAL
+                    END-IF
+		  END-IF
+                   MOVE GRUPOLIQ  OF DCLMPDT007 TO ATPAGMAX-E-CODGRUPO
+                   MOVE CODPROLIQ OF DCLMPDT007 TO ATPAGMAX-E-CODPROCESO
+               WHEN OTHER
+                    MOVE CT-MP               TO ATPAGMAX-NOMBRE-BD
+                    MOVE CT-PROGRAMA         TO ATPAGMAX-NOMBRE-RUTINA
+                    MOVE CT-TABLA007         TO ATPAGMAX-NOMBRE-TABLA
+                    MOVE CT-SELECT           TO ATPAGMAX-OPERACION
+                    MOVE SQLCODE             TO ATPAGMAX-SQLCODE
+
+
+                    SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+                    PERFORM 30000-FINAL
+           END-EVALUATE.
+
+
+      * ================================================================
+       20040-VALOR-TOPE-ALTO.
+      * ================================================================
+           MOVE ATPAGMAX-E-CODENT   TO CODENT OF DCLMPDT099
+           MOVE CT-PAGO-MAXIMO      TO CODPAR OF DCLMPDT099
+           MOVE CT-TOPE-ALTO        TO CODVAR OF DCLMPDT099
+
+           EXEC  SQL
+                SELECT CODVALOR
+                 INTO   :DCLMPDT099.CODVALOR
+                FROM MPDT099
+                WHERE   CODENT = :DCLMPDT099.CODENT
+                    AND CODVAR = :DCLMPDT099.CODVAR
+                    AND CODPAR = :DCLMPDT099.CODPAR
+           END-EXEC
+           MOVE SQLCODE             TO    ATSQLERR
+           IF NOT ACCESO-CORRECTO-BD
+             AND NOT REG-NO-EXISTENTE-BD
+                    MOVE CT-MP               TO ATPAGMAX-NOMBRE-BD
+                    MOVE CT-PROGRAMA         TO ATPAGMAX-NOMBRE-RUTINA
+                    MOVE CT-TABLA099         TO ATPAGMAX-NOMBRE-TABLA
+                    MOVE CT-SELECT           TO ATPAGMAX-OPERACION
+                    MOVE SQLCODE             TO ATPAGMAX-SQLCODE
+                    SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+                    PERFORM 30000-FINAL
+            ELSE
+                IF REG-NO-EXISTENTE-BD
+                   MOVE ZEROES TO WS-TOLERANCIA
+                ELSE
+                    MOVE CODVALOR OF DCLMPDT099 (6:15)
+                                              TO  WS-TOLERANCIA-ALFA
+                    MOVE WS-TOLERANCIA-NUM    TO  WS-TOLERANCIA
+            END-IF.
+
+      * ================================================================
+       20500-OBTENER-AUTORIZADO.
+      * ================================================================
+
+           MOVE ZEROES TO WS-PAGPERNOR-AUT
+
+           PERFORM 20501-OBTENER-COMPRAS
+      *    SUMO LAS COMPRAS EN VUELO AL SALDO AUTORIZADO
+           ADD  WS-COMPRAS-AUT            TO    WS-PAGPERNOR-AUT
+
+           PERFORM 20502-OBTENER-PAGOS
+           PERFORM 20502-OBTENER-AMORT-INTMOR
+           SUBTRACT  WS-PAGOS-AUT-AMOR    FROM  WS-PAGOS-AUT
+      *    RESTO LOS PAGOS EN VUELO DEL SALDO AUTORIZADO
+           SUBTRACT  WS-PAGOS-AUT         FROM  WS-PAGPERNOR-AUT
+           .
+
+
+      * ================================================================
+       20501-OBTENER-COMPRAS.
+      * ================================================================
+
+           PERFORM 20501A-OPEN-CURSOR-004
+
+           PERFORM 20501B-FETCH-CURSOR-004
+                       UNTIL FIN-CURSOR-AUTORIZA
+
+           PERFORM 20110C-CLOSE-CURSOR-004
+           .
+
+      * ================================================================
+       20501A-OPEN-CURSOR-004.
+      * ================================================================
+
+           INITIALIZE DCLMPDT004
+           MOVE ZEROES                TO  WS-COMPRAS-AUT
+
+           SET NO-FIN-CURSOR-AUTORIZA TO  TRUE
+
+           MOVE ATPAGMAX-E-CODENT     TO  CODENT   OF DCLMPDT004
+           MOVE ATPAGMAX-E-CENTALTA   TO  CENTALTA OF DCLMPDT004
+           MOVE ATPAGMAX-E-CUENTA     TO  CUENTA   OF DCLMPDT004
+
+
+           EXEC SQL
+               OPEN ATR912_AUTORIZA
+           END-EXEC
+
+           MOVE SQLCODE               TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+               MOVE CT-MP                     TO ATPAGMAX-NOMBRE-BD
+               MOVE CT-PROGRAMA               TO ATPAGMAX-NOMBRE-RUTINA
+               MOVE CT-TABLA004               TO ATPAGMAX-NOMBRE-TABLA
+               MOVE CT-ABRIR-CURSOR           TO ATPAGMAX-OPERACION
+               MOVE SQLCODE                   TO ATPAGMAX-SQLCODE
+               SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+               PERFORM 30000-FINAL
+           END-IF.
+
+      * ================================================================
+       20501B-FETCH-CURSOR-004.
+      * ================================================================
+
+           EXEC SQL
+               FETCH ATR912_AUTORIZA
+                INTO :DCLMPDT004.IMPAUTCON,
+                     :DCLMPDT004.DATADI
+           END-EXEC
+
+           MOVE SQLCODE                   TO ATSQLERR
+           EVALUATE TRUE
+            WHEN ACCESO-CORRECTO-BD
+                 MOVE DATADI OF DCLMPDT004   TO WS-04-DATADI
+                 IF WS-04-FECHA-VTO(5:1) = '-'
+      *           ES COMPRA EN CUOTAS CON FECHA DE PRIMER VTO INFORMADA
+                    IF WS-04-FECHA-VTO <= WS-FECHA-CORTE-VTO
+                       ADD  WS-04-IMP-CUOT-LIN-CRDT TO WS-COMPRAS-AUT
+                    END-IF
+                 ELSE
+      *            ES REVOLVING
+                   ADD IMPAUTCON OF DCLMPDT004 TO WS-COMPRAS-AUT
+                 END-IF
+            WHEN REG-NO-EXISTENTE-BD
+              SET FIN-CURSOR-AUTORIZA       TO TRUE
+            WHEN OTHER
+              MOVE CT-MP                    TO ATPAGMAX-NOMBRE-BD
+              MOVE CT-PROGRAMA              TO ATPAGMAX-NOMBRE-RUTINA
+              MOVE CT-TABLA004              TO ATPAGMAX-NOMBRE-TABLA
+              MOVE CT-FETCH-CURSOR          TO ATPAGMAX-OPERACION
+              MOVE SQLCODE                  TO ATPAGMAX-SQLCODE
+              SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+              PERFORM 30000-FINAL
+           END-EVALUATE.
+
+
+      * ================================================================
+       20110C-CLOSE-CURSOR-004.
+      * ================================================================
+
+           EXEC SQL
+              CLOSE ATR912_AUTORIZA
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+              MOVE CT-MP                      TO ATPAGMAX-NOMBRE-BD
+              MOVE CT-PROGRAMA                TO ATPAGMAX-NOMBRE-RUTINA
+              MOVE CT-TABLA004                TO ATPAGMAX-NOMBRE-TABLA
+              MOVE CT-CERRAR-CURSOR           TO ATPAGMAX-OPERACION
+              MOVE SQLCODE                    TO ATPAGMAX-SQLCODE
+              SET  ATPAGMAX-CODRET-ERROR-DB2  TO TRUE
+              PERFORM 30000-FINAL
+           END-IF.
+
+      * ================================================================
+       20502-OBTENER-PAGOS.
+      * ================================================================
+
+           INITIALIZE DCLMPDT189
+           MOVE ZEROES               TO WS-PAGOS-AUT
+
+           MOVE ATPAGMAX-E-CODENT    TO CODENT    OF DCLMPDT189
+           MOVE ATPAGMAX-E-CENTALTA  TO CENTALTA  OF DCLMPDT189
+           MOVE ATPAGMAX-E-CUENTA    TO CUENTA    OF DCLMPDT189
+           MOVE ATPAGMAX-E-CLAMON    TO CLAMON    OF DCLMPDT189
+           MOVE 0                    TO INDESTADO OF DCLMPDT189
+
+           EXEC  SQL
+                SELECT  SUM(IMPFAC)
+                  INTO :DCLMPDT189.IMPFAC
+                FROM MPDT189
+                WHERE CODENT    = :DCLMPDT189.CODENT
+                  AND CENTALTA  = :DCLMPDT189.CENTALTA
+                  AND CUENTA    = :DCLMPDT189.CUENTA
+                  AND CLAMON    = :DCLMPDT189.CLAMON
+                  AND INDESTADO = :DCLMPDT189.INDESTADO
+           END-EXEC
+
+           MOVE SQLCODE             TO    ATSQLERR
+
+           EVALUATE TRUE
+               WHEN REG-NO-EXISTENTE-BD
+               WHEN VALOR-CAMPO-NULO
+                    MOVE ZEROES     TO    IMPFAC OF DCLMPDT189
+
+               WHEN ACCESO-CORRECTO-BD
+                    CONTINUE
+
+               WHEN OTHER
+                    MOVE CT-MP               TO ATPAGMAX-NOMBRE-BD
+                    MOVE CT-PROGRAMA         TO ATPAGMAX-NOMBRE-RUTINA
+                    MOVE CT-TABLA189         TO ATPAGMAX-NOMBRE-TABLA
+                    MOVE CT-SELECT           TO ATPAGMAX-OPERACION
+                    MOVE SQLCODE             TO ATPAGMAX-SQLCODE
+                    SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+                    PERFORM 30000-FINAL
+           END-EVALUATE
+
+           MOVE      IMPFAC OF DCLMPDT189 TO    WS-PAGOS-AUT
+           .
+
+      * ================================================================
+       20502-OBTENER-AMORT-INTMOR.
+      * ================================================================
+
+           INITIALIZE DCLMPDT189
+           MOVE ZEROES               TO WS-PAGOS-AUT-AMOR
+
+           MOVE ATPAGMAX-E-CODENT    TO CODENT    OF DCLMPDT189
+           MOVE ATPAGMAX-E-CENTALTA  TO CENTALTA  OF DCLMPDT189
+           MOVE ATPAGMAX-E-CUENTA    TO CUENTA    OF DCLMPDT189
+           MOVE ATPAGMAX-E-CLAMON    TO CLAMON    OF DCLMPDT189
+           MOVE 0                    TO INDESTADO OF DCLMPDT189
+           MOVE 5                    TO TIPOPAG   OF DCLMPDT189
+
+           EXEC  SQL
+                SELECT  SUM(IMPINTMORA) + SUM(IMPGASMORA)
+                  INTO :DCLMPDT189.IMPINTMORA
+                FROM MPDT189
+                WHERE CODENT    = :DCLMPDT189.CODENT
+                  AND CENTALTA  = :DCLMPDT189.CENTALTA
+                  AND CUENTA    = :DCLMPDT189.CUENTA
+                  AND CLAMON    = :DCLMPDT189.CLAMON
+                  AND INDESTADO = :DCLMPDT189.INDESTADO
+                  AND TIPOPAG   = :DCLMPDT189.TIPOPAG
+           END-EXEC
+
+           MOVE SQLCODE             TO    ATSQLERR
+
+           EVALUATE TRUE
+               WHEN REG-NO-EXISTENTE-BD
+               WHEN VALOR-CAMPO-NULO
+                    MOVE ZEROES     TO    IMPINTMORA OF DCLMPDT189
+
+               WHEN ACCESO-CORRECTO-BD
+                    CONTINUE
+
+               WHEN OTHER
+                    MOVE CT-MP               TO ATPAGMAX-NOMBRE-BD
+                    MOVE CT-PROGRAMA         TO ATPAGMAX-NOMBRE-RUTINA
+                    MOVE CT-TABLA189         TO ATPAGMAX-NOMBRE-TABLA
+                    MOVE CT-SELECT           TO ATPAGMAX-OPERACION
+                    MOVE SQLCODE             TO ATPAGMAX-SQLCODE
+                    SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+                    PERFORM 30000-FINAL
+           END-EVALUATE
+
+           MOVE      IMPINTMORA OF DCLMPDT189 TO    WS-PAGOS-AUT-AMOR
+           .
+
+      * ================================================================
+       20400-CALCULA-GASTO-MORA2.
+      * ================================================================
+           INITIALIZE  WS-ATPAGDIA
+
+           MOVE  ATPAGMAX-E-CODENT      TO ATPAGDIA-CODENT
+           MOVE  ATPAGMAX-E-CENTALTA    TO ATPAGDIA-CENTALTA
+           MOVE  ATPAGMAX-E-CUENTA      TO ATPAGDIA-CUENTA
+           MOVE  ATPAGMAX-E-CLAMON      TO ATPAGDIA-CLAMON
+           MOVE  SPACES                 TO ATPAGDIA-LINEA
+           MOVE  CT-T                   TO ATPAGDIA-OPCION
+           MOVE  ATPAGPER-E-FECHA       TO ATPAGDIA-FECHASYS
+           MOVE  WS-IMPAGOS             TO ATPAGDIA-IMPFAC
+           MOVE  ZEROS                  TO ATPAGDIA-INDACCION
+
+           CALL CT-ATR645 USING WS-ATPAGDIA
+
+           IF ATPAGDIA-SAL-OK
+              MOVE ATPAGDIA-IMPINTER   TO WS-INTERES-MORA
+              MOVE ATPAGDIA-IMPGASTO   TO WS-GASTO-MORA
+           ELSE
+              MOVE CT-MP               TO ATPAGMAX-NOMBRE-BD
+              MOVE CT-PROGRAMA         TO ATPAGMAX-NOMBRE-RUTINA
+              MOVE CT-ATR645           TO ATPAGMAX-NOMBRE-TABLA
+              MOVE CT-CALL             TO ATPAGMAX-OPERACION
+              MOVE SQLCODE             TO ATPAGMAX-SQLCODE
+              SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+              PERFORM 30000-FINAL
+           END-IF.
+
+
+      * ================================================================
+       20420-ACCESO-TBENTBAN.
+      * ================================================================
+
+           MOVE ATPAGPER-E-CODENT     TO     W21CODENT
+
+           EXEC SQL
+                SELECT CODENT,
+                       INDUF,
+                       CLAMONUF,
+                       FORCALINT,
+                       CODPAIS,
+                       ORDPREPAG,
+                       OFIMPAGO
+                  INTO :W21CODENT,
+                       :W21INDUF,
+                       :W21CLAMONUF,
+                       :W21FORCALINT,
+                       :W21CODPAIS,
+                       :W21ORDPREPAG,
+                       :W21OFIMPAGO
+                  FROM MPDT021
+                WHERE  CODENT = :W21CODENT
+           END-EXEC
+
+           MOVE SQLCODE                TO ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD
+                   MOVE CT-MP               TO ATPAGMAX-NOMBRE-BD
+                   MOVE CT-PROGRAMA         TO ATPAGMAX-NOMBRE-RUTINA
+                   MOVE CT-TABLA021         TO ATPAGMAX-NOMBRE-TABLA
+                   MOVE CT-SELECT           TO ATPAGMAX-OPERACION
+                   MOVE SQLCODE             TO ATPAGMAX-SQLCODE
+                   SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+                   PERFORM 30000-FINAL
+           END-IF
+           .
+      * ================================================================
+       204120B-BUSCAR-FECHA-CORTE.
+      * ================================================================
+
+           MOVE SPACES                  TO WS-FECHA-CORTE
+           MOVE ATPAGMAX-E-CODENT       TO CODENT     OF DCLMPDT085
+           MOVE ATPAGMAX-E-CODPROCESO   TO CODPROCESO OF DCLMPDT085
+           MOVE ATPAGMAX-E-CODGRUPO     TO CODGRUPO   OF DCLMPDT085
+           MOVE CT-FACTURACION          TO TIPFECHA   OF DCLMPDT085
+           MOVE ATPAGPER-E-FECHA        TO FECHA      OF DCLMPDT085
+
+           EXEC  SQL
+                SELECT MIN(FECHA)
+                 INTO   :WS-FECHA-CORTE
+                FROM MPDT085
+                WHERE   CODENT      = :DCLMPDT085.CODENT
+                    AND CODPROCESO  = :DCLMPDT085.CODPROCESO
+                    AND CODGRUPO    = :DCLMPDT085.CODGRUPO
+                    AND TIPFECHA    = :DCLMPDT085.TIPFECHA
+                    AND FECHA      >= :DCLMPDT085.FECHA
+                    AND INDPROC    = 'N'
+           END-EXEC
+
+           MOVE SQLCODE             TO    ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD OR VALOR-CAMPO-NULO
+              MOVE CT-MP                    TO ATPAGMAX-NOMBRE-BD
+              MOVE CT-PROGRAMA              TO ATPAGMAX-NOMBRE-RUTINA
+              MOVE CT-TABLA85               TO ATPAGMAX-NOMBRE-TABLA
+              MOVE CT-SELECT                TO ATPAGMAX-OPERACION
+              MOVE SQLCODE                  TO ATPAGMAX-SQLCODE
+              SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+              PERFORM 30000-FINAL
+           END-IF
+
+
+           MOVE ATPAGMAX-E-CODENT      TO CODENT     OF DCLMPDT085
+           MOVE ATPAGMAX-E-CODPROCESO  TO CODPROCESO OF DCLMPDT085
+           MOVE ATPAGMAX-E-CODGRUPO    TO CODGRUPO   OF DCLMPDT085
+           MOVE CT-VENCIMIENTO         TO TIPFECHA   OF DCLMPDT085
+           MOVE WS-FECHA-CORTE         TO FECHA      OF DCLMPDT085
+
+           EXEC  SQL
+                SELECT MIN(FECHA)
+                 INTO   :WS-FECHA-CORTE-VTO
+                FROM MPDT085
+                WHERE   CODENT     = :DCLMPDT085.CODENT
+                    AND CODPROCESO = :DCLMPDT085.CODPROCESO
+                    AND CODGRUPO   = :DCLMPDT085.CODGRUPO
+                    AND TIPFECHA   = :DCLMPDT085.TIPFECHA
+                    AND FECHA      > :DCLMPDT085.FECHA
+           END-EXEC
+
+           MOVE SQLCODE             TO    ATSQLERR
+
+           IF NOT ACCESO-CORRECTO-BD OR VALOR-CAMPO-NULO
+              MOVE CT-MP                    TO ATPAGMAX-NOMBRE-BD
+              MOVE CT-PROGRAMA              TO ATPAGMAX-NOMBRE-RUTINA
+              MOVE CT-TABLA85               TO ATPAGMAX-NOMBRE-TABLA
+              MOVE CT-SELECT                TO ATPAGMAX-OPERACION
+              MOVE SQLCODE                  TO ATPAGMAX-SQLCODE
+              SET  ATPAGMAX-CODRET-ERROR-DB2 TO TRUE
+              PERFORM 30000-FINAL
+           END-IF
+           .
+
+      * ================================================================
+       30000-FINAL.
+      * ================================================================
+
+
+           MOVE ZEROES TO ATPAGPER-S-PAGPERNOR
+                          ATPAGPER-S-PAGPERTOL
+                          WS-IMPAGOS
+                          WS-LIQUIDADO
+                          WS-ACTUAL
+                          WS-FUTURO
+
+
+           MOVE  ATPAGMAX-CODRET      TO  ATPAGPER-CODRET
+           MOVE  ATPAGMAX-COD-ERROR   TO  ATPAGPER-COD-ERROR
+           MOVE  ATPAGMAX-MSJERROR    TO  ATPAGPER-MSJERROR
+
+
+           IF ATPAGPER-CODRET-OK
+              MOVE 1 TO WS-IND
+
+              PERFORM  UNTIL WS-IND >= ATPAGMAX-MAX-DD-IND
+                       COMPUTE  WS-PAGPERNOR-DISP =
+                                WS-PAGPERNOR-DISP +
+                                ATPAGMAX-S-IMPDEUDA1 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA2 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA3 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA4 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA5 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA6 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA7 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA8 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA9 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA10(WS-IND)
+
+                       IF ATPAGMAX-S-SITDEUDA (WS-IND) = 'I'
+                          COMPUTE WS-IMPAGOS = WS-IMPAGOS +
+                                ATPAGMAX-S-IMPDEUDA1 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA2 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA3 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA4 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA5 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA6 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA7 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA8 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA9 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA10(WS-IND)
+                       END-IF
+
+                       IF ATPAGMAX-S-SITDEUDA (WS-IND) = 'L'
+                          COMPUTE WS-LIQUIDADO = WS-LIQUIDADO +
+                                ATPAGMAX-S-IMPDEUDA1 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA2 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA3 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA4 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA5 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA6 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA7 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA8 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA9 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA10(WS-IND)
+                       END-IF
+
+                       IF ATPAGMAX-S-SITDEUDA (WS-IND) = 'A'
+                          COMPUTE WS-ACTUAL = WS-ACTUAL +
+                                ATPAGMAX-S-IMPDEUDA1 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA2 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA3 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA4 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA5 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA6 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA7 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA8 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA9 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA10(WS-IND)
+                       END-IF
+
+                          IF ATPAGMAX-S-SITDEUDA (WS-IND) = 'F'
+                          COMPUTE WS-FUTURO = WS-FUTURO +
+                                ATPAGMAX-S-IMPDEUDA1 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA2 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA3 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA4 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA5 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA6 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA7 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA8 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA9 (WS-IND) +
+                                ATPAGMAX-S-IMPDEUDA10(WS-IND)
+                         END-IF
+
+
+                       ADD 1 TO WS-IND
+              END-PERFORM
+
+      * CONSIDERA DISPUESTO
+              IF ATPAGPER-E-MODO(1:1) = 1
+      *           DISPLAY 'CONTRATO : ' ATPAGMAX-E-CODENT       ' '
+      *                                 ATPAGMAX-E-CENTALTA     ' '
+      *                                 ATPAGMAX-E-CUENTA
+      *            '     FECHA DE CORTE  : FF ' WS-FECHA-CORTE
+      *            '     FECHA DE CORTE  : FV ' WS-FECHA-CORTE-VTO
+      *
+      *           MOVE WS-PAGPERNOR-DISP TO DISPLAY-NUM
+      *           DISPLAY '---------------------------------------------'
+      *           DISPLAY 'SALDO DISPUESTO TOTAL       : ' DISPLAY-NUM
+      *           DISPLAY '---------------------------------------------'
+      *           MOVE WS-IMPAGOS TO DISPLAY-NUM
+      *           DISPLAY 'SALDO MORA                  : ' DISPLAY-NUM
+      *           MOVE WS-LIQUIDADO TO DISPLAY-NUM
+      *           DISPLAY 'SALDO LIQUIDADO             : ' DISPLAY-NUM
+      *           MOVE WS-ACTUAL TO DISPLAY-NUM
+      *           DISPLAY 'SALDO ACTUAL                : ' DISPLAY-NUM
+      *           MOVE WS-FUTURO TO DISPLAY-NUM
+      *           DISPLAY 'SALDO FUTURO                : ' DISPLAY-NUM
+                 ADD WS-PAGPERNOR-DISP    TO ATPAGPER-S-PAGPERNOR
+              END-IF
+
+      * CONSIDERA AUTORIZADO
+              IF ATPAGPER-E-MODO(2:1) = 1
+
+      *           MOVE WS-PAGPERNOR-AUT TO DISPLAY-NUM
+      *           DISPLAY '---------------------------------------------'
+      *           DISPLAY 'SALDO AUTORIZADO TOTAL      : ' DISPLAY-NUM
+      *           DISPLAY '---------------------------------------------'
+      *           MOVE WS-COMPRAS-AUT TO DISPLAY-NUM
+      *           DISPLAY 'COMPRAS EN VUELO            : ' DISPLAY-NUM
+      *           MOVE WS-PAGOS-AUT   TO DISPLAY-NUM
+      *           DISPLAY 'PAGOS EN VUELO              : ' DISPLAY-NUM
+                  ADD WS-PAGPERNOR-AUT     TO ATPAGPER-S-PAGPERNOR
+              END-IF
+
+      * CONSIDERA INTERES Y GASTO MORA
+              MOVE ZEROES             TO  WS-PAGPERNOR-IGMOR
+
+              IF ATPAGPER-E-MODO(3:1) = 1
+                 IF WS-IMPAGOS > 0
+                    PERFORM 20400-CALCULA-GASTO-MORA2
+                    ADD WS-INTERES-MORA       TO WS-PAGPERNOR-IGMOR
+                    ADD WS-GASTO-MORA         TO WS-PAGPERNOR-IGMOR
+                 END-IF
+      *          MOVE WS-PAGPERNOR-IGMOR   TO DISPLAY-NUM
+      *          DISPLAY '---------------------------------------------'
+      *          DISPLAY 'CONC.PTES DE FACTURAR       : '
+      *                                            DISPLAY-NUM
+      *          DISPLAY '---------------------------------------------'
+      *          MOVE WS-INTERES-MORA   TO DISPLAY-NUM
+      *          DISPLAY 'INTERES MORA                : ' DISPLAY-NUM
+      *          MOVE WS-GASTO-MORA     TO DISPLAY-NUM
+      *          DISPLAY 'GASTO MORA                  : ' DISPLAY-NUM
+      *
+                 ADD WS-PAGPERNOR-IGMOR   TO ATPAGPER-S-PAGPERNOR
+              END-IF
+
+      * SI TIENE SALDO ACREEDOR LO LLEVO A CERO
+              IF ATPAGPER-S-PAGPERNOR < 0
+                 MOVE ZEROES        TO  ATPAGPER-S-PAGPERNOR
+              END-IF
+
+      *        DISPLAY '---------------------------------------------'
+      *        MOVE     ATPAGPER-S-PAGPERNOR  TO DISPLAY-NUM
+      *        DISPLAY 'MONTO MAXIMO DE PAGO        : ' DISPLAY-NUM
+
+              COMPUTE WS-FACTOR ROUNDED =  WS-TOLERANCIA /100 *
+                                             ATPAGPER-S-PAGPERNOR
+              DISPLAY 'ANTES DE REDONDEO'
+              DISPLAY 'ATPAGPER-S-PAGPERNOR:' ATPAGPER-S-PAGPERNOR
+      *GAP-PRODTAR-INI
+      *           MOVE WS-FACTOR             TO WS-MON-SIN-REDONDEO
+      *           PERFORM 21625-REDONDEO-MONTO
+      *           ADD WS-MON-CON-REDONDEO    TO WS-FACTOR
+      *
+      *           MOVE ATPAGPER-S-PAGPERNOR  TO WS-MON-SIN-REDONDEO
+      *           PERFORM 21625-REDONDEO-MONTO
+      *           ADD WS-MON-CON-REDONDEO    TO ATPAGPER-S-PAGPERNOR
+      *GAP-PRODTAR-FIN
+
+      *GAP-PRODTAR-INI
+               COMPUTE ATPAGPER-S-PAGPERTOL = WS-FACTOR +
+                                            ATPAGPER-S-PAGPERNOR
+               DISPLAY 'ATPAGPER-S-PAGPERTOL:' ATPAGPER-S-PAGPERTOL
+
+               MOVE ATPAGPER-S-PAGPERTOL   TO WS-MON-SIN-REDONDEO
+               PERFORM 21625-REDONDEO-MONTO
+               MOVE WS-MON-CON-REDONDEO    TO ATPAGPER-S-PAGPERTOL
+
+               MOVE ATPAGPER-S-PAGPERNOR  TO WS-MON-SIN-REDONDEO
+               PERFORM 21625-REDONDEO-MONTO
+               MOVE WS-MON-CON-REDONDEO    TO ATPAGPER-S-PAGPERNOR
+               DISPLAY 'DESPUES DE REDONDEAR MONTO'
+               DISPLAY 'ATPAGPER-S-PAGPERNOR:' ATPAGPER-S-PAGPERNOR
+               DISPLAY 'ATPAGPER-S-PAGPERTOL:' ATPAGPER-S-PAGPERTOL
+      *GAP-PRODTAR-FIN
+      *        DISPLAY '---------------------------------------------'
+      *        MOVE     ATPAGPER-S-PAGPERTOL  TO DISPLAY-NUM
+      *        DISPLAY 'MONTO MAXIMO DE PAGO (T)    : ' DISPLAY-NUM
+      *        DISPLAY '---------------------------------------------'
+
+           END-IF
+
+           GOBACK.
+      *GAP-PRODTAR-INI
+      *=================================================================
+       21625-REDONDEO-MONTO.
+      *=================================================================
+
+           MOVE WS-MON-SIN-REDONDEO TO WS-MON-UNIDAD
+
+           IF WS-MON-UNIDAD > WS-PARAM-CORTE(20:1)
+              COMPUTE WS-MON-RESTO = 10 - WS-MON-UNIDAD
+              COMPUTE WS-MON-CON-REDONDEO =
+                                 WS-MON-SIN-REDONDEO + WS-MON-RESTO
+           ELSE
+              COMPUTE WS-MON-CON-REDONDEO =
+                                 WS-MON-SIN-REDONDEO - WS-MON-UNIDAD
+           END-IF.
+      *GAP-PRODTAR-FIN
+
+
+

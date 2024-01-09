@@ -1,0 +1,165 @@
+      *---------------------------------------------------------------- *       
+      *  COPY PARA PAGO AL DIA/CONFIRMACION                             *       
+      *---------------------------------------------------------------- *       
+      *  COPY MPM0646                                                   *       
+      *---------------------------------------------------------------- *       
+      ** 10 MP646-CODENT             O[A]
+      *_ ENTIDAD                           
+      ** 10 MP646-CENTALTA           O[A] 
+      *_ OFICINA                           
+      ** 10 MP646-CUENTA             O[A] 
+      *_ CUENTA                            
+      ** 10 MP645-OPCION
+      *_ OPCION
+      ** 10 MP646-CLAMON             O[A] 
+      *_ CLAVE MONEDA                      
+      ** 10 MP646-IMPFAC             O[A] 
+      *_ IMPORTE FACTURA                   
+      ** 10 MP646-TIPOFAC            O[A] 
+      *_ TIPO FACTURA                      
+      ** 10 MP646-INDENTEXT          NV[A]
+      *_ INC. MOV. ON-LINE                 
+      ** 10 MP646-TIPDOCPAG          O[A] 
+      *_ TIP. DOC. MOV. PAGO               
+      ** 10 MP646-REFDOCPAG               
+      *_ REF. DOC. MOV. PAGO               
+      ** 10 MP646-FECVENCHE
+      *_ FECHA VENCIMIENTO CHEQUE
+      ** 10 MP646-FECFAC             O[A] 
+      *_ FECHA FACTURA                     
+      ** 10 MP646-NUMEXTCTA               
+      *_ NUM. EXTRACTO CTA.                
+      ** 10 MP646-NUMMOVEXT               
+      *_ NUM. MOV. EXTRACTO                
+      ** 10 MP646-CLAMONE                 
+      *_ CLAVE MONEDA                      
+      ** 10 MP646-LINEA                   
+      *_ LINEA        
+      ** 10 MP646-CODCOM
+      *_ COD. COMERCIO
+      ** 10 MP646-NOMCOMRED
+      *_ NOMBRE COMERCIO
+      ** 10 MP646-NOMPOB
+      *_ POBLACION
+      ** 10 MP646-CODACT
+      *_ COD. ACTIVIDAD
+      ** 10 MP646-CODPAIS
+      *_ COD. PAIS
+      ** 10 MP646-NUMBOLETA
+      *_ NUM. BOLETA
+      ** 10 MP646-SUCURSAL
+      *_ SUCURSAL
+      ** 10 MP646-ENTRADA
+      *_ ENTRADA
+      ** 10 MP646-DESCUENTO
+      *_ DESCUENTO                   
+      ** 10 MP646-IMPDEUDA 
+      *_ IMPORTE DE LA DEUDA 
+      ** 10 MP646-IMPDEUDA-AMT  
+      *_ IMPORTE DE LA DEUDA AMORTIZADA
+      ** 10 MP646-IMPINTER 
+      *_ IMPORTE INTERESES
+      ** 10 MP646-IMPGASTO  
+      *_ IMPORTE GASTOS 
+      ** 10 MP646-IMPDEUDA-PTE     
+      *_ IMPORTE DEUDA PENDIENTE                   
+      ** 10 MP646-PAG-AUT-CONFIR
+      *_ PAGO AUTOCONFIRMADO
+
+           05  MPM0646.                                                         
+               10 FILLER                        PIC X(12).                           
+               10 MP646-CODENT-ATR              PIC X(01).                      
+               10 MP646-CODENT                  PIC X(04).                      
+               10 MP646-CENTALTA-ATR            PIC X(01).                      
+               10 MP646-CENTALTA                PIC X(04).                      
+               10 MP646-CUENTA-ATR              PIC X(01).                      
+               10 MP646-CUENTA                  PIC X(12).                      
+               10 MP646-OPCION-ATR              PIC X(01).
+               10 MP646-OPCION                  PIC X(01).
+               10 MP646-CLAMON-ATR              PIC X(01).                      
+               10 MP646-CLAMON                  PIC 9(03).                      
+               10 MP646-CLAMON-ALF 
+                  REDEFINES MP646-CLAMON        PIC X(03). 
+               10 MP646-IMPFAC-ATR              PIC X(01).                      
+               10 MP646-IMPFAC                  PIC 9(15)V99.                   
+               10 MP646-IMPFAC-ALF    
+                  REDEFINES MP646-IMPFAC        PIC X(17).                      
+               10 MP646-TIPOFAC-ATR             PIC X(01).                      
+               10 MP646-TIPOFAC                 PIC S9(04).
+               10 MP646-TIPOFAC-ALF   
+                  REDEFINES MP646-TIPOFAC       PIC X(04).                      
+               10 MP646-INDENTEXT-ATR           PIC X(01).                      
+               10 MP646-INDENTEXT               PIC X(01).                      
+               10 MP646-TIPDOCPAG-ATR           PIC X(01).                      
+               10 MP646-TIPDOCPAG               PIC 9(02).                      
+               10 MP646-TIPDOCPAG-ALF 
+                  REDEFINES MP646-TIPDOCPAG     PIC X(02).                      
+               10 MP646-REFDOCPAG-ATR           PIC X(01).                      
+               10 MP646-REFDOCPAG               PIC X(20).                      
+               10 MP646-FECVENCHE-ATR           PIC X(01).
+               10 MP646-FECVENCHE               PIC X(10).
+               10 MP646-FECFAC-ATR              PIC X(01).                      
+               10 MP646-FECFAC                  PIC X(10).                      
+               10 MP646-NUMEXTCTA-ATR           PIC X(01).                      
+               10 MP646-NUMEXTCTA               PIC 9(03).                      
+               10 MP646-NUMEXTCTA-ALF  
+                  REDEFINES MP646-NUMEXTCTA     PIC X(03).                      
+               10 MP646-NUMMOVEXT-ATR           PIC X(01).                      
+               10 MP646-NUMMOVEXT               PIC 9(07).                      
+               10 MP646-NUMMOVEXT-ALF  
+                  REDEFINES MP646-NUMMOVEXT     PIC X(07).                      
+               10 MP646-CLAMONE-ATR             PIC X(01).                      
+               10 MP646-CLAMONE                 PIC 9(03).                      
+               10 MP646-CLAMONE-ALF    
+                  REDEFINES MP646-CLAMONE       PIC X(03).                      
+               10 MP646-LINEA-ATR               PIC X(1).
+               10 MP646-LINEA                   PIC X(4).
+               10 MP646-CODCOM-ATR              PIC X(01).
+               10 MP646-CODCOM                  PIC X(15).
+               10 MP646-NOMCOMRED-ATR           PIC X(01).
+               10 MP646-NOMCOMRED               PIC X(27).
+               10 MP646-NOMPOB-ATR              PIC X(01).
+               10 MP646-NOMPOB                  PIC X(26).
+               10 MP646-CODACT-ATR              PIC X(01).                      
+               10 MP646-CODACT                  PIC S9(04).
+               10 MP646-CODACT-ALF   
+                  REDEFINES MP646-CODACT        PIC X(04). 
+               10 MP646-CODPAIS-ATR             PIC X(01).                      
+               10 MP646-CODPAIS                 PIC S9(03).
+               10 MP646-CODPAIS-ALF   
+                  REDEFINES MP646-CODPAIS       PIC X(03).   
+               10 MP646-NUMBOLETA-ATR           PIC X(01). 
+               10 MP646-NUMBOLETA               PIC X(6). 
+               10 MP646-SUCURSAL-ATR            PIC X(1). 
+               10 MP646-SUCURSAL                PIC X(15). 
+               10 MP646-ENTRADA-ATR             PIC X(01).                      
+               10 MP646-ENTRADA                 PIC 9(15)V99.                   
+               10 MP646-ENTRADA-ALF    
+                  REDEFINES MP646-ENTRADA       PIC X(17).      
+               10 MP646-DESCUENTO-ATR           PIC X(1). 
+               10 MP646-DESCUENTO               PIC 9(15)V99.
+               10 MP646-DESCUENTO-ALF    
+                  REDEFINES MP646-DESCUENTO     PIC X(17).   
+               10 MP646-IMPDEUDA-ATR            PIC X(01).                      
+               10 MP646-IMPDEUDA                PIC 9(15)V99.                   
+               10 MP646-IMPDEUDA-ALF    
+                  REDEFINES MP646-IMPDEUDA      PIC X(17).                      
+               10 MP646-IMPDEUDA-AMT-ATR        PIC X(01).                      
+               10 MP646-IMPDEUDA-AMT            PIC 9(15)V99.                   
+               10 MP646-IMPDEUDA-AMT-ALF
+                  REDEFINES MP646-IMPDEUDA-AMT  PIC X(17).                      
+               10 MP646-IMPINTER-ATR            PIC X(01).                      
+               10 MP646-IMPINTER                PIC 9(15)V99.                   
+               10 MP646-IMPINTER-ALF    
+                  REDEFINES MP646-IMPINTER      PIC X(17).                      
+               10 MP646-IMPGASTO-ATR            PIC X(01).                      
+               10 MP646-IMPGASTO                PIC 9(15)V99.                   
+               10 MP646-IMPGASTO-ALF    
+                  REDEFINES MP646-IMPGASTO      PIC X(17).                      
+               10 MP646-IMPDEUDA-PTE-ATR        PIC X(01).                      
+               10 MP646-IMPDEUDA-PTE            PIC 9(15)V99.                   
+               10 MP646-IMPDEUDA-PTE-ALF
+                  REDEFINES MP646-IMPDEUDA-PTE  PIC X(17).                     
+               10 MP646-PAG-AUT-CONFIR-ATR      PIC X(01).
+               10 MP646-PAG-AUT-CONFIR          PIC X(01).
+               10 FILLER                        PIC X(01).
